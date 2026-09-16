@@ -36,7 +36,7 @@ final class AuthService
         return gmdate('Y-m-d H:i:s');
     }
 
-    public function register(array $input): array
+    public function register(array $input, ?array $nationalIdFile = null): array
     {
         $v = new Validator();
         $email = strtolower((string) (Request::str('email', $input) ?? ''));
@@ -119,6 +119,26 @@ final class AuthService
         AuditLogger::log($userId, 'user.registered', 'user', (string) $userId, [
             'verification_status' => 'pending',
         ]);
+
+        if ($nationalIdFile !== null && ($nationalIdFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
+            try {
+                $stored = DocumentStorageService::store((string) $nationalIdFile['tmp_name']);
+                $docId = (new \BloodMatch\Repositories\DocumentRepository())->create(
+                    $userId,
+                    'national_id',
+                    $stored,
+                    self::nowUtc()
+                );
+                AuditLogger::log($userId, 'document.uploaded', 'member_document', (string) $docId, [
+                    'doc_type' => 'national_id',
+                    'mime_type' => $stored['mime_type'],
+                    'source' => 'registration',
+                ]);
+            } catch (\RuntimeException $e) {
+                // Throw validation-level exception so user is alerted if their ID format is invalid
+                throw new \RuntimeException('National ID upload failed: ' . $e->getMessage(), 0, $e);
+            }
+        }
 
         return $this->publicUser($this->users->findById($userId));
     }

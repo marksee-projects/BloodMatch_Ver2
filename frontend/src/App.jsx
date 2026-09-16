@@ -21,6 +21,8 @@ import DemandMapPage from './pages/DemandMapPage'
 import OfficerDashboardPage from './pages/OfficerDashboardPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import PortalLayout from './components/PortalLayout'
+import DemandMapWidget from './components/DemandMapWidget'
 import { api } from './services/apiClient'
 
 function HomePage() {
@@ -56,6 +58,24 @@ function HomePage() {
           <span>3 chapters</span><span>·</span><span>8 blood types</span><span>·</span><span>Officer-verified</span>
         </div>
       </section>
+
+      {/* Embedded Real-time Regional Demand Map for immediate visibility */}
+      {user && (
+        <section>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+            <div>
+              <div className="section-label" style={{ marginBottom: '2px' }}>Live Regional Demand</div>
+              <h2 style={{ fontSize: 'var(--text-h2)', margin: 0 }}>Active Demand Overview</h2>
+            </div>
+            {(user.role === 'officer' || user.role === 'admin') && (
+              <Link to="/demand-map" className="btn btn-secondary btn-sm">
+                Open Full Demand Map
+              </Link>
+            )}
+          </div>
+          <DemandMapWidget compact={false} showFilters={true} />
+        </section>
+      )}
 
       {/* Pillars: tighter, typographic */}
       <div>
@@ -144,6 +164,10 @@ export default function App() {
   }, [user])
 
   const isActive = (path) => location.pathname === path
+  const isPortalActive = location.pathname.startsWith('/officer') ||
+    location.pathname.startsWith('/admin') ||
+    location.pathname === '/demand-map' ||
+    location.pathname === '/analytics'
 
   useEffect(() => { setMobileOpen(false) }, [location.pathname])
   useEffect(() => {
@@ -179,24 +203,27 @@ export default function App() {
               <>
                 <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined}>Profile</Link>
                 <Link to="/requests/mine" className={`nav-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined}>My Requests</Link>
+
+                {/* Decluttered Portal Navigation: Clean link to dedicated portal */}
                 {user.role === 'officer' && (
-                  <>
-                    <Link to="/officer/dashboard" className={`nav-link ${isActive('/officer/dashboard') ? 'active' : ''}`} aria-current={isActive('/officer/dashboard') ? 'page' : undefined}>Dashboard</Link>
-                    <Link to="/demand-map" className={`nav-link ${isActive('/demand-map') ? 'active' : ''}`} aria-current={isActive('/demand-map') ? 'page' : undefined}>Demand Map</Link>
-                    <Link to="/analytics" className={`nav-link ${isActive('/analytics') ? 'active' : ''}`} aria-current={isActive('/analytics') ? 'page' : undefined}>Analytics</Link>
-                    <Link to="/officer/verifications" className={`nav-link ${isActive('/officer/verifications') ? 'active' : ''}`} aria-current={isActive('/officer/verifications') ? 'page' : undefined}>Verifications</Link>
-                    <Link to="/officer/confirmations" className={`nav-link ${isActive('/officer/confirmations') ? 'active' : ''}`} aria-current={isActive('/officer/confirmations') ? 'page' : undefined}>Confirmations</Link>
-                    <Link to="/officer/audit-logs" className={`nav-link ${isActive('/officer/audit-logs') ? 'active' : ''}`} aria-current={isActive('/officer/audit-logs') ? 'page' : undefined}>Audit Logs</Link>
-                  </>
+                  <Link
+                    to="/officer/dashboard"
+                    className={`nav-link ${isPortalActive ? 'active' : ''}`}
+                    aria-current={isPortalActive ? 'page' : undefined}
+                  >
+                    Officer Portal
+                  </Link>
                 )}
                 {user.role === 'admin' && (
-                  <>
-                    <Link to="/admin/dashboard" className={`nav-link ${isActive('/admin/dashboard') ? 'active' : ''}`} aria-current={isActive('/admin/dashboard') ? 'page' : undefined}>Dashboard</Link>
-                    <Link to="/demand-map" className={`nav-link ${isActive('/demand-map') ? 'active' : ''}`} aria-current={isActive('/demand-map') ? 'page' : undefined}>Demand Map</Link>
-                    <Link to="/analytics" className={`nav-link ${isActive('/analytics') ? 'active' : ''}`} aria-current={isActive('/analytics') ? 'page' : undefined}>Analytics</Link>
-                    <Link to="/admin/audit-logs" className={`nav-link ${isActive('/admin/audit-logs') ? 'active' : ''}`} aria-current={isActive('/admin/audit-logs') ? 'page' : undefined}>Audit Logs</Link>
-                  </>
+                  <Link
+                    to="/admin/dashboard"
+                    className={`nav-link ${isPortalActive ? 'active' : ''}`}
+                    aria-current={isPortalActive ? 'page' : undefined}
+                  >
+                    Admin Portal
+                  </Link>
                 )}
+
                 <Link to="/notifications" className={`nav-link ${isActive('/notifications') ? 'active' : ''}`} aria-label={`Notifications, ${unread} unread`} aria-current={isActive('/notifications') ? 'page' : undefined}>
                   Notifications {unread > 0 && <span className="nav-badge">{unread}</span>}
                 </Link>
@@ -238,26 +265,20 @@ export default function App() {
                   <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Profile</Link>
                   <Link to="/requests/mine" className={`mobile-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>My Requests</Link>
                   <Link to="/notifications" className={`mobile-link ${isActive('/notifications') ? 'active' : ''}`} aria-label={`Notifications, ${unread} unread`} aria-current={isActive('/notifications') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Notifications {unread > 0 && <span className="nav-badge">{unread}</span>}</Link>
+
                   {user.role === 'officer' && (
                     <>
-                      <div className="mobile-section-label">Officer</div>
-                      <Link to="/officer/dashboard" className={`mobile-link ${isActive('/officer/dashboard') ? 'active' : ''}`} aria-current={isActive('/officer/dashboard') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Dashboard</Link>
-                      <Link to="/demand-map" className={`mobile-link ${isActive('/demand-map') ? 'active' : ''}`} aria-current={isActive('/demand-map') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Demand Map</Link>
-                      <Link to="/analytics" className={`mobile-link ${isActive('/analytics') ? 'active' : ''}`} aria-current={isActive('/analytics') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Analytics</Link>
-                      <Link to="/officer/verifications" className={`mobile-link ${isActive('/officer/verifications') ? 'active' : ''}`} aria-current={isActive('/officer/verifications') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Verifications</Link>
-                      <Link to="/officer/confirmations" className={`mobile-link ${isActive('/officer/confirmations') ? 'active' : ''}`} aria-current={isActive('/officer/confirmations') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Confirmations</Link>
-                      <Link to="/officer/audit-logs" className={`mobile-link ${isActive('/officer/audit-logs') ? 'active' : ''}`} aria-current={isActive('/officer/audit-logs') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Audit Logs</Link>
+                      <div className="mobile-section-label">Administrative</div>
+                      <Link to="/officer/dashboard" className={`mobile-link ${isPortalActive ? 'active' : ''}`} aria-current={isPortalActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Officer Portal</Link>
                     </>
                   )}
                   {user.role === 'admin' && (
                     <>
-                      <div className="mobile-section-label">Administration</div>
-                      <Link to="/admin/dashboard" className={`mobile-link ${isActive('/admin/dashboard') ? 'active' : ''}`} aria-current={isActive('/admin/dashboard') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Dashboard</Link>
-                      <Link to="/demand-map" className={`mobile-link ${isActive('/demand-map') ? 'active' : ''}`} aria-current={isActive('/demand-map') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Demand Map</Link>
-                      <Link to="/analytics" className={`mobile-link ${isActive('/analytics') ? 'active' : ''}`} aria-current={isActive('/analytics') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Analytics</Link>
-                      <Link to="/admin/audit-logs" className={`mobile-link ${isActive('/admin/audit-logs') ? 'active' : ''}`} aria-current={isActive('/admin/audit-logs') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Audit Logs</Link>
+                      <div className="mobile-section-label">Administrative</div>
+                      <Link to="/admin/dashboard" className={`mobile-link ${isPortalActive ? 'active' : ''}`} aria-current={isPortalActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Admin Portal</Link>
                     </>
                   )}
+
                   <div className="mobile-section-label">Session</div>
                   <div className="user-tag" title={user.email} style={{ alignSelf: 'flex-start', marginBottom: 'var(--space-2)' }}><strong>{user.full_name}</strong> <span>({user.role})</span></div>
                   <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={handleLogout}>Log out</button>
@@ -274,7 +295,7 @@ export default function App() {
         )}
       </header>
 
-      <main id="main-content" className="container">
+      <main id="main-content" className={isPortalActive ? 'main--portal' : 'container'}>
         {loading ? (
           <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
             <p className="muted">Loading session…</p>
@@ -287,19 +308,24 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
-            <Route path="/officer/dashboard" element={<RequireAuth roles={['officer']}><OfficerDashboardPage /></RequireAuth>} />
-            <Route path="/admin/dashboard" element={<RequireAuth roles={['admin']}><AdminDashboardPage /></RequireAuth>} />
-            <Route path="/demand-map" element={<RequireAuth roles={['officer', 'admin']}><DemandMapPage /></RequireAuth>} />
-            <Route path="/analytics" element={<RequireAuth roles={['officer', 'admin']}><AnalyticsPage /></RequireAuth>} />
-            <Route path="/officer/verifications" element={<RequireAuth roles={['officer']}><OfficerVerificationPage /></RequireAuth>} />
+
+            {/* Officer & Admin Portal Routes Wrapped in PortalLayout */}
+            <Route path="/officer/dashboard" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerDashboardPage /></PortalLayout></RequireAuth>} />
+            <Route path="/admin/dashboard" element={<RequireAuth roles={['admin']}><PortalLayout><AdminDashboardPage /></PortalLayout></RequireAuth>} />
+            <Route path="/demand-map" element={<RequireAuth roles={['officer', 'admin']}><PortalLayout><DemandMapPage /></PortalLayout></RequireAuth>} />
+            <Route path="/analytics" element={<RequireAuth roles={['officer', 'admin']}><PortalLayout><AnalyticsPage /></PortalLayout></RequireAuth>} />
+            <Route path="/officer/verifications" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerVerificationPage /></PortalLayout></RequireAuth>} />
+            <Route path="/officer/confirmations" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerConfirmationsPage /></PortalLayout></RequireAuth>} />
+            <Route path="/admin/audit-logs" element={<RequireAuth roles={['admin']}><PortalLayout><AdminAuditLogsPage /></PortalLayout></RequireAuth>} />
+            <Route path="/officer/audit-logs" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerAuditLogsPage /></PortalLayout></RequireAuth>} />
+
+            {/* Standard Member Routes */}
             <Route path="/requests/mine" element={<RequireAuth><RequestsPage /></RequireAuth>} />
             <Route path="/requests/new" element={<RequireAuth><RequestFormPage /></RequireAuth>} />
             <Route path="/requests/:id/edit" element={<RequireAuth><RequestFormPage /></RequireAuth>} />
             <Route path="/requests/:id/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
-            <Route path="/officer/confirmations" element={<RequireAuth roles={['officer']}><OfficerConfirmationsPage /></RequireAuth>} />
             <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
-            <Route path="/admin/audit-logs" element={<RequireAuth roles={['admin']}><AdminAuditLogsPage /></RequireAuth>} />
-            <Route path="/officer/audit-logs" element={<RequireAuth roles={['officer']}><OfficerAuditLogsPage /></RequireAuth>} />
+
             <Route path="*" element={
               <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
                 <h2>Page Not Found</h2>

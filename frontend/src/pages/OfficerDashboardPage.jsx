@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import DemandMapWidget from '../components/DemandMapWidget'
 
 export default function OfficerDashboardPage() {
   const { user } = useAuth()
@@ -196,6 +197,17 @@ export default function OfficerDashboardPage() {
           </div>
         </section>
       </div>
+
+      {/* Real-time Regional Demand Map Widget */}
+      <section style={{ marginBottom: 'var(--space-6)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
+          <h2 style={{ fontSize: '1.25rem', margin: 0 }}>Active Regional Blood Demand</h2>
+          <Link to="/demand-map" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+            Full Map &amp; Filters <ArrowRight size={14} />
+          </Link>
+        </div>
+        <DemandMapWidget compact={true} showFilters={false} />
+      </section>
 
       {/* Recent Chapter Activity Log */}
       <section className="card">

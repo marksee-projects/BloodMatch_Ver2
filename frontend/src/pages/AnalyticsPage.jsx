@@ -2,6 +2,9 @@ import { useEffect, useState } from 'react'
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import DailyTrendChart from '../components/charts/DailyTrendChart'
+import BloodGroupDemandChart from '../components/charts/BloodGroupDemandChart'
+import DonorPoolBreakdownChart from '../components/charts/DonorPoolBreakdownChart'
 
 export default function AnalyticsPage() {
   const { user } = useAuth()
@@ -16,6 +19,7 @@ export default function AnalyticsPage() {
   })
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10))
   const [chapterId, setChapterId] = useState('')
+  const [activePreset, setActivePreset] = useState('monthly')
 
   const fetchAnalytics = async () => {
     setLoading(true)
@@ -39,10 +43,15 @@ export default function AnalyticsPage() {
     fetchAnalytics()
   }, [dateFrom, dateTo, chapterId])
 
-  const setRangePreset = (days) => {
+  const applyPreset = (presetKey, days) => {
+    setActivePreset(presetKey)
     const end = new Date()
     const start = new Date()
-    start.setDate(end.getDate() - days)
+    if (days === 1) {
+      start.setDate(end.getDate() - 1)
+    } else {
+      start.setDate(end.getDate() - days)
+    }
     setDateFrom(start.toISOString().slice(0, 10))
     setDateTo(end.toISOString().slice(0, 10))
   }
@@ -51,17 +60,67 @@ export default function AnalyticsPage() {
   const demandByBt = data?.demand_by_blood_type || {}
   const demandByUrg = data?.demand_by_urgency || {}
   const donorPool = data?.donor_pool || {}
-  const verifActivity = data?.verification_activity || {}
-  const donationEng = data?.donation_engagement || {}
   const dailyTrend = data?.daily_request_trend || []
 
+  // Normalized trend data for DailyTrendChart
+  const chartTrend = dailyTrend.map((row) => ({
+    date: row.date,
+    total_requests: Number(row.requests_created || 0),
+    fulfilled_requests: Number(row.fulfilled || 0)
+  }))
+
   return (
-    <div className="container" style={{ maxWidth: '1040px' }}>
+    <div style={{ width: '100%' }}>
       <header className="app-header">
         <div>
-          <h1>Analytics & Operational Reporting</h1>
+          <h1>Analytics &amp; Operational Reporting</h1>
+          <p className="muted" style={{ fontSize: 'var(--text-sm)' }}>
+            Periodic reporting and activity tracking across donor pools, requests, and verification queues.
+          </p>
         </div>
       </header>
+
+      {/* 1-Click Periodic Preset Tabs */}
+      <div className="analytics-presets-bar" style={{ marginBottom: 'var(--space-3)' }}>
+        <div className="tab-group" role="tablist" aria-label="Reporting Intervals">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activePreset === 'daily'}
+            className={`btn btn-sm ${activePreset === 'daily' ? 'btn' : 'btn-secondary'}`}
+            onClick={() => applyPreset('daily', 1)}
+          >
+            Daily Report
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activePreset === 'weekly'}
+            className={`btn btn-sm ${activePreset === 'weekly' ? 'btn' : 'btn-secondary'}`}
+            onClick={() => applyPreset('weekly', 7)}
+          >
+            Weekly Report
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activePreset === 'monthly'}
+            className={`btn btn-sm ${activePreset === 'monthly' ? 'btn' : 'btn-secondary'}`}
+            onClick={() => applyPreset('monthly', 30)}
+          >
+            Monthly Report
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activePreset === 'yearly'}
+            className={`btn btn-sm ${activePreset === 'yearly' ? 'btn' : 'btn-secondary'}`}
+            onClick={() => applyPreset('yearly', 365)}
+          >
+            Yearly Report
+          </button>
+        </div>
+      </div>
 
       {/* Date Range & Chapter Filter Bar */}
       <section className="card" style={{ marginBottom: 'var(--space-6)' }}>
@@ -72,7 +131,10 @@ export default function AnalyticsPage() {
               id="date-from"
               type="date"
               value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
+              onChange={(e) => {
+                setActivePreset('custom')
+                setDateFrom(e.target.value)
+              }}
             />
           </div>
 
@@ -82,7 +144,10 @@ export default function AnalyticsPage() {
               id="date-to"
               type="date"
               value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
+              onChange={(e) => {
+                setActivePreset('custom')
+                setDateTo(e.target.value)
+              }}
             />
           </div>
 
@@ -102,17 +167,13 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          <div className="button-group">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRangePreset(7)}>
-              Last 7 Days
-            </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRangePreset(30)}>
-              Last 30 Days
-            </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => setRangePreset(90)}>
-              Last 90 Days
-            </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={fetchAnalytics} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+          <div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={fetchAnalytics}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
               <ArrowsClockwise size={14} weight="regular" aria-hidden="true" /> Refresh
             </button>
           </div>
@@ -155,80 +216,58 @@ export default function AnalyticsPage() {
             </div>
           </section>
 
-          {/* Categorical Breakdowns */}
+          {/* Interactive Trend Chart Card */}
+          <section className="card" style={{ marginBottom: 'var(--space-6)' }}>
+            <div className="card-header">
+              <div>
+                <h3>Request Volume &amp; Fulfillment Trend</h3>
+                <span className="muted" style={{ fontSize: '0.75rem' }}>Daily timeline activity curve</span>
+              </div>
+            </div>
+            <DailyTrendChart trend={chartTrend} />
+          </section>
+
+          {/* Categorical Breakdowns Grid */}
           <div className="grid-2" style={{ marginBottom: 'var(--space-6)' }}>
-            {/* Blood Type Demand Distribution */}
+            {/* Blood Type Demand Distribution with Bar Chart */}
             <section className="card">
               <div className="card-header">
                 <h3>Demand by Blood Group</h3>
-                <span className="muted" style={{ fontSize: '0.75rem' }}>Units Requested</span>
+                <span className="muted" style={{ fontSize: '0.75rem' }}>Units Requested per Type</span>
               </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 'var(--space-2)' }}>
-                {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bt) => {
-                  const stat = demandByBt[bt] || { requests_count: 0, units_needed: 0 }
-                  const hasData = stat.requests_count > 0
-
-                  return (
-                    <div
-                      key={bt}
-                      style={{
-                        padding: 'var(--space-2)',
-                        borderRadius: 'var(--radius-md)',
-                        border: hasData ? '1px solid var(--color-accent)' : '1px solid var(--color-border)',
-                        background: hasData ? 'var(--color-surface-sunken)' : 'transparent',
-                        textAlign: 'center'
-                      }}
-                    >
-                      <div style={{ fontWeight: 800, fontSize: '1rem' }}>{bt}</div>
-                      <div style={{ fontSize: '0.75rem', color: hasData ? 'var(--color-text)' : 'var(--color-text-subtle)' }}>
-                        {stat.requests_count > 0 ? `${stat.requests_count} req (${stat.units_needed}u)` : '0 u'}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <BloodGroupDemandChart demandByBt={demandByBt} />
             </section>
 
-            {/* Urgency & Engagement Activity */}
+            {/* Donor Pool Status Distribution with Segmented Gauge */}
             <section className="card">
               <div className="card-header">
-                <h3>Urgency & Engagement</h3>
+                <h3>Donor Pool Availability Status</h3>
+                <span className="muted" style={{ fontSize: '0.75rem' }}>Active Enrolled Pool</span>
               </div>
+              <DonorPoolBreakdownChart donorPool={donorPool} />
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-                  <div>
-                    <strong>Critical Urgency</strong>
-                    <div className="muted" style={{ fontSize: '0.75rem' }}>Immediate trauma / emergency</div>
-                  </div>
-                  <span style={{ fontWeight: 800 }}>{demandByUrg.critical?.requests_count || 0} req ({demandByUrg.critical?.units_needed || 0}u)</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: 'var(--space-4)', paddingTop: 'var(--space-3)', borderTop: '1px solid var(--color-border-subtle)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+                  <span>Total Enrolled Donors:</span>
+                  <strong>{donorPool.total_enrolled || 0}</strong>
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-                  <div>
-                    <strong>Urgent Category</strong>
-                    <div className="muted" style={{ fontSize: '0.75rem' }}>Required within 24h</div>
-                  </div>
-                  <span style={{ fontWeight: 800 }}>{demandByUrg.urgent?.requests_count || 0} req ({demandByUrg.urgent?.units_needed || 0}u)</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+                  <span className="muted">Critical Urgency Demand:</span>
+                  <strong>{demandByUrg.critical?.requests_count || 0} req ({demandByUrg.critical?.units_needed || 0}u)</strong>
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-2) var(--space-3)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-                  <div>
-                    <strong>Routine Category</strong>
-                    <div className="muted" style={{ fontSize: '0.75rem' }}>Scheduled clinical procedures</div>
-                  </div>
-                  <span style={{ fontWeight: 800 }}>{demandByUrg.routine?.requests_count || 0} req ({demandByUrg.routine?.units_needed || 0}u)</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
+                  <span className="muted">Urgent Category Demand:</span>
+                  <strong>{demandByUrg.urgent?.requests_count || 0} req ({demandByUrg.urgent?.units_needed || 0}u)</strong>
                 </div>
               </div>
             </section>
           </div>
 
-          {/* Daily Request Trend Table */}
+          {/* Detailed Daily Table */}
           <section className="card">
             <div className="card-header">
-              <h3>Daily Request Volume & Trend</h3>
-              <span className="muted" style={{ fontSize: '0.75rem' }}>Date range window</span>
+              <h3>Tabular Daily Records</h3>
+              <span className="muted" style={{ fontSize: '0.75rem' }}>Exact breakdown for selected interval</span>
             </div>
 
             {dailyTrend.length === 0 ? (

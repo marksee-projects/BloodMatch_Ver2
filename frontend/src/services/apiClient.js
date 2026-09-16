@@ -24,12 +24,14 @@ async function request(path, options = {}) {
     }
   }
 
+  const headers = { ...(options.headers || {}) }
+  if (!(options.body instanceof FormData) && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+
   const res = await fetch(path, {
     credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    },
+    headers,
     ...options
   })
 
@@ -51,6 +53,8 @@ export const api = {
   get: (path) => request(path),
   post: (path, data) =>
     request(path, { method: 'POST', body: JSON.stringify(data ?? {}) }),
+  postForm: (path, formData) =>
+    request(path, { method: 'POST', body: formData }),
   put: (path, data) => request(path, { method: 'PUT', body: JSON.stringify(data ?? {}) }),
   delete: (path) => request(path, { method: 'DELETE' }),
   upload: async (path, file, fields = {}) => {

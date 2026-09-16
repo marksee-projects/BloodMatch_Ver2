@@ -15,13 +15,19 @@ final class RegisterController
     {
         $service = new AuthService();
 
+        $input = !empty($_POST) ? $_POST : \BloodMatch\Utils\Request::json();
+        $file = isset($_FILES['national_id']) && is_array($_FILES['national_id']) ? $_FILES['national_id'] : null;
+
         try {
-            $user = $service->register(\BloodMatch\Utils\Request::json());
+            $user = $service->register($input, $file);
         } catch (DuplicateEntryException $e) {
             Response::error($e->getMessage(), 409, ['email' => [$e->getMessage()]]);
             return;
         } catch (ValidationException $e) {
             Response::error($e->getMessage(), 400, $e->errors());
+            return;
+        } catch (\RuntimeException $e) {
+            Response::error($e->getMessage(), 400);
             return;
         }
 
