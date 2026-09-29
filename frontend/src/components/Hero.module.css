@@ -1,0 +1,110 @@
+.hero {
+  position: relative;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: clamp(1.5rem, 4vw, 2.5rem) clamp(1.25rem, 3vw, 2rem);
+  isolation: isolate;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--color-halftone) 1.15px, transparent 1.15px);
+  background-size: 13px 13px;
+  mask-image: radial-gradient(ellipse 85% 70% at 72% 18%, black 30%, transparent 72%);
+  -webkit-mask-image: radial-gradient(ellipse 85% 70% at 72% 18%, black 30%, transparent 72%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: var(--space-3);
+}
+
+.kicker::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex: none;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: var(--text-hero);
+  font-weight: 700;
+  line-height: 0.92;
+  letter-spacing: -0.045em;
+  margin: 0 0 var(--space-3);
+  max-width: 18ch;
+  text-wrap: balance;
+}
+
+.title .accent {
+  position: relative;
+  display: inline-block;
+}
+
+.title .accent::after {
+  content: '';
+  position: absolute;
+  left: -0.04em;
+  right: -0.04em;
+  bottom: 0.08em;
+  height: 0.32em;
+  background-image: radial-gradient(circle, var(--color-halftone-strong) 1.1px, transparent 1.1px);
+  background-size: 7px 7px;
+  opacity: 0.55;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.lede {
+  font-size: clamp(0.9375rem, 1.1vw + 0.7rem, 1.0625rem);
+  line-height: 1.55;
+  color: var(--color-text-muted);
+  max-width: 52ch;
+  margin: 0 0 var(--space-6);
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.meta {
+  margin-top: var(--space-6);
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 960px) {
+  .hero {
+    padding: var(--space-6) var(--space-5);
+  }
+}
+
+@media (max-width: 640px) {
+  .title {
+    font-size: clamp(1.9rem, 8vw, 2.6rem);
+  }
+}

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ShieldCheck } from '@phosphor-icons/react'
+import styles from './PrivacyConsentModal.module.css'
 
 export const CONSENT_STORAGE_KEY = 'bloodmatch_privacy_consent'
 
@@ -83,15 +84,15 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted }) {
 
   return (
     <div
-      className="privacy-shield-overlay"
+      className={styles.overlay}
       role="dialog"
       aria-modal="true"
       aria-labelledby="privacy-consent-title"
       aria-describedby="privacy-consent-desc"
     >
-      <div className="privacy-consent-modal" ref={modalRef}>
-        <div className="privacy-modal-header">
-          <div className="privacy-modal-icon" aria-hidden="true">
+      <div className={styles.modal} ref={modalRef}>
+        <div className={styles.header}>
+          <div className={styles.icon} aria-hidden="true">
             <ShieldCheck size={28} weight="fill" />
           </div>
           <div>
@@ -104,39 +105,39 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted }) {
           </div>
         </div>
 
-        <div id="privacy-consent-desc" className="privacy-modal-body">
+        <div id="privacy-consent-desc">
           <p style={{ marginTop: 0, fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            To provide you with secure access to the BloodMatch dashboard and real-time matching features, we require your consent to process specific information.
+            To provide you with secure access to the BloodMatch registry and real-time matching features, we require your consent to process specific information.
           </p>
 
           <h4 style={{ margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-sm)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
             How We Use Your Data:
           </h4>
 
-          <div className="privacy-items-list">
-            <div className="privacy-item">
-              <strong>Location Data (Demand Map):</strong> We use your generalized location to populate the Regional Demand Map, calculate proximity to local chapters, and highlight nearby blood requests.
+          <div className={styles.itemsList}>
+            <div className={styles.item}>
+              <strong>Location Data (Demand Map):</strong> We use your generalized location to calculate proximity to local chapters and highlight nearby blood requests.
             </div>
 
-            <div className="privacy-item">
-              <strong>Identity Verification:</strong> Your uploaded National ID is stored securely and accessed exclusively by verified chapter officers to confirm your identity and maintain system integrity.
+            <div className={styles.item}>
+              <strong>Identity Verification:</strong> Your uploaded National ID is stored securely and accessed exclusively by verified chapter officers to confirm identity and maintain system integrity.
             </div>
 
-            <div className="privacy-item">
-              <strong>Health &amp; Compatibility Data:</strong> Your blood type and donation history are processed by our matching engine strictly to ensure safe biological compatibility and enforce mandatory post-donation cooldown periods.
+            <div className={styles.item}>
+              <strong>Health &amp; Compatibility Data:</strong> Your blood type and donation history are processed strictly to ensure biological compatibility and enforce mandatory cooldown intervals.
             </div>
           </div>
 
-          <p className="privacy-note" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', margin: 'var(--space-3) 0' }}>
-            Your data is used solely for the operational functionality of the BloodMatch system and is never shared with third-party advertisers.
+          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', margin: 'var(--space-3) 0' }}>
+            Your data is used solely for the operational functionality of BloodMatch and is never shared with third-party advertisers.
           </p>
 
           <p style={{ fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: 0 }}>
-            By clicking &quot;I Agree,&quot; you consent to these terms and unlock the dashboard. If you click &quot;Decline,&quot; you will be safely redirected to the public homepage, and no tracking or dashboard data processing will occur.
+            By clicking &quot;I Agree,&quot; you consent to these terms and unlock registration. If you click &quot;Decline,&quot; you will be safely redirected to the public homepage with zero data processing.
           </p>
         </div>
 
-        <div className="privacy-modal-actions">
+        <div className={styles.actions}>
           <button
             ref={agreeBtnRef}
             type="button"

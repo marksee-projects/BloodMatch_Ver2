@@ -15,6 +15,7 @@ import {
   X
 } from '@phosphor-icons/react'
 import { useAuth } from '../context/AuthContext'
+import styles from './PortalLayout.module.css'
 
 export default function PortalLayout({ children }) {
   const { user } = useAuth()
@@ -66,9 +67,9 @@ export default function PortalLayout({ children }) {
   const portalTitle = user?.role === 'admin' ? 'Admin Portal' : 'Officer Portal'
 
   return (
-    <div className={`portal-container ${collapsed ? 'portal--collapsed' : ''}`}>
+    <div className={`${styles.container} ${collapsed ? styles.collapsed : ''}`}>
       {/* Mobile Drawer Toggle */}
-      <div className="portal-mobile-bar">
+      <div className={styles.mobileBar}>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
@@ -81,20 +82,20 @@ export default function PortalLayout({ children }) {
       </div>
 
       {/* Sidebar Navigation */}
-      <aside className={`portal-sidebar ${mobileDrawerOpen ? 'portal-sidebar--mobile-open' : ''}`}>
-        <div className="portal-sidebar-header">
+      <aside className={`${styles.sidebar} ${mobileDrawerOpen ? styles.sidebarMobileOpen : ''}`}>
+        <div className={styles.sidebarHeader}>
           {!collapsed && (
-            <div className="portal-sidebar-title-block">
-              <span className="portal-badge">
+            <div className={styles.titleBlock}>
+              <span className={styles.badge}>
                 {user?.role === 'admin' ? 'System Administrator' : 'Chapter Officer'}
               </span>
-              <h3 className="portal-title">{portalTitle}</h3>
+              <h3 className={styles.title}>{portalTitle}</h3>
             </div>
           )}
 
           <button
             type="button"
-            className="portal-collapse-btn"
+            className={styles.collapseBtn}
             onClick={toggleCollapse}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
@@ -103,8 +104,8 @@ export default function PortalLayout({ children }) {
           </button>
         </div>
 
-        <nav className="portal-nav" aria-label="Portal Secondary Navigation">
-          <div className="portal-nav-section-label">
+        <nav className={styles.nav} aria-label="Portal Secondary Navigation">
+          <div className={styles.sectionLabel}>
             {!collapsed ? 'Administrative Tools' : '•••'}
           </div>
 
@@ -115,43 +116,43 @@ export default function PortalLayout({ children }) {
               <Link
                 key={item.path}
                 to={item.path}
-                className={`portal-nav-link ${active ? 'active' : ''}`}
+                className={`${styles.navLink} ${active ? styles.navLinkActive : ''}`}
                 title={collapsed ? item.label : undefined}
                 aria-current={active ? 'page' : undefined}
               >
-                <Icon size={20} weight={active ? 'fill' : 'regular'} className="portal-nav-icon" />
-                {!collapsed && <span className="portal-nav-label">{item.label}</span>}
+                <Icon size={20} weight={active ? 'fill' : 'regular'} className={styles.navIcon} />
+                {!collapsed && <span className={styles.navLabel}>{item.label}</span>}
               </Link>
             )
           })}
 
-          <div className="portal-nav-section-label" style={{ marginTop: 'var(--space-4)' }}>
+          <div className={styles.sectionLabel} style={{ marginTop: 'var(--space-4)' }}>
             {!collapsed ? 'Quick Shortcuts' : '•••'}
           </div>
 
           <Link
             to="/profile"
-            className={`portal-nav-link ${isActive('/profile') ? 'active' : ''}`}
+            className={`${styles.navLink} ${isActive('/profile') ? styles.navLinkActive : ''}`}
             title={collapsed ? 'My Profile' : undefined}
           >
-            <User size={20} weight="regular" className="portal-nav-icon" />
-            {!collapsed && <span className="portal-nav-label">My Profile</span>}
+            <User size={20} weight="regular" className={styles.navIcon} />
+            {!collapsed && <span className={styles.navLabel}>My Profile</span>}
           </Link>
 
           <Link
             to="/"
-            className="portal-nav-link"
+            className={styles.navLink}
             title={collapsed ? 'Public Home' : undefined}
           >
-            <House size={20} weight="regular" className="portal-nav-icon" />
-            {!collapsed && <span className="portal-nav-label">Public Home</span>}
+            <House size={20} weight="regular" className={styles.navIcon} />
+            {!collapsed && <span className={styles.navLabel}>Public Home</span>}
           </Link>
         </nav>
 
         {!collapsed && (
-          <div className="portal-sidebar-footer">
-            <div className="portal-status-dot-container">
-              <span className="portal-status-dot" aria-hidden="true" />
+          <div className={styles.sidebarFooter}>
+            <div className={styles.statusDotContainer}>
+              <span className={styles.statusDot} aria-hidden="true" />
               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
                 System Secure · UTC Active
               </span>
@@ -161,7 +162,7 @@ export default function PortalLayout({ children }) {
       </aside>
 
       {/* Main Content Viewport */}
-      <section className="portal-main-content">
+      <section className={styles.mainContent}>
         {children}
       </section>
     </div>

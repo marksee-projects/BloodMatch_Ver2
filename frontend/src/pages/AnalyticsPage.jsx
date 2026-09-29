@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import DailyTrendChart from '../components/charts/DailyTrendChart'
 import BloodGroupDemandChart from '../components/charts/BloodGroupDemandChart'
 import DonorPoolBreakdownChart from '../components/charts/DonorPoolBreakdownChart'
+import styles from './AnalyticsPage.module.css'
 
 export default function AnalyticsPage() {
   const { user } = useAuth()
@@ -81,8 +82,8 @@ export default function AnalyticsPage() {
       </header>
 
       {/* 1-Click Periodic Preset Tabs */}
-      <div className="analytics-presets-bar" style={{ marginBottom: 'var(--space-3)' }}>
-        <div className="tab-group" role="tablist" aria-label="Reporting Intervals">
+      <div className={styles.presetsBar}>
+        <div className={styles.tabGroup} role="tablist" aria-label="Reporting Intervals">
           <button
             type="button"
             role="tab"

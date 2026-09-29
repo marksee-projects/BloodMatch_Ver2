@@ -23,41 +23,14 @@ import AdminDashboardPage from './pages/AdminDashboardPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import PortalLayout from './components/PortalLayout'
 import DemandMapWidget from './components/DemandMapWidget'
+import Hero from './components/Hero'
 import { api } from './services/apiClient'
 
 function HomePage() {
   const { user } = useAuth()
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-      {/* Hero: editorial, halftone, reduced density */}
-      <section className="hero" aria-labelledby="hero-title">
-        <div className="hero-kicker">Bataan · DeMolay Community Network</div>
-        <h1 id="hero-title" className="hero-title">
-          Verified blood <span className="accent">matching</span>,<br />without the noise.
-        </h1>
-        <p className="hero-lede">
-          BloodMatch links patients who need blood with verified volunteer donors from
-          Mt. Samat, Mt. Tarak and Meridian Heights, ranked by compatibility first, proximity second.
-        </p>
-        <div className="hero-actions">
-          {user ? (
-            <>
-              <Link to="/requests/new" className="btn btn-lg">Create Blood Request</Link>
-              <Link to="/profile" className="btn btn-secondary">Manage Profile</Link>
-              {user.role === 'officer' && <Link to="/officer/dashboard" className="btn btn-secondary">Officer Dashboard</Link>}
-              {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin Dashboard</Link>}
-            </>
-          ) : (
-            <>
-              <Link to="/register" className="btn btn-lg">Register as Donor</Link>
-              <Link to="/login" className="btn btn-secondary">Sign In</Link>
-            </>
-          )}
-        </div>
-        <div style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
-          <span>3 chapters</span><span>·</span><span>8 blood types</span><span>·</span><span>Officer-verified</span>
-        </div>
-      </section>
+      <Hero />
 
       {/* Embedded Real-time Regional Demand Map for immediate visibility */}
       {user && (

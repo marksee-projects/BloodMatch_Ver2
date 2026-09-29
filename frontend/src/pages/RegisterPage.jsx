@@ -2,12 +2,21 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowsClockwise, Calendar, CheckCircle, FilePdf, Trash, UploadSimple, WarningCircle } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import PrivacyConsentModal, { CONSENT_STORAGE_KEY } from '../components/PrivacyConsentModal'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 
 export default function RegisterPage() {
   const navigate = useNavigate()
   const dateInputRef = useRef(null)
+
+  const [hasConsent, setHasConsent] = useState(() => {
+    try {
+      return localStorage.getItem(CONSENT_STORAGE_KEY) === 'granted'
+    } catch {
+      return false
+    }
+  })
 
   const [form, setForm] = useState({
     full_name: '',
@@ -152,6 +161,12 @@ export default function RegisterPage() {
 
   return (
     <div className="container narrow" style={{ maxWidth: '640px', paddingBlock: 'var(--space-6)' }}>
+      {/* Privacy & Data Processing Consent Gate */}
+      <PrivacyConsentModal
+        isOpen={!hasConsent}
+        onConsentGranted={() => setHasConsent(true)}
+      />
+
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: 'var(--space-2)' }}>Create your account</h1>
         <p className="muted" style={{ fontSize: 'var(--text-sm)' }}>
