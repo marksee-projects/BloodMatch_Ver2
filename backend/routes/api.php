@@ -33,6 +33,7 @@ use BloodMatch\Routing\Router;
 return static function (Router $router): void {
     $router->add('GET', '/api/health', [new HealthController(), 'check']);
     $router->add('GET', '/api/csrf', [new CsrfController(), 'token']);
+    $router->add('GET', '/api/csrf-token', [new CsrfController(), 'token']);
     $router->add('GET', '/api/chapters', [new ChaptersController(), 'index']);
     $router->add('GET', '/api/locations/municipalities', [new LocationController(), 'municipalities']);
     $router->add('GET', '/api/locations/barangays', [new LocationController(), 'barangays']);

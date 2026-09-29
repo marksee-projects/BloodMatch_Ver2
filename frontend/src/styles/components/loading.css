@@ -1,0 +1,56 @@
+/* ==========================================================================
+   Empty & Loading
+   ========================================================================== */
+.empty-state {
+  text-align: center;
+  padding: var(--space-10) var(--space-6);
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  position: relative;
+  overflow: hidden;
+}
+.empty-state::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, var(--color-halftone) 1px, transparent 1px);
+  background-size: 12px 12px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.empty-state > * { position: relative; }
+.empty-state h3 {
+  font-family: var(--font-display);
+  font-size: 1.0625rem;
+  margin-bottom: var(--space-2);
+}
+.empty-state p {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  max-width: 42ch;
+  margin-inline: auto;
+  margin-bottom: var(--space-5);
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-sunken) 25%, var(--color-surface-hover) 50%, var(--color-surface-sunken) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.4s infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+
+/* Spinning icon animation */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+

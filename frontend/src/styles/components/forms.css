@@ -1,0 +1,102 @@
+/* ==========================================================================
+   Forms: clearer hierarchy, mono labels, better errors
+   ========================================================================== */
+.form { display: flex; flex-direction: column; gap: var(--space-4); }
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+.field label {
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.field label .optional {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  border: 1px solid var(--color-border);
+  padding: 1px 5px;
+  border-radius: var(--radius-pill);
+}
+.field input,
+.field select,
+.field textarea {
+  font-family: var(--font-sans);
+  font-size: 0.9375rem;
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.66rem 0.85rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+  width: 100%;
+  line-height: 1.4;
+  appearance: none;
+}
+.field input::placeholder, .field textarea::placeholder { color: var(--color-text-subtle); }
+.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--color-text-muted); }
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: none;
+  border-color: var(--color-border-strong);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+  background: var(--color-surface);
+}
+.field textarea { resize: vertical; min-height: 88px; }
+.field small, .field-hint {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+.field-error {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--color-danger);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.field-error::before {
+  content: '–';
+  font-family: var(--font-mono);
+  opacity: 0.7;
+}
+
+
+/* Form Check Rows */
+.check-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+  cursor: pointer;
+}
+.check-row input[type='checkbox'] {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  min-width: 1.15rem;
+  min-height: 1.15rem;
+  margin-top: 0.15rem;
+  accent-color: var(--color-text);
+  cursor: pointer;
+}
+.check-row label {
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--color-text);
+  font-weight: 500;
+  cursor: pointer;
+}
+.check-row:focus-within {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}

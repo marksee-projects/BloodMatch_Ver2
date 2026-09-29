@@ -19,14 +19,18 @@ final class Session
 
         ini_set('session.use_strict_mode', '1');
         session_name('bloodmatch_session');
-        session_set_cookie_params([
-            'lifetime' => 0,
-            'path' => '/',
-            'httponly' => true,
-            'samesite' => 'Lax',
-            'secure' => AppConfig::secureCookies(),
-        ]);
-        session_start();
+        if (!headers_sent()) {
+            session_set_cookie_params([
+                'lifetime' => 0,
+                'path' => '/',
+                'httponly' => true,
+                'samesite' => 'Lax',
+                'secure' => AppConfig::secureCookies(),
+            ]);
+        }
+        if (session_status() !== PHP_SESSION_ACTIVE) {
+            @session_start();
+        }
         self::$started = true;
     }
 

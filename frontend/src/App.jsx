@@ -216,7 +216,7 @@ export default function App() {
   }
 
   return (
-    <>
+    <div className="app-shell">
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <header className="topbar">
         <div className="topbar-inner">
@@ -398,6 +398,6 @@ export default function App() {
       </main>
 
       <Footer />
-    </>
+    </div>
   )
 }

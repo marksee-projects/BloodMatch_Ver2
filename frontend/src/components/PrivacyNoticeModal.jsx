@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { ShieldCheck, X } from '@phosphor-icons/react'
+import styles from './PrivacyModal.module.css'
 
 export const REGISTRATION_PRIVACY_TITLE = 'Privacy Notice for Account Registration'
 export const REGISTRATION_PRIVACY_CHECKBOX_LABEL =
@@ -11,7 +12,7 @@ export const ID_PRIVACY_CHECKBOX_LABEL =
 
 export function RegistrationPrivacyBody() {
   return (
-    <div className="privacy-body">
+    <div className={`privacy-body ${styles.body}`}>
       <p>
         Before creating your BloodMatch account, please be informed that BloodMatch will collect and
         process the personal information you provide, such as your name, date of birth, email address,
@@ -52,7 +53,7 @@ export function RegistrationPrivacyBody() {
 
 export function IdPrivacyBody() {
   return (
-    <div className="privacy-body">
+    <div className={`privacy-body ${styles.body}`}>
       <p>
         BloodMatch collects your identification document for the purpose of verifying your identity and
         membership information before granting access to verification-dependent features.
@@ -124,9 +125,9 @@ export default function PrivacyNoticeModal({
         if (e.target === e.currentTarget) onClose?.()
       }}
     >
-      <div className="modal-content privacy-modal" style={{ maxWidth: '640px' }}>
-        <div className="privacy-modal-header">
-          <div className="privacy-modal-icon" aria-hidden="true">
+      <div className={`modal-content privacy-modal ${styles.modal}`} style={{ maxWidth: '640px' }}>
+        <div className={`privacy-modal-header ${styles.modalHeader}`}>
+          <div className={`privacy-modal-icon ${styles.modalIcon}`} aria-hidden="true">
             <ShieldCheck size={20} weight="regular" />
           </div>
           <div style={{ flex: 1 }}>
@@ -136,7 +137,7 @@ export default function PrivacyNoticeModal({
           <button
             ref={closeRef}
             type="button"
-            className="btn btn-secondary btn-sm privacy-modal-close"
+            className={`btn btn-secondary btn-sm privacy-modal-close ${styles.modalClose}`}
             onClick={onClose}
             aria-label="Close privacy notice"
           >
@@ -144,11 +145,11 @@ export default function PrivacyNoticeModal({
           </button>
         </div>
 
-        <div className="privacy-scroll" tabIndex={0} aria-label={`${title} full text`}>
+        <div className={`privacy-scroll ${styles.scroll}`} tabIndex={0} aria-label={`${title} full text`}>
           <Body />
         </div>
 
-        <div className="check-row privacy-check">
+        <div className={`check-row privacy-check ${styles.check}`}>
           <input
             id={checkboxId}
             type="checkbox"
