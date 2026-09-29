@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class WindowBlockedException extends RuntimeException
 {
-    public function __construct(string $message, private readonly array $window)
+    public function __construct(string $message, private array $window)
     {
         parent::__construct($message, 409);
     }

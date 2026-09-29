@@ -71,7 +71,7 @@ $csrf1 = Get-Csrf $s1
 $email1 = "p3user$(Get-Random)@test.local"
 $r = Post $s1 '/api/register' @{
     full_name = 'Phase Three Tester'; email = $email1; password = 'Str0ngPass1';
-    chapter_id = 1; date_of_birth = '2000-05-10'; blood_type = 'O+'
+    chapter_id = 1; date_of_birth = '2000-05-10'; blood_type = 'O+'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 201 -and $r.body.data.user.verification_status -eq 'pending' -and $r.body.data.user.account_status -eq 'active') {
     Ok 'T02 register 201 + pending/active'
@@ -80,21 +80,39 @@ $uid1 = $r.body.data.user.id
 
 # --- T03 duplicate email ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'Dup'; email = $email1; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'
+    full_name = 'Dup'; email = $email1; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 409) { Ok 'T03 duplicate email 409' } else { Bad 'T03' "got $($r.status)" }
 
 # --- T04 weak password ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'Weak'; email = "weak$(Get-Random)@test.local"; password = 'short'; chapter_id = 1; date_of_birth = '2000-05-10'
+    full_name = 'Weak'; email = "weak$(Get-Random)@test.local"; password = 'short'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 400 -and $r.body.error.details.password) { Ok 'T04 weak password 400 + field error' } else { Bad 'T04' "got $($r.status)" }
 
 # --- T05 invalid chapter ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'BadChap'; email = "bc$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 999; date_of_birth = '2000-05-10'
+    full_name = 'BadChap'; email = "bc$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 999; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 400 -and $r.body.error.details.chapter_id) { Ok 'T05 invalid chapter 400' } else { Bad 'T05' "got $($r.status)" }
+
+# --- T05b privacy acknowledgment missing ---
+$r = Post $s1 '/api/register' @{
+    full_name = 'NoPriv'; email = "np$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'
+} $csrf1
+if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'T05b missing privacy_acknowledged 400 + field error' } else { Bad 'T05b' "got $($r.status)" }
+
+# --- T05c privacy acknowledgment false ---
+$r = Post $s1 '/api/register' @{
+    full_name = 'NoPriv'; email = "npf$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $false
+} $csrf1
+if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'T05c false privacy_acknowledged 400 + field error' } else { Bad 'T05c' "got $($r.status)" }
+
+# --- T05d privacy acknowledgment invalid value ---
+$r = Post $s1 '/api/register' @{
+    full_name = 'NoPriv'; email = "npi$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = 'maybe'
+} $csrf1
+if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'T05d invalid privacy_acknowledged 400 + field error' } else { Bad 'T05d' "got $($r.status)" }
 
 # --- T06 chapters list ---
 $r = GetReq $s1 '/api/chapters'
@@ -166,7 +184,7 @@ if ($r.status -eq 400) { Ok 'T18 expired token 400' } else { Bad 'T18' "got $($r
 
 # --- T19 lockout after 5 failures ---
 $lockEmail = "lock$(Get-Random)@test.local"
-Post $s1 '/api/register' @{ full_name = 'Lock Me'; email = $lockEmail; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '1999-01-01' } $csrf1 | Out-Null
+Post $s1 '/api/register' @{ full_name = 'Lock Me'; email = $lockEmail; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '1999-01-01'; privacy_acknowledged = $true } $csrf1 | Out-Null
 $s4 = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $csrf4 = Get-Csrf $s4
 for ($i = 0; $i -lt 5; $i++) { Post $s4 '/api/login' @{ email = $lockEmail; password = 'Nope1234' } $csrf4 | Out-Null }

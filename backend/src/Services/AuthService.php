@@ -36,6 +36,18 @@ final class AuthService
         return gmdate('Y-m-d H:i:s');
     }
 
+    public static function isPrivacyAcknowledged(mixed $value): bool
+    {
+        if ($value === true || $value === 1 || $value === '1') {
+            return true;
+        }
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+            return in_array($normalized, ['true', 'on', 'yes'], true);
+        }
+        return false;
+    }
+
     public function register(array $input, ?array $nationalIdFile = null): array
     {
         $v = new Validator();
@@ -46,8 +58,8 @@ final class AuthService
         $chapterId = Request::int('chapter_id', $input);
         $dob = Request::str('date_of_birth', $input);
         $bloodType = Request::str('blood_type', $input);
-        $latitude = isset($input['latitude']) && is_numeric($input['latitude']) ? (float) $input['latitude'] : null;
-        $longitude = isset($input['longitude']) && is_numeric($input['longitude']) ? (float) $input['longitude'] : null;
+        $latitude = null;
+        $longitude = null;
 
         $allowedBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -83,12 +95,16 @@ final class AuthService
             }
         }
 
-        if (($latitude === null) !== ($longitude === null)) {
-            $v->addError('location', 'Latitude and longitude must be provided together.');
+        if (array_key_exists('latitude', $input) || array_key_exists('longitude', $input)) {
+            $v->addError('location_id', 'Set your location after registration using the Bataan municipality/barangay selector.');
         }
 
         if ($chapterId !== null && !$this->users->chapterExists($chapterId)) {
             $v->addError('chapter_id', 'Chapter does not exist.');
+        }
+
+        if (!self::isPrivacyAcknowledged($input['privacy_acknowledged'] ?? null)) {
+            $v->addError('privacy_acknowledged', 'You must read and acknowledge the Privacy Notice to create an account.');
         }
 
         if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL) && $this->users->emailExists($email)) {
@@ -276,6 +292,7 @@ final class AuthService
             'role' => (string) $user['role'],
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
+            'profile_picture_url' => ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),
         ];
     }
 }

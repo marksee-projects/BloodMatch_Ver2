@@ -71,7 +71,7 @@ export default function AnalyticsPage() {
   }))
 
   return (
-    <div style={{ width: '100%' }}>
+    <div className="container">
       <header className="app-header">
         <div>
           <h1>Analytics &amp; Operational Reporting</h1>

@@ -6,7 +6,7 @@ export default function DemandMapPage() {
   const { user } = useAuth()
 
   return (
-    <div className="container" style={{ maxWidth: '960px' }}>
+    <div className="container">
       <header className="app-header">
         <div>
           <h1>Regional Blood Demand Map</h1>

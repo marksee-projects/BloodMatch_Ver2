@@ -37,6 +37,13 @@ final class DocumentController
             return;
         }
 
+        if (!AuthService::isPrivacyAcknowledged($_POST['privacy_acknowledged'] ?? null)) {
+            Response::error('You must read and acknowledge the Identification Document Privacy Notice before uploading.', 400, [
+                'privacy_acknowledged' => ['Privacy Notice acknowledgment is required.'],
+            ]);
+            return;
+        }
+
         if (!isset($_FILES['file']) || !is_array($_FILES['file'])) {
             Response::error('No file was uploaded.', 400);
             return;

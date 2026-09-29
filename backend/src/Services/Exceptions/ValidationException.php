@@ -8,7 +8,7 @@ use RuntimeException;
 
 final class ValidationException extends RuntimeException
 {
-    public function __construct(private readonly array $errors)
+    public function __construct(private array $errors)
     {
         parent::__construct('Validation failed.', 400);
     }

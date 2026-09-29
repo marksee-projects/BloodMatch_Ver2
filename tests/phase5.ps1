@@ -98,7 +98,7 @@ Write-Host "== Phase 5 profiles, documents & verification audit =="
 
 # --- fixtures ---
 $officerEmail = "p5off$suffix@test.local";  $officerId   = New-FixtureUser $officerEmail 'Officer Five' 'officer' 1 $null 'verified'
-$adminEmail   = "p5adm$suffix@test.local";  $adminId     = New-FixtureUser $adminEmail 'Admin Five' 'admin' $null $null 'active'
+$adminEmail   = "p5adm$suffix@test.local";  $adminId     = New-FixtureUser $adminEmail 'Admin Five' 'admin' $null $null 'verified'
 $memPEmail    = "p5pend$suffix@test.local"; $memPId      = New-FixtureUser $memPEmail 'Pending Pete' 'member' 1 (Get-Date).AddYears(-20).ToString('yyyy-MM-dd') 'pending'
 $memREmail    = "p5rej$suffix@test.local";  $memRId      = New-FixtureUser $memREmail 'Rejected Rita' 'member' 1 (Get-Date).AddYears(-25).ToString('yyyy-MM-dd') 'rejected'
 $memOEmail    = "p5other$suffix@test.local"; $memOId     = New-FixtureUser $memOEmail 'Other Chapter' 'member' 2 (Get-Date).AddYears(-30).ToString('yyyy-MM-dd') 'pending'
@@ -125,34 +125,47 @@ $r = Invoke-Json $mP.s 'Put' '/api/profile' @{ verification_status = 'verified' 
 if ($r.status -eq 400) { Ok 'A4 verification_status modification rejected' } else { Bad 'A4' "got $($r.status)" }
 
 $r = Invoke-Json $mP.s 'Put' '/api/profile' @{ latitude = 14.5 } $mP.csrf
-if ($r.status -eq 400 -and $r.body.error.details.location) { Ok 'A5 single coordinate rejected' } else { Bad 'A5' "got $($r.status)" }
+if ($r.status -eq 400 -and $r.body.error.details.location_id) { Ok 'A5 raw coordinates rejected (use location selector)' } else { Bad 'A5' "got $($r.status)" }
 
 $r = Invoke-Json $mP.s 'Put' '/api/profile' @{ latitude = 200; longitude = 120 } $mP.csrf
-if ($r.status -eq 400 -and $r.body.error.details.latitude) { Ok 'A6 out-of-range latitude rejected' } else { Bad 'A6' "got $($r.status)" }
+if ($r.status -eq 400 -and $r.body.error.details.location_id) { Ok 'A6 raw coordinate pair rejected' } else { Bad 'A6' "got $($r.status)" }
 
-$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ latitude = 14.65; longitude = 120.53 } $mP.csrf
-$dbGeo = DbQuery "SELECT CONCAT(latitude,'|',longitude) FROM users WHERE id=$memPId;"
-if ($r.status -eq 200 -and $dbGeo -like '14.65*|120.53*') { Ok 'A7 coordinate pair saved' } else { Bad 'A7' "db=$dbGeo" }
+$oraniLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030809000' LIMIT 1;")
+$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ location_id = $oraniLocId } $mP.csrf
+$dbGeo = DbQuery "SELECT CONCAT(location_id,'|',latitude,'|',longitude) FROM users WHERE id=$memPId;"
+if ($r.status -eq 200 -and $dbGeo -like "$oraniLocId|14.8*|120.533333*") { Ok 'A7 canonical location saved with resolved coordinates' } else { Bad 'A7' "db=$dbGeo" }
+
+$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ location_id = 999999 } $mP.csrf
+if ($r.status -eq 400 -and $r.body.error.details.location_id) { Ok 'A7b invalid location_id rejected' } else { Bad 'A7b' "got $($r.status)" }
 
 # ===== B. DOCUMENTS =====
-$r = Upload $mP.s '/api/profile/documents' 'file' 'id-card.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = 'national_id' }
+$r = Upload $mP.s '/api/profile/documents' 'file' 'id-card.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' }
 if ($r.status -eq 201) { Ok 'B1 valid PDF accepted' } else { Bad 'B1' "got $($r.status): $($r.body.error.message)" }
 $docId = $r.body.data.document.id
 $row = DbQuery "SELECT stored_name FROM member_documents WHERE id=$docId;"
 $storedPath = "backend/storage/documents/$row"
 if ($row -match '^[0-9a-f]{64}$' -and (Test-Path $storedPath)) { Ok 'B2 random name stored outside webroot' } else { Bad 'B2' "stored=$row" }
 
-$r = Upload $mP.s '/api/profile/documents' 'file' 'malware.exe' $exeBytes 'application/octet-stream' $mP.csrf @{ doc_type = 'national_id' }
+$r = Upload $mP.s '/api/profile/documents' 'file' 'nopriv.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = 'national_id' }
+if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'B1b missing privacy_acknowledged 400 + field error' } else { Bad 'B1b' "got $($r.status)" }
+$countAfterMissing = DbQuery "SELECT COUNT(*) FROM member_documents WHERE user_id=$memPId;"
+
+$r = Upload $mP.s '/api/profile/documents' 'file' 'nopriv2.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '0' }
+if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'B1c false privacy_acknowledged 400 + field error' } else { Bad 'B1c' "got $($r.status)" }
+$countAfterFalse = DbQuery "SELECT COUNT(*) FROM member_documents WHERE user_id=$memPId;"
+if ([int]$countAfterFalse -eq [int]$countAfterMissing) { Ok 'B1d rejected uploads stored nothing (privacy gate precedes storage)' } else { Bad 'B1d' "count changed $countAfterMissing -> $countAfterFalse" }
+
+$r = Upload $mP.s '/api/profile/documents' 'file' 'malware.exe' $exeBytes 'application/octet-stream' $mP.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' }
 if ($r.status -eq 400) { Ok 'B3 executable content rejected' } else { Bad 'B3' "got $($r.status)" }
 
-$r = Upload $mP.s '/api/profile/documents' 'file' 'fake.png' $txtBytes 'image/png' $mP.csrf @{ doc_type = 'donor_card' }
+$r = Upload $mP.s '/api/profile/documents' 'file' 'fake.png' $txtBytes 'image/png' $mP.csrf @{ doc_type = 'donor_card'; privacy_acknowledged = '1' }
 if ($r.status -eq 400) { Ok 'B4 text masquerading as png rejected (server-side MIME)' } else { Bad 'B4' "got $($r.status)" }
 
 $bigBytes = New-Object byte[] (5 * 1024 * 1024 + 100)
-$r = Upload $mP.s '/api/profile/documents' 'file' 'huge.png' $bigBytes 'image/png' $mP.csrf @{ doc_type = 'national_id' }
+$r = Upload $mP.s '/api/profile/documents' 'file' 'huge.png' $bigBytes 'image/png' $mP.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' }
 if ($r.status -eq 413) { Ok 'B5 oversized file rejected 413' } else { Bad 'B5' "got $($r.status)" }
 
-$r = Upload $mP.s '/api/profile/documents' 'file' 't.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = '../evil' }
+$r = Upload $mP.s '/api/profile/documents' 'file' 't.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = '../evil'; privacy_acknowledged = '1' }
 if ($r.status -eq 400) { Ok 'B6 doc_type traversal rejected' } else { Bad 'B6' "got $($r.status)" }
 
 $r = Invoke-Json (New-Object Microsoft.PowerShell.Commands.WebRequestSession) 'Get' "/api/profile/documents/$docId/file" $null $null
@@ -196,7 +209,7 @@ if ($r.status -eq 403) { Ok 'C5 cross-chapter decision blocked' } else { Bad 'C5
 
 # provenance: approve with donor card
 $provSess = Login $provEmail
-Upload $provSess.s '/api/profile/documents' 'file' 'card.pdf' $pdfBytes 'application/pdf' $provSess.csrf @{ doc_type = 'donor_card' } | Out-Null
+Upload $provSess.s '/api/profile/documents' 'file' 'card.pdf' $pdfBytes 'application/pdf' $provSess.csrf @{ doc_type = 'donor_card'; privacy_acknowledged = '1' } | Out-Null
 $r = Invoke-Json $off.s 'Post' "/api/officer/verifications/$provId/decision" @{ decision = 'verified'; accept_donor_card = $true } $off.csrf
 $dbProv = DbQuery "SELECT CONCAT(blood_type_source,'|',blood_type_verified) FROM users WHERE id=$provId;"
 if ($r.status -eq 200 -and $dbProv -eq 'donor_card|1') { Ok 'C6 donor-card provenance accepted on approval' } else { Bad 'C6' "db=$dbProv" }
@@ -213,7 +226,7 @@ if ($r.status -eq 200 -and $dbVs -eq 'rejected') { Ok 'C8 pending->rejected with
 $rejSess = Login $rejEmail
 $r = Invoke-Json $rejSess.s 'Post' '/api/profile/resubmit' @{} $rejSess.csrf
 if ($r.status -eq 400) { Ok 'C9 resubmit without documents blocked' } else { Bad 'C9' "got $($r.status)" }
-Upload $rejSess.s '/api/profile/documents' 'file' 'better-id.pdf' $pdfBytes 'application/pdf' $rejSess.csrf @{ doc_type = 'national_id' } | Out-Null
+Upload $rejSess.s '/api/profile/documents' 'file' 'better-id.pdf' $pdfBytes 'application/pdf' $rejSess.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' } | Out-Null
 $r = Invoke-Json $rejSess.s 'Post' '/api/profile/resubmit' @{} $rejSess.csrf
 $dbVs = DbQuery "SELECT verification_status FROM users WHERE id=$rejFlowId;"
 if ($r.status -eq 200 -and $dbVs -eq 'pending') { Ok 'C10 rejected->pending after resubmission' } else { Bad 'C10' "db=$dbVs" }
@@ -234,7 +247,7 @@ function AgeCase($years, $withConsent, $expectAllowed, $label) {
     $id = New-FixtureUser $e "Age Test $years" 'member' 1 $dob 'pending'
     $sess = Login $e
     if ($withConsent) {
-        Upload $sess.s '/api/profile/documents' 'file' 'consent.pdf' $pdfBytes 'application/pdf' $sess.csrf @{ doc_type = 'parental_consent' } | Out-Null
+        Upload $sess.s '/api/profile/documents' 'file' 'consent.pdf' $pdfBytes 'application/pdf' $sess.csrf @{ doc_type = 'parental_consent'; privacy_acknowledged = '1' } | Out-Null
     }
     $offLocal = $script:off
     $r = Invoke-Json $offLocal.s 'Get' "/api/officer/verifications/$id" $null $offLocal.csrf

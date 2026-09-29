@@ -1,22 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowsClockwise, Calendar, CheckCircle, FilePdf, Trash, UploadSimple, WarningCircle } from '@phosphor-icons/react'
+import {
+  ArrowsClockwise,
+  Calendar,
+  CheckCircle,
+  FilePdf,
+  ShieldCheck,
+  Trash,
+  UploadSimple,
+  WarningCircle
+} from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
-import PrivacyConsentModal, { CONSENT_STORAGE_KEY } from '../components/PrivacyConsentModal'
+import PrivacyNoticeModal, {
+  REGISTRATION_PRIVACY_CHECKBOX_LABEL,
+  REGISTRATION_PRIVACY_TITLE,
+  RegistrationPrivacyBody
+} from '../components/PrivacyNoticeModal'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 
 export default function RegisterPage() {
   const navigate = useNavigate()
   const dateInputRef = useRef(null)
-
-  const [hasConsent, setHasConsent] = useState(() => {
-    try {
-      return localStorage.getItem(CONSENT_STORAGE_KEY) === 'granted'
-    } catch {
-      return false
-    }
-  })
 
   const [form, setForm] = useState({
     full_name: '',
@@ -39,6 +44,9 @@ export default function RegisterPage() {
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [privacyAck, setPrivacyAck] = useState(false)
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
+  const [privacyError, setPrivacyError] = useState(null)
 
   const loadChapters = async () => {
     setLoadingChapters(true)
@@ -126,27 +134,39 @@ export default function RegisterPage() {
     e.preventDefault()
     setErrors({})
     setMessage(null)
-
     if (age !== null && age < 16) {
       setMessage('Registration requires a minimum age of 16 years.')
       return
     }
 
+    if (!privacyAck) {
+      setPrivacyError('Please read the Privacy Notice and check the acknowledgment to create your account.')
+      return
+    }
+    setPrivacyError(null)
     setSubmitting(true)
     try {
-      const fd = new FormData()
-      fd.append('full_name', form.full_name)
-      fd.append('email', form.email)
-      fd.append('password', form.password)
-      fd.append('chapter_id', form.chapter_id)
-      fd.append('date_of_birth', form.date_of_birth)
-      if (form.blood_type) fd.append('blood_type', form.blood_type)
-      if (form.phone) fd.append('phone', form.phone)
       if (idFile) {
+        const fd = new FormData()
+        fd.append('full_name', form.full_name)
+        fd.append('email', form.email)
+        fd.append('password', form.password)
+        fd.append('chapter_id', form.chapter_id)
+        fd.append('date_of_birth', form.date_of_birth)
+        if (form.blood_type) fd.append('blood_type', form.blood_type)
+        if (form.phone) fd.append('phone', form.phone)
+        fd.append('privacy_acknowledged', 'true')
         fd.append('national_id', idFile)
+        await api.postForm('/api/register', fd)
+      } else {
+        await api.post('/api/register', {
+          ...form,
+          chapter_id: Number(form.chapter_id),
+          blood_type: form.blood_type || null,
+          phone: form.phone || null,
+          privacy_acknowledged: true
+        })
       }
-
-      await api.postForm('/api/register', fd)
       navigate('/login', { state: { registered: true } })
     } catch (err) {
       if (err.details && Object.keys(err.details).length > 0) {
@@ -161,11 +181,6 @@ export default function RegisterPage() {
 
   return (
     <div className="container narrow" style={{ maxWidth: '640px', paddingBlock: 'var(--space-6)' }}>
-      {/* Privacy & Data Processing Consent Gate */}
-      <PrivacyConsentModal
-        isOpen={!hasConsent}
-        onConsentGranted={() => setHasConsent(true)}
-      />
 
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: 'var(--space-2)' }}>Create your account</h1>
@@ -462,16 +477,92 @@ export default function RegisterPage() {
             </small>
           </div>
 
+          <div className="privacy-box" aria-labelledby="register-privacy-heading" style={{ marginTop: 'var(--space-4)' }}>
+            <h3 id="register-privacy-heading" style={{ fontSize: '0.9375rem' }}>
+              <ShieldCheck size={16} weight="regular" aria-hidden="true" /> Privacy Notice for Account Registration
+            </h3>
+            <p className="privacy-summary">
+              BloodMatch collects your name, date of birth, email, contact information, chapter affiliation,
+              and related details to create and maintain your account, verify membership, manage feature
+              access, support donation coordination, and maintain security and audit records under the Data
+              Privacy Act of 2012.
+            </p>
+            <div className="check-row" style={{ background: 'var(--color-surface)' }}>
+              <input
+                id="register-privacy-ack"
+                type="checkbox"
+                checked={privacyAck}
+                onChange={(e) => {
+                  setPrivacyAck(e.target.checked)
+                  if (e.target.checked) setPrivacyError(null)
+                }}
+                aria-describedby="register-privacy-hint"
+              />
+              <label htmlFor="register-privacy-ack">{REGISTRATION_PRIVACY_CHECKBOX_LABEL}</label>
+            </div>
+            <p id="register-privacy-hint" className="field-hint" style={{ marginBottom: 0, marginTop: 'var(--space-2)' }}>
+              Required to create an account.{' '}
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPrivacyModalOpen(true)}>
+                Read full Privacy Notice
+              </button>
+            </p>
+            {errors.privacy_acknowledged && (
+              <span className="field-error">{errors.privacy_acknowledged.join(' ')}</span>
+            )}
+          </div>
+
           <button
             type="submit"
             className="btn btn-lg"
-            disabled={submitting || loadingChapters}
+            disabled={submitting || !privacyAck || loadingChapters}
             style={{ marginTop: 'var(--space-4)', width: '100%' }}
           >
-            {submitting ? 'Creating account & uploading ID…' : 'Create account'}
+            {submitting ? (idFile ? 'Creating account & uploading ID…' : 'Creating account…') : 'Create account'}
           </button>
+          {!privacyAck && (
+            <p className="field-hint" role="note" style={{ marginBottom: 0 }}>
+              Account creation is enabled after you acknowledge the Privacy Notice.{' '}
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPrivacyModalOpen(true)}
+                style={{ marginLeft: 'var(--space-2)', verticalAlign: 'middle' }}
+              >
+                Read Privacy Notice
+              </button>
+            </p>
+          )}
+          {privacyError && (
+            <span className="field-error" role="alert">
+              {privacyError}{' '}
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setPrivacyModalOpen(true)}
+                style={{ marginLeft: 'var(--space-2)' }}
+              >
+                Read Privacy Notice
+              </button>
+            </span>
+          )}
         </form>
       </div>
+
+      <PrivacyNoticeModal
+        open={privacyModalOpen}
+        title={REGISTRATION_PRIVACY_TITLE}
+        checkboxLabel={REGISTRATION_PRIVACY_CHECKBOX_LABEL}
+        checkboxId="register-privacy-ack-modal"
+        acknowledged={privacyAck}
+        onAcknowledgeChange={(v) => {
+          setPrivacyAck(v)
+          if (v) setPrivacyError(null)
+        }}
+        onClose={() => setPrivacyModalOpen(false)}
+        onConfirm={() => setPrivacyModalOpen(false)}
+        confirmLabel="Continue"
+        Body={RegistrationPrivacyBody}
+      />
 
       <p className="muted text-center" style={{ marginTop: 'var(--space-6)' }}>
         Already have an account? <Link to="/login" style={{ fontWeight: 600 }}>Sign in</Link>
