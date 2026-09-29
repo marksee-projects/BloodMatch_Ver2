@@ -1,9 +1,18 @@
+# Environment & Secrets
 .env
+
+# Dependencies & Builds
 node_modules/
+dist/
 frontend/dist/
-logs/*
-!logs/.gitkeep
-backend/storage/
 vendor/
-.phpunit.result.cache
+
+# AI Workspace & Metadata
+.agents/
+skills-lock.json
+
+# Logs & Local Storage
+logs/
 *.log
+backend/storage/
+.phpunit.result.cache

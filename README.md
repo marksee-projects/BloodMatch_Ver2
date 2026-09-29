@@ -2,9 +2,9 @@
 
 Peer-to-peer blood donor matching platform for DeMolay Bataan.
 
-- Requirements source of truth: [`CONTEXT.md`](./CONTEXT.md)
-- Agent rules: [`AGENTS.md`](./AGENTS.md)
-- Implementation plan: [`ROADMAP.md`](./ROADMAP.md)
+- Requirements source of truth: [`docs/ai_context/CONTEXT.md`](./docs/ai_context/CONTEXT.md)
+- Agent rules: [`docs/ai_context/AGENTS.md`](./docs/ai_context/AGENTS.md)
+- Implementation plan: [`docs/ai_context/ROADMAP.md`](./docs/ai_context/ROADMAP.md)
 
 **Current status: Phases 1–12, 15–17 implemented and verified, plus post-Phase-17 additions (profile pictures, Bataan location reference system, donor-location refresh, privacy notices). Master regression: 12/12 suites green, 343 assertions (see `docs/test-log-location.md` for the current baseline; `docs/test-log-phase17.md` preserves the historical Phase-17 11/11, 316/316 baseline).**
 
@@ -44,7 +44,7 @@ docs/               api.md, erd.md (+erd.svg), traceability.md, use-case-diagram
 
 - Current baseline: `tests/run_all.ps1` — 12/12 suites green, 343 assertions (Phase 3: 26, Phase 4: 23, Phase 5: 44, Phase 6: 35, Phase 7: 28, Phase 8: 30, Phase 9: 16, Phase 10: 43, Phase 11: 31, Phase 12: 32, Location: 20/20, Phase 16 security: 15). Additional `tests/profile_picture.ps1` covers avatar upload/replacement/access/audit (13 checks, not in `run_all.ps1`).
 - Historical baseline preserved in `docs/test-log-phase17.md` (11/11, 316/316 on 2026-08-27); current baseline in `docs/test-log-location.md` (2026-09-24).
-- Requirements source of truth: [`CONTEXT.md`](./CONTEXT.md); full endpoint list: [`docs/api.md`](./docs/api.md); schema: [`docs/erd.md`](./docs/erd.md); traceability: [`docs/traceability.md`](./docs/traceability.md).
+- Requirements source of truth: [`docs/ai_context/CONTEXT.md`](./docs/ai_context/CONTEXT.md); full endpoint list: [`docs/api.md`](./docs/api.md); schema: [`docs/erd.md`](./docs/erd.md); traceability: [`docs/traceability.md`](./docs/traceability.md).
 
 ## Setup
 
