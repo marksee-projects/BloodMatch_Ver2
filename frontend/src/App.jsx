@@ -55,29 +55,8 @@ function HomePage() {
           Mt. Samat, Mt. Tarak and Meridian Heights, ranked by compatibility first, proximity second.
         </p>
         <div className="hero-actions">
-          {user ? (
-            <>
-              <Link to="/requests/new" className="btn btn-lg">Create Blood Request</Link>
-              <Link to="/profile" className="btn btn-secondary">Manage Profile</Link>
-              {user.role === 'officer' && <Link to="/officer/dashboard" className="btn btn-secondary">Officer Dashboard</Link>}
-              {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin Portal</Link>}
-            </>
-          ) : (
-            <>
-              <Link to="/register" className="btn btn-lg">Register as Donor</Link>
-              <Link to="/login" className="btn btn-secondary">Sign In</Link>
-            </>
-          )}
+          <Link to={user ? "/requests/new" : "/login"} className="btn btn-lg">Create Blood Request</Link>
         </div>
-
-        {user?.role === 'admin' && (
-          <div style={{ marginTop: 'var(--space-3)', display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-            <Link to="/admin/dashboard" className="btn btn-secondary btn-sm">📊 Overview</Link>
-            <Link to="/admin/demand-map" className="btn btn-secondary btn-sm">🗺️ Regional Demand</Link>
-            <Link to="/admin/analytics" className="btn btn-secondary btn-sm">📈 Analytics</Link>
-            <Link to="/admin/audit-logs" className="btn btn-secondary btn-sm">📜 Audit Logs</Link>
-          </div>
-        )}
 
         <div style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
           <span>3 chapters</span><span>·</span><span>8 blood types</span><span>·</span><span>Officer-verified</span>
@@ -181,6 +160,7 @@ export default function App() {
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -233,11 +213,7 @@ export default function App() {
       <header className="topbar">
         <div className="topbar-inner">
           <Link to="/" className="brand" aria-label="BloodMatch Home">
-            <svg className="brand-mark" width="18" height="18" viewBox="0 0 32 32" fill="currentColor" aria-hidden="true" focusable="false">
-              <path d="M6 6 H13 V12 L9 16 L13 20 V26 H6 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
-              <path d="M26 6 H19 V13.5 L16.5 16 L19 18.5 V26 H26 Z" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
-            </svg>
-            <span>BloodMatch</span>
+            <img src="/Main%20Logo.jpg" alt="BloodMatch" className="brand-mark" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
           </Link>
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
@@ -245,27 +221,6 @@ export default function App() {
             {user ? (
               <>
                 <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined}>Profile</Link>
-                <Link to="/requests/mine" className={`nav-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined}>My Requests</Link>
-
-                {/* Decluttered Portal Navigation: Clean link to dedicated portal */}
-                {user.role === 'officer' && (
-                  <Link
-                    to="/officer/dashboard"
-                    className={`nav-link ${isPortalActive ? 'active' : ''}`}
-                    aria-current={isPortalActive ? 'page' : undefined}
-                  >
-                    Officer Portal
-                  </Link>
-                )}
-                {user.role === 'admin' && (
-                  <Link
-                    to="/admin/dashboard"
-                    className={`nav-link ${isPortalActive ? 'active' : ''}`}
-                    aria-current={isPortalActive ? 'page' : undefined}
-                  >
-                    Admin Portal
-                  </Link>
-                )}
               </>
             ) : null}
           </nav>
@@ -275,12 +230,29 @@ export default function App() {
               {user ? (
                 <>
                   <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
-                  <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
-                  <span className="user-identity" title={user.email}>
-                    <span className="user-name"><strong>{user.full_name}</strong></span>
-                    <span className="user-status" aria-label={`Role: ${user.role}`}>({user.role})</span>
-                  </span>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={handleLogout}>Log out</button>
+                  <div style={{ position: 'relative' }}>
+                    <button 
+                      type="button"
+                      onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                      aria-expanded={profileMenuOpen}
+                      style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                    >
+                      <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
+                    </button>
+                    {profileMenuOpen && (
+                      <div style={{ position: 'absolute', top: '100%', right: '0', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', minWidth: '150px', zIndex: 100, marginTop: 'var(--space-2)', padding: 'var(--space-2) 0' }}>
+                        <Link to="/requests/mine" className="dropdown-item" onClick={() => setProfileMenuOpen(false)}>My Requests</Link>
+                        {user.role === 'officer' && <Link to="/officer/dashboard" className="dropdown-item" onClick={() => setProfileMenuOpen(false)}>Officer Portal</Link>}
+                        {user.role === 'admin' && <Link to="/admin/dashboard" className="dropdown-item" onClick={() => setProfileMenuOpen(false)}>Admin Portal</Link>}
+                        <hr style={{ margin: 'var(--space-2) 0', borderTop: '1px solid var(--color-border)', borderBottom: 'none' }} />
+                        <button type="button" className="dropdown-item" onClick={() => { toggleTheme(); setProfileMenuOpen(false); }} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                          {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                        </button>
+                        <button type="button" className="dropdown-item" onClick={handleLogout} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text)' }}>Log out</button>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <>
@@ -296,9 +268,6 @@ export default function App() {
                   <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
                 </span>
               )}
-              <button type="button" className="theme-toggle" onClick={toggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
-                {theme === 'light' ? <Moon size={16} weight="regular" aria-hidden="true" /> : <Sun size={16} weight="regular" aria-hidden="true" />}
-              </button>
               <span
                 className="hamburger"
                 onKeyDown={(e) => {

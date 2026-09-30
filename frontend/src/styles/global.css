@@ -13,3 +13,15 @@
 
 /* 4. Modular Shared UI Components (Buttons, Forms, Badges, Modals, etc.) */
 @import './components/index.css';
+
+/* Dropdown specific styles */
+.dropdown-item {
+  padding: var(--space-2) var(--space-3);
+  text-decoration: none;
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  display: block;
+}
+.dropdown-item:hover {
+  background-color: var(--color-bg-muted);
+}
