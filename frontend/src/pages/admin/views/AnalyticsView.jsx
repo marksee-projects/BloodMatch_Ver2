@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react'
 import { ArrowsClockwise } from '@phosphor-icons/react'
-import { api } from '../services/apiClient'
-import { useAuth } from '../context/AuthContext'
-import DailyTrendChart from '../components/charts/DailyTrendChart'
-import BloodGroupDemandChart from '../components/charts/BloodGroupDemandChart'
-import DonorPoolBreakdownChart from '../components/charts/DonorPoolBreakdownChart'
-import styles from './AnalyticsPage.module.css'
+import { api } from '../../../services/apiClient'
+import { useAuth } from '../../../context/AuthContext'
+import DailyTrendChart from '../../../components/charts/DailyTrendChart'
+import BloodGroupDemandChart from '../../../components/charts/BloodGroupDemandChart'
+import DonorPoolBreakdownChart from '../../../components/charts/DonorPoolBreakdownChart'
+import styles from './AnalyticsView.module.css'
 
-export default function AnalyticsPage() {
+export default function AnalyticsView() {
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)

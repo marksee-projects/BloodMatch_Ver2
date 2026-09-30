@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
-import { api } from '../services/apiClient'
+import { api } from '../../../services/apiClient'
 
-export default function OfficerVerificationPage() {
+export default function VerificationView() {
   const [queue, setQueue] = useState(null)
   const [detail, setDetail] = useState(null)
   const [decision, setDecision] = useState('verified')

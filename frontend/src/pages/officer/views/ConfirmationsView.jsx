@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check } from '@phosphor-icons/react'
-import { api } from '../services/apiClient'
+import { api } from '../../../services/apiClient'
 
-export default function OfficerConfirmationsPage() {
+export default function ConfirmationsView() {
   const [queue, setQueue] = useState(null)
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)

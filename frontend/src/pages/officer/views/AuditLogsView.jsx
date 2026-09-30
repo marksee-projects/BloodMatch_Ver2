@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
-import { useAuth } from '../context/AuthContext'
-import { api } from '../services/apiClient'
+import { useAuth } from '../../../context/AuthContext'
+import { api } from '../../../services/apiClient'
 
-export default function OfficerAuditLogsPage() {
+export default function AuditLogsView() {
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [page, setPage] = useState(1)

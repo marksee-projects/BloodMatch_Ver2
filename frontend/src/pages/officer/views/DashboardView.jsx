@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
-import { api } from '../services/apiClient'
-import { useAuth } from '../context/AuthContext'
-import DemandMapWidget from '../components/DemandMapWidget'
+import { api } from '../../../services/apiClient'
+import { useAuth } from '../../../context/AuthContext'
+import DemandMapWidget from '../../../components/DemandMapWidget'
 
-export default function OfficerDashboardPage() {
+export default function DashboardView() {
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -144,7 +144,7 @@ export default function OfficerDashboardPage() {
                   }}
                 >
                   <div style={{ fontWeight: 800, fontSize: '1rem' }}>{bt}</div>
-                    <div style={{ fontSize: '0.75rem', color: hasDemand ? 'var(--color-text)' : 'var(--color-text-subtle)' }}>
+                  <div style={{ fontSize: '0.75rem', color: hasDemand ? 'var(--color-text)' : 'var(--color-text-subtle)' }}>
                     {reqCount > 0 ? `${reqCount} req (${unitsNeeded}u)` : '–'}
                   </div>
                 </div>

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
-import { useAuth } from '../context/AuthContext'
-import DemandMapWidget from '../components/DemandMapWidget'
+import { useAuth } from '../../../context/AuthContext'
+import DemandMapWidget from '../../../components/DemandMapWidget'
 
-export default function DemandMapPage() {
+export default function DemandMapView() {
   const { user } = useAuth()
 
   return (

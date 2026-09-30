@@ -10,21 +10,23 @@ import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
-import OfficerVerificationPage from './pages/OfficerVerificationPage'
-import OfficerConfirmationsPage from './pages/OfficerConfirmationsPage'
 import RequestsPage from './pages/RequestsPage'
 import RequestFormPage from './pages/RequestFormPage'
 import MatchesPage from './pages/MatchesPage'
 import NotificationFlyout from './components/NotificationFlyout'
 import Footer from './components/Footer'
 import NotificationsPage from './pages/NotificationsPage'
-import AdminAuditLogsPage from './pages/AdminAuditLogsPage'
-import OfficerAuditLogsPage from './pages/OfficerAuditLogsPage'
-import DemandMapPage from './pages/DemandMapPage'
-import OfficerDashboardPage from './pages/OfficerDashboardPage'
-import AdminDashboardPage from './pages/AdminDashboardPage'
-import AnalyticsPage from './pages/AnalyticsPage'
 import PortalLayout from './components/PortalLayout'
+import AdminLayout from './pages/admin/AdminLayout'
+import DashboardView from './pages/admin/views/DashboardView'
+import DemandMapView from './pages/admin/views/DemandMapView'
+import AnalyticsView from './pages/admin/views/AnalyticsView'
+import AuditLogsView from './pages/admin/views/AuditLogsView'
+import OfficerLayout from './pages/officer/OfficerLayout'
+import OfficerDashboardView from './pages/officer/views/DashboardView'
+import OfficerVerificationView from './pages/officer/views/VerificationView'
+import OfficerConfirmationsView from './pages/officer/views/ConfirmationsView'
+import OfficerAuditLogsView from './pages/officer/views/AuditLogsView'
 import DemandMapWidget from './components/DemandMapWidget'
 import { api } from './services/apiClient'
 
@@ -58,7 +60,7 @@ function HomePage() {
               <Link to="/requests/new" className="btn btn-lg">Create Blood Request</Link>
               <Link to="/profile" className="btn btn-secondary">Manage Profile</Link>
               {user.role === 'officer' && <Link to="/officer/dashboard" className="btn btn-secondary">Officer Dashboard</Link>}
-              {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin Dashboard</Link>}
+              {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin Portal</Link>}
             </>
           ) : (
             <>
@@ -67,6 +69,16 @@ function HomePage() {
             </>
           )}
         </div>
+
+        {user?.role === 'admin' && (
+          <div style={{ marginTop: 'var(--space-3)', display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+            <Link to="/admin/dashboard" className="btn btn-secondary btn-sm">📊 Overview</Link>
+            <Link to="/admin/demand-map" className="btn btn-secondary btn-sm">🗺️ Regional Demand</Link>
+            <Link to="/admin/analytics" className="btn btn-secondary btn-sm">📈 Analytics</Link>
+            <Link to="/admin/audit-logs" className="btn btn-secondary btn-sm">📜 Audit Logs</Link>
+          </div>
+        )}
+
         <div style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
           <span>3 chapters</span><span>·</span><span>8 blood types</span><span>·</span><span>Officer-verified</span>
         </div>
@@ -81,7 +93,7 @@ function HomePage() {
               <h2 style={{ fontSize: 'var(--text-h2)', margin: 0 }}>Active Demand Overview</h2>
             </div>
             {(user.role === 'officer' || user.role === 'admin') && (
-              <Link to="/demand-map" className="btn btn-secondary btn-sm">
+              <Link to={user.role === 'admin' ? '/admin/demand-map' : '/demand-map'} className="btn btn-secondary btn-sm">
                 Open Full Demand Map
               </Link>
             )}
@@ -369,15 +381,64 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
-            {/* Officer & Admin Portal Routes Wrapped in PortalLayout */}
-            <Route path="/officer/dashboard" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerDashboardPage /></PortalLayout></RequireAuth>} />
-            <Route path="/admin/dashboard" element={<RequireAuth roles={['admin']}><PortalLayout><AdminDashboardPage /></PortalLayout></RequireAuth>} />
-            <Route path="/demand-map" element={<RequireAuth roles={['officer', 'admin']}><PortalLayout><DemandMapPage /></PortalLayout></RequireAuth>} />
-            <Route path="/analytics" element={<RequireAuth roles={['officer', 'admin']}><PortalLayout><AnalyticsPage /></PortalLayout></RequireAuth>} />
-            <Route path="/officer/verifications" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerVerificationPage /></PortalLayout></RequireAuth>} />
-            <Route path="/officer/confirmations" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerConfirmationsPage /></PortalLayout></RequireAuth>} />
-            <Route path="/admin/audit-logs" element={<RequireAuth roles={['admin']}><PortalLayout><AdminAuditLogsPage /></PortalLayout></RequireAuth>} />
-            <Route path="/officer/audit-logs" element={<RequireAuth roles={['officer']}><PortalLayout><OfficerAuditLogsPage /></PortalLayout></RequireAuth>} />
+            {/* Nested Admin Portal Routes */}
+            <Route
+              path="/admin"
+              element={
+                <RequireAuth roles={['admin']}>
+                  <AdminLayout />
+                </RequireAuth>
+              }
+            >
+              <Route index element={<Navigate replace to="dashboard" />} />
+              <Route path="dashboard" element={<DashboardView />} />
+              <Route path="demand-map" element={<DemandMapView />} />
+              <Route path="analytics" element={<AnalyticsView />} />
+              <Route path="audit-logs" element={<AuditLogsView />} />
+            </Route>
+
+            {/* Nested Officer Portal Routes */}
+            <Route
+              path="/officer"
+              element={
+                <RequireAuth roles={['officer']}>
+                  <OfficerLayout />
+                </RequireAuth>
+              }
+            >
+              <Route index element={<Navigate replace to="dashboard" />} />
+              <Route path="dashboard" element={<OfficerDashboardView />} />
+              <Route path="verifications" element={<OfficerVerificationView />} />
+              <Route path="verification" element={<Navigate replace to="verifications" />} />
+              <Route path="confirmations" element={<OfficerConfirmationsView />} />
+              <Route path="audit-logs" element={<OfficerAuditLogsView />} />
+            </Route>
+
+            {/* Standalone Demand Map & Analytics Routes (Officers use PortalLayout, Admins redirect to /admin/*) */}
+            <Route
+              path="/demand-map"
+              element={
+                <RequireAuth roles={['officer', 'admin']}>
+                  {user?.role === 'admin' ? (
+                    <Navigate replace to="/admin/demand-map" />
+                  ) : (
+                    <PortalLayout><DemandMapView /></PortalLayout>
+                  )}
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <RequireAuth roles={['officer', 'admin']}>
+                  {user?.role === 'admin' ? (
+                    <Navigate replace to="/admin/analytics" />
+                  ) : (
+                    <PortalLayout><AnalyticsView /></PortalLayout>
+                  )}
+                </RequireAuth>
+              }
+            />
 
             {/* Standard Member Routes */}
             <Route path="/requests/mine" element={<RequireAuth><RequestsPage /></RequireAuth>} />

@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
-  ChartBar,
-  ChartLineUp,
-  CheckSquareOffset,
   CaretLeft,
   CaretRight,
+  ChartBar,
+  ChartLineUp,
   House,
   List,
   MapPin,
@@ -14,16 +13,16 @@ import {
   User,
   X
 } from '@phosphor-icons/react'
-import { useAuth } from '../context/AuthContext'
-import styles from './PortalLayout.module.css'
+import { useAuth } from '../../context/AuthContext'
+import styles from '../../components/PortalLayout.module.css'
 
-export default function PortalLayout({ children }) {
+export default function AdminLayout() {
   const { user } = useAuth()
   const location = useLocation()
 
   const [collapsed, setCollapsed] = useState(() => {
     try {
-      return localStorage.getItem('bloodmatch_portal_sidebar_collapsed') === 'true'
+      return localStorage.getItem('bloodmatch_admin_sidebar_collapsed') === 'true'
     } catch {
       return false
     }
@@ -34,27 +33,17 @@ export default function PortalLayout({ children }) {
     const next = !collapsed
     setCollapsed(next)
     try {
-      localStorage.setItem('bloodmatch_portal_sidebar_collapsed', String(next))
+      localStorage.setItem('bloodmatch_admin_sidebar_collapsed', String(next))
     } catch {
       // ignore storage errors
     }
   }
 
-  // Close mobile drawer on route change
+  // Close mobile drawer and scroll to top on sub-route transition
   useEffect(() => {
     setMobileDrawerOpen(false)
+    window.scrollTo({ top: 0, behavior: 'instant' })
   }, [location.pathname])
-
-  const isActive = (path) => location.pathname === path
-
-  const officerNavItems = [
-    { label: 'Dashboard', path: '/officer/dashboard', icon: ChartBar },
-    { label: 'Demand Map', path: '/demand-map', icon: MapPin },
-    { label: 'Analytics', path: '/analytics', icon: ChartLineUp },
-    { label: 'Verifications', path: '/officer/verifications', icon: ShieldCheck },
-    { label: 'Confirmations', path: '/officer/confirmations', icon: CheckSquareOffset },
-    { label: 'Audit Logs', path: '/officer/audit-logs', icon: Scroll }
-  ]
 
   const adminNavItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: ChartBar },
@@ -63,33 +52,37 @@ export default function PortalLayout({ children }) {
     { label: 'Audit Logs', path: '/admin/audit-logs', icon: Scroll }
   ]
 
-  const navItems = user?.role === 'admin' ? adminNavItems : officerNavItems
-  const portalTitle = user?.role === 'admin' ? 'Admin Portal' : 'Officer Portal'
+  const isActive = (path) => {
+    if (path === '/admin/dashboard') {
+      return location.pathname === '/admin' || location.pathname === '/admin/dashboard'
+    }
+    return location.pathname.startsWith(path)
+  }
+
+  const currentNavItem = adminNavItems.find((item) => isActive(item.path)) || adminNavItems[0]
 
   return (
     <div className={`${styles.container} ${collapsed ? styles.collapsed : ''}`}>
-      {/* Mobile Drawer Toggle */}
+      {/* Mobile Drawer Bar */}
       <div className={styles.mobileBar}>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
           onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
-          aria-label={mobileDrawerOpen ? 'Close sidebar menu' : 'Open sidebar menu'}
+          aria-label={mobileDrawerOpen ? 'Close admin menu' : 'Open admin menu'}
         >
           {mobileDrawerOpen ? <X size={18} /> : <List size={18} />}
-          <span style={{ marginLeft: '6px' }}>{portalTitle} Menu</span>
+          <span style={{ marginLeft: '6px' }}>Admin Portal Menu</span>
         </button>
       </div>
 
-      {/* Sidebar Navigation */}
+      {/* Persistent Sidebar Navigation */}
       <aside className={`${styles.sidebar} ${mobileDrawerOpen ? styles.sidebarMobileOpen : ''}`}>
         <div className={styles.sidebarHeader}>
           {!collapsed && (
             <div className={styles.titleBlock}>
-              <span className={styles.badge}>
-                {user?.role === 'admin' ? 'System Administrator' : 'Chapter Officer'}
-              </span>
-              <h3 className={styles.title}>{portalTitle}</h3>
+              <span className={styles.badge}>System Administrator</span>
+              <h3 className={styles.title}>Admin Portal</h3>
             </div>
           )}
 
@@ -104,12 +97,12 @@ export default function PortalLayout({ children }) {
           </button>
         </div>
 
-        <nav className={styles.nav} aria-label="Portal Secondary Navigation">
+        <nav className={styles.nav} aria-label="Admin Navigation">
           <div className={styles.sectionLabel}>
             {!collapsed ? 'Administrative Tools' : '•••'}
           </div>
 
-          {navItems.map((item) => {
+          {adminNavItems.map((item) => {
             const Icon = item.icon
             const active = isActive(item.path)
             return (
@@ -132,7 +125,7 @@ export default function PortalLayout({ children }) {
 
           <Link
             to="/profile"
-            className={`${styles.navLink} ${isActive('/profile') ? styles.navLinkActive : ''}`}
+            className={`${styles.navLink} ${location.pathname === '/profile' ? styles.navLinkActive : ''}`}
             title={collapsed ? 'My Profile' : undefined}
           >
             <User size={20} weight="regular" className={styles.navIcon} />
@@ -154,16 +147,38 @@ export default function PortalLayout({ children }) {
             <div className={styles.statusDotContainer}>
               <span className={styles.statusDot} aria-hidden="true" />
               <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)' }}>
-                System Secure · UTC Active
+                System Secure · All Chapters Scope
               </span>
             </div>
           </div>
         )}
       </aside>
 
-      {/* Main Content Viewport */}
+      {/* Dynamic Main Viewport via React Router Outlet */}
       <section className={styles.mainContent}>
-        {children}
+        {/* Contextual Header / Breadcrumbs */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 'var(--space-4)',
+          paddingBottom: 'var(--space-2)',
+          borderBottom: '1px solid var(--color-border-subtle)',
+          fontSize: 'var(--text-xs)',
+          color: 'var(--color-text-muted)',
+          fontFamily: 'var(--font-mono)'
+        }}>
+          <div>
+            <Link to="/admin/dashboard" style={{ color: 'var(--color-text-muted)', textDecoration: 'none' }}>Admin Portal</Link>
+            <span style={{ margin: '0 var(--space-2)' }}>/</span>
+            <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>{currentNavItem.label}</span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+            <span className="badge badge-open" style={{ fontSize: '0.625rem' }}>Global Admin</span>
+          </div>
+        </div>
+
+        <Outlet />
       </section>
     </div>
   )

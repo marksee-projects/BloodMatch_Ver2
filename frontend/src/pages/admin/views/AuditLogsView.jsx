@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
-import { api } from '../services/apiClient'
+import { api } from '../../../services/apiClient'
 
-export default function AdminAuditLogsPage() {
+export default function AuditLogsView() {
   const [data, setData] = useState(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
