@@ -1,0 +1,311 @@
+/* =====================================================
+   LandingPage — full-screen hero + below-fold content
+   All values use design-system tokens from variables.css
+   ===================================================== */
+
+/* Page wrapper */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Hero ── */
+.hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.heroBg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+  opacity: 0.15;
+}
+
+.overlay {
+  display: none;
+}
+
+.heroInner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-6);
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  flex-wrap: wrap;
+}
+
+/* ── Left: marketing copy ── */
+.heroText {
+  flex: 1;
+  min-width: 300px;
+  color: var(--color-text);
+}
+
+.kicker {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-brand-navy);
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  font-size: clamp(28px, 4vw, 48px);
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 0 0 var(--space-4) 0;
+  color: var(--color-text);
+}
+
+.accent { color: var(--color-brand-navy); }
+
+.lede {
+  font-size: var(--text-h3);
+  color: var(--color-text-muted);
+  max-width: 480px;
+  line-height: 1.6;
+  margin: 0 0 var(--space-6) 0;
+}
+
+.stats {
+  display: flex;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+/* ── Right: glassmorphism login card ── */
+.loginCard {
+  flex: none;
+  width: 100%;
+  max-width: 400px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-lg);
+  color: var(--color-text);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-5);
+}
+
+.cardLogo {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex: none;
+  border: 1px solid rgba(255, 255, 255, 0.30);
+}
+
+.cardTitle {
+  font-size: var(--text-h1);
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-text);
+  text-align: center;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.forgotLink {
+  display: block;
+  margin-top: var(--space-2);
+  font-size: var(--text-sm);
+  color: rgba(255, 255, 255, 0.60);
+  text-decoration: none;
+  text-align: right;
+  transition: color var(--transition-fast);
+}
+.forgotLink:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-4) 0;
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--color-border);
+}
+
+/* ── Below fold ── */
+.belowFold {
+  padding: var(--space-8) var(--space-6);
+  max-width: 1200px;
+  margin-inline: auto;
+  width: 100%;
+}
+
+.sectionLabel {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-subtle);
+  margin-bottom: var(--space-5);
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-10);
+  margin-bottom: var(--space-8);
+}
+
+.featureItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.featureIcon {
+  color: var(--color-brand-navy);
+  margin-bottom: var(--space-4);
+}
+
+.featureTitle {
+  font-size: var(--text-h3);
+  font-weight: 600;
+  margin: 0 0 var(--space-3) 0;
+  color: var(--color-text);
+}
+
+.featureText {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+  max-width: 320px;
+}
+
+.disclaimer {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--color-border-hairline);
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.disclaimerNote {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-subtle);
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* ── Landing footer ── */
+.footer {
+  border-top: 1px solid var(--color-border-hairline);
+  padding: var(--space-6) 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.footerLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.footerBrandName {
+  font-weight: 700;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+}
+
+.footerCopy {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  font-family: var(--font-mono);
+}
+
+.footerRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.footerLink {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.footerLink:hover {
+  color: var(--color-text);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .heroInner {
+    flex-direction: column-reverse;
+    padding: var(--space-6) var(--space-4);
+    min-height: 100vh;
+    justify-content: center;
+  }
+
+  .loginCard {
+    max-width: 100%;
+  }
+
+  .grid3 {
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+  }
+
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .belowFold {
+    padding: var(--space-6) var(--space-4);
+  }
+}

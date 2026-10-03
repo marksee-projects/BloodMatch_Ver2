@@ -1,24 +1,28 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import RequestFormPage from './RequestFormPage'
+import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 export default function RequestsPage() {
-  const [requests, setRequests] = useState(null)
+
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [filter, setFilter] = useState('ALL')
+  const [isCreating, setIsCreating] = useState(false)
+  const [editingId, setEditingId] = useState(null)
 
-  const load = useCallback(() => {
-    return api
-      .get('/api/my/requests')
-      .then((data) => setRequests(data.requests || []))
-      .catch((err) => setErrorAlert(err.message))
-  }, [])
+  const { data: requests, isLoading, refetch } = useQuery({
+    queryKey: ['my-requests'],
+    queryFn: async () => {
+      const data = await api.get('/api/my/requests');
+      return data.requests || [];
+    }
+  });
 
-  useEffect(() => {
-    load()
-  }, [load])
+  const load = () => refetch();
 
   const onCancel = async (id) => {
     if (!window.confirm(`Are you sure you want to cancel request #${id}?`)) {
@@ -35,11 +39,11 @@ export default function RequestsPage() {
     }
   }
 
-  if (!requests) {
+  if (isLoading && !requests) {
     return (
       <div className="container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading blood requests…</p>
+          <LoadingSpinner text="Loading blood requests…" />
         </div>
       </div>
     )
@@ -55,29 +59,43 @@ export default function RequestsPage() {
         <div>
           <h1>My Blood Requests</h1>
         </div>
-        <Link to="/requests/new" className="btn">
-          + Create New Request
-        </Link>
+        {!isCreating && !editingId && (
+          <button type="button" className="btn" onClick={() => setIsCreating(true)}>
+            + Create New Request
+          </button>
+        )}
       </header>
 
-      {message && <div className="alert alert-success" role="status">{message}</div>}
-      {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
+      {(isCreating || editingId) && (
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <RequestFormPage 
+            id={editingId}
+            onSuccess={() => { setIsCreating(false); setEditingId(null); load(); }} 
+            onCancel={() => { setIsCreating(false); setEditingId(null); }} 
+          />
+        </div>
+      )}
+
+      {message && !isCreating && !editingId && <div className="alert alert-success" role="status">{message}</div>}
+      {errorAlert && !isCreating && !editingId && <div className="alert alert-error" role="alert">{errorAlert}</div>}
 
       {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-6)', flexWrap: 'wrap' }}>
-        {['ALL', 'OPEN', 'FULFILLED', 'CANCELLED', 'EXPIRED'].map((st) => (
-          <button
-            key={st}
-            type="button"
-            className={filter === st ? 'btn btn-sm' : 'btn btn-secondary btn-sm'}
-            onClick={() => setFilter(st)}
-          >
-            {st} ({st === 'ALL' ? requests.length : requests.filter((r) => r.status === st).length})
-          </button>
-        ))}
-      </div>
+      {!isCreating && !editingId && (
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginBottom: 'var(--space-6)', flexWrap: 'wrap' }}>
+          {['ALL', 'OPEN', 'FULFILLED', 'CANCELLED', 'EXPIRED'].map((st) => (
+            <button
+              key={st}
+              type="button"
+              className={filter === st ? 'btn btn-sm' : 'btn btn-secondary btn-sm'}
+              onClick={() => setFilter(st)}
+            >
+              {st} ({st === 'ALL' ? requests.length : requests.filter((r) => r.status === st).length})
+            </button>
+          ))}
+        </div>
+      )}
 
-      {filteredRequests.length === 0 ? (
+      {!isCreating && !editingId && filteredRequests.length === 0 ? (
         <div className="empty-state">
           <h3>No requests found</h3>
           <p>
@@ -92,9 +110,10 @@ export default function RequestsPage() {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          {filteredRequests.map((r) => (
-            <article key={r.id} className="card">
+        !isCreating && !editingId && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+            {filteredRequests.map((r) => (
+              <article key={r.id} className="card">
               <div className="card-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
                   <span style={{ fontSize: '1.25rem', fontWeight: 800 }}>{r.required_blood_type}</span>
@@ -141,9 +160,9 @@ export default function RequestsPage() {
 
                   {r.status === 'OPEN' && (
                     <>
-                      <Link to={`/requests/${r.id}/edit`} className="btn btn-secondary btn-sm">
+                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingId(r.id)}>
                         Edit Details
-                      </Link>
+                      </button>
                       <button type="button" className="btn btn-danger btn-sm" onClick={() => onCancel(r.id)}>
                         Cancel Request
                       </button>
@@ -154,6 +173,7 @@ export default function RequestsPage() {
             </article>
           ))}
         </div>
+        )
       )}
     </div>
   )

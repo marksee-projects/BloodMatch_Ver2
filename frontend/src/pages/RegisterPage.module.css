@@ -1,9 +1,9 @@
 .wizardCard {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   padding: var(--space-6);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-md);
   margin-top: var(--space-4);
 }
 
@@ -35,7 +35,7 @@
   top: 18px;
   left: 36px;
   height: 2px;
-  background: var(--color-text);
+  background: var(--color-brand-navy);
   transition: width var(--transition-normal);
   z-index: 1;
 }
@@ -66,20 +66,27 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 600;
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), border-color var(--transition-fast),
+              color var(--transition-fast), transform var(--transition-fast),
+              box-shadow var(--transition-fast);
+}
+
+.stepItem:hover:not(:disabled) {
+  background: transparent !important;
+  transform: none !important;
+  border-color: transparent !important;
 }
 
 .stepActive .stepBubble {
-  border-color: var(--color-text);
-  background: var(--color-text);
-  color: var(--color-bg);
-  box-shadow: 0 0 0 4px var(--color-surface-hover);
+  border-color: var(--color-brand-navy);
+  background: var(--color-brand-navy);
+  color: var(--color-accent-fg);
 }
 
 .stepCompleted .stepBubble {
-  border-color: var(--color-text);
+  border-color: var(--color-brand-navy);
   background: var(--color-surface-sunken);
-  color: var(--color-text);
+  color: var(--color-brand-navy);
 }
 
 .stepLabel {
@@ -100,6 +107,43 @@
   color: var(--color-text);
 }
 
+/* Password Field Toggles */
+.passwordWrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.passwordWrapper input {
+  padding-right: var(--space-10) !important;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: var(--space-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-subtle);
+  cursor: pointer;
+  transition: color var(--transition-fast), background var(--transition-fast);
+}
+
+.passwordToggle:hover {
+  color: var(--color-text);
+  background: var(--color-surface-hover);
+}
+
+.passwordToggle:focus-visible {
+  outline: 2px solid var(--color-brand-navy);
+  outline-offset: -2px;
+}
+
 /* Step Action Bar */
 .actionRow {
   display: flex;
@@ -108,7 +152,7 @@
   gap: var(--space-3);
   margin-top: var(--space-6);
   padding-top: var(--space-4);
-  border-top: 1px solid var(--color-border-subtle);
+  border-top: 1px solid var(--color-border-hairline);
 }
 
 /* Summary Review Card */
@@ -190,13 +234,15 @@
   background: var(--color-surface-hover);
   cursor: pointer;
   text-align: center;
-  transition: all var(--transition-fast);
+  transition: border-color var(--transition-fast), background var(--transition-fast),
+              transform var(--transition-fast);
 }
 
 .dropzone:hover,
 .dropzoneDragOver {
-  border-color: var(--color-text);
+  border-color: var(--color-brand-navy);
   background: var(--color-surface-sunken);
+  transform: scale(1.005);
 }
 
 .filePreviewCard {

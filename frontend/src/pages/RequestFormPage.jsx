@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { api } from '../services/apiClient'
 import LocationSelector from '../components/LocationSelector'
+import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const URGENCIES = [
@@ -10,10 +11,8 @@ const URGENCIES = [
   { id: 'critical', label: 'Critical (Immediate emergency / trauma)' }
 ]
 
-export default function RequestFormPage() {
-  const { id } = useParams()
+export default function RequestFormPage({ id, onSuccess, onCancel }) {
   const editing = Boolean(id)
-  const navigate = useNavigate()
 
   const [form, setForm] = useState({
     required_blood_type: '',
@@ -66,7 +65,7 @@ export default function RequestFormPage() {
       } else {
         await api.post('/api/requests', payload)
       }
-      navigate('/requests/mine')
+      if (onSuccess) onSuccess()
     } catch (err) {
       if (err.details && Object.keys(err.details).length > 0) {
         setErrors(err.details)
@@ -78,11 +77,16 @@ export default function RequestFormPage() {
     }
   }
 
+  const [step, setStep] = useState(1)
+
+  const nextStep = () => setStep((s) => Math.min(s + 1, 3))
+  const prevStep = () => setStep((s) => Math.max(s - 1, 1))
+
   if (!loaded) {
     return (
       <div className="container narrow">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading request details…</p>
+          <LoadingSpinner text="Loading request details…" />
         </div>
       </div>
     )
@@ -94,104 +98,143 @@ export default function RequestFormPage() {
         <h1 style={{ marginBottom: 'var(--space-2)' }}>
           {editing ? `Edit Blood Request #${id}` : 'Create Blood Request'}
         </h1>
+        <div style={{ display: 'flex', gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+          <div style={{ flex: 1, height: '4px', background: step >= 1 ? 'var(--color-brand-navy)' : 'var(--color-border)', borderRadius: '2px' }} />
+          <div style={{ flex: 1, height: '4px', background: step >= 2 ? 'var(--color-brand-navy)' : 'var(--color-border)', borderRadius: '2px' }} />
+          <div style={{ flex: 1, height: '4px', background: step >= 3 ? 'var(--color-brand-navy)' : 'var(--color-border)', borderRadius: '2px' }} />
+        </div>
+        <p className="muted" style={{ fontSize: 'var(--text-sm)', marginTop: 'var(--space-2)' }}>
+          Step {step} of 3
+        </p>
       </div>
 
       {message && <div className="alert alert-error" role="alert">{message}</div>}
 
       <div className="card">
         <form className="form" onSubmit={onSubmit} noValidate>
-          <div className="field">
-            <label htmlFor="required_blood_type">Required Blood Type *</label>
-            <select
-              id="required_blood_type"
-              value={form.required_blood_type}
-              onChange={setField('required_blood_type')}
-              required
-            >
-              <option value="">Select blood type…</option>
-              {BLOOD_TYPES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            {errors.required_blood_type && <span className="field-error">{errors.required_blood_type.join(' ')}</span>}
-          </div>
+          
+          {step === 1 && (
+            <div className="form-step">
+              <h2 style={{ fontSize: 'var(--text-h4)', marginBottom: 'var(--space-4)' }}>Blood Requirements</h2>
+              
+              <div className="field">
+                <label htmlFor="required_blood_type">Required Blood Type *</label>
+                <select
+                  id="required_blood_type"
+                  value={form.required_blood_type}
+                  onChange={setField('required_blood_type')}
+                  required
+                >
+                  <option value="">Select blood type…</option>
+                  {BLOOD_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                {errors.required_blood_type && <span className="field-error">{errors.required_blood_type.join(' ')}</span>}
+              </div>
 
-          <div className="field">
-            <label htmlFor="quantity_units">Quantity Needed (Units) *</label>
-            <input
-              id="quantity_units"
-              type="number"
-              min={1}
-              max={10}
-              value={form.quantity_units}
-              onChange={setField('quantity_units')}
-              required
-            />
-            <small className="field-hint">Standard whole blood units (1–10 units per request).</small>
-            {errors.quantity_units && <span className="field-error">{errors.quantity_units.join(' ')}</span>}
-          </div>
+              <div className="field">
+                <label htmlFor="quantity_units">Quantity Needed (Units) *</label>
+                <input
+                  id="quantity_units"
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={form.quantity_units}
+                  onChange={setField('quantity_units')}
+                  required
+                />
+                <small className="field-hint">Standard whole blood units (1–10 units per request).</small>
+                {errors.quantity_units && <span className="field-error">{errors.quantity_units.join(' ')}</span>}
+              </div>
+            </div>
+          )}
 
-          <div className="field">
-            <label htmlFor="facility_name">Healthcare Facility / Hospital Name *</label>
-            <input
-              id="facility_name"
-              placeholder="e.g. Bataan General Hospital and Medical Center"
-              value={form.facility_name}
-              onChange={setField('facility_name')}
-              maxLength={150}
-              required
-            />
-            {errors.facility_name && <span className="field-error">{errors.facility_name.join(' ')}</span>}
-          </div>
+          {step === 2 && (
+            <div className="form-step">
+              <h2 style={{ fontSize: 'var(--text-h4)', marginBottom: 'var(--space-4)' }}>Facility & Location</h2>
+              
+              <div className="field">
+                <label htmlFor="facility_name">Healthcare Facility / Hospital Name *</label>
+                <input
+                  id="facility_name"
+                  placeholder="e.g. Bataan General Hospital and Medical Center"
+                  value={form.facility_name}
+                  onChange={setField('facility_name')}
+                  maxLength={150}
+                  required
+                />
+                {errors.facility_name && <span className="field-error">{errors.facility_name.join(' ')}</span>}
+              </div>
 
-          <div className="field">
-            <label htmlFor="needed_datetime">Date & Time Needed *</label>
-            <input
-              id="needed_datetime"
-              type="datetime-local"
-              value={form.needed_datetime}
-              onChange={setField('needed_datetime')}
-              required
-            />
-            <small className="field-hint">Requests automatically expire once the specified deadline has passed.</small>
-            {errors.needed_datetime && <span className="field-error">{errors.needed_datetime.join(' ')}</span>}
-          </div>
+              <div className="field" role="group" aria-labelledby="request-location-heading">
+                <span id="request-location-heading" className="metric-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>Facility Location</span>
+                <small className="field-hint" style={{ display: 'block', marginBottom: 'var(--space-3)' }}>
+                  Select the municipality or city of the facility and optionally its barangay.
+                </small>
+                <LocationSelector
+                  municipalityId="request-municipality"
+                  municipalityCode={location.municipality_code}
+                  barangayCode={location.barangay_code}
+                  onChange={setLocation}
+                  errors={errors}
+                  required={false}
+                />
+              </div>
+            </div>
+          )}
 
-          <div className="field">
-            <label htmlFor="urgency">Urgency Level *</label>
-            <select id="urgency" value={form.urgency} onChange={setField('urgency')} required>
-              {URGENCIES.map((u) => (
-                <option key={u.id} value={u.id}>{u.label}</option>
-              ))}
-            </select>
-            {errors.urgency && <span className="field-error">{errors.urgency.join(' ')}</span>}
-          </div>
+          {step === 3 && (
+            <div className="form-step">
+              <h2 style={{ fontSize: 'var(--text-h4)', marginBottom: 'var(--space-4)' }}>Timing & Urgency</h2>
+              
+              <div className="field">
+                <label htmlFor="needed_datetime">Date & Time Needed *</label>
+                <input
+                  id="needed_datetime"
+                  type="datetime-local"
+                  value={form.needed_datetime}
+                  onChange={setField('needed_datetime')}
+                  required
+                />
+                <small className="field-hint">Requests automatically expire once the specified deadline has passed.</small>
+                {errors.needed_datetime && <span className="field-error">{errors.needed_datetime.join(' ')}</span>}
+              </div>
 
-          <div className="field" role="group" aria-labelledby="request-location-heading">
-            <span id="request-location-heading" className="metric-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>Facility Location</span>
-            <small className="field-hint" style={{ display: 'block', marginBottom: 'var(--space-3)' }}>
-              Select the municipality or city of the facility and optionally its barangay. This helps
-              BloodMatch prioritize compatible donors who are closer to where the blood is needed.
-              BloodMatch uses an approximate geographic reference for proximity ranking.
-            </small>
-            <LocationSelector
-              municipalityId="request-municipality"
-              municipalityCode={location.municipality_code}
-              barangayCode={location.barangay_code}
-              onChange={setLocation}
-              errors={errors}
-              required={false}
-            />
-            <small className="field-hint">Exact coordinates are never shown to members; only approximate distances are displayed.</small>
-          </div>
+              <div className="field">
+                <label htmlFor="urgency">Urgency Level *</label>
+                <select id="urgency" value={form.urgency} onChange={setField('urgency')} required>
+                  {URGENCIES.map((u) => (
+                    <option key={u.id} value={u.id}>{u.label}</option>
+                  ))}
+                </select>
+                {errors.urgency && <span className="field-error">{errors.urgency.join(' ')}</span>}
+              </div>
+            </div>
+          )}
 
-          <div className="button-group" style={{ marginTop: 'var(--space-3)' }}>
-            <button type="submit" className="btn" disabled={submitting}>
-              {submitting ? 'Saving…' : (editing ? 'Update Request' : 'Publish Request')}
-            </button>
-            <Link to="/requests/mine" className="btn btn-secondary">
-              Cancel
-            </Link>
+          <div className="button-group" style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border-hairline)' }}>
+            {step > 1 && (
+              <button type="button" className="btn btn-secondary" onClick={prevStep}>
+                Back
+              </button>
+            )}
+            
+            {step < 3 ? (
+              <button type="button" className="btn" onClick={nextStep}>
+                Next Step
+              </button>
+            ) : (
+              <button type="submit" className="btn" disabled={submitting}>
+                {submitting ? 'Saving…' : (editing ? 'Update Request' : 'Publish Request')}
+              </button>
+            )}
+
+            {step === 1 && (
+              <button type="button" className="btn btn-ghost" style={{ marginLeft: 'auto' }} onClick={onCancel}>
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       </div>

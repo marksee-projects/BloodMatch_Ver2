@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Bell, Check, X } from '@phosphor-icons/react'
+import { ArrowRight, Bell, Check, X, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { formatNotificationTime, notificationDeepLink } from '../services/notifications'
 
@@ -129,37 +129,24 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
       role="dialog"
       aria-label="Notifications"
     >
-      <div className="notif-flyout-header">
-        <div>
-          <h2 className="notif-flyout-title">Notifications</h2>
-          {data && (
-            <p className="muted" style={{ margin: 0, fontSize: '0.75rem' }}>
-              {unread > 0 ? `${unread} unread` : 'You are all caught up'}
-              {typeof data.total === 'number' && data.total > data.notifications.length
-                ? ` · showing latest ${data.notifications.length} of ${data.total}`
-                : ''}
-            </p>
-          )}
+      <div className="notif-flyout-header" style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: 'none' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 'var(--space-3)' }}>
+          <h2 className="notif-flyout-title" style={{ fontSize: 'var(--text-h3)', margin: 0, fontWeight: 700 }}>Notifications</h2>
+          <div className="notif-flyout-actions">
+            <button
+              ref={closeRef}
+              type="button"
+              className="notif-close"
+              onClick={() => setOpen(false)}
+              aria-label="Close notifications"
+            >
+              <X size={16} weight="regular" aria-hidden="true" />
+            </button>
+          </div>
         </div>
-        <div className="notif-flyout-actions">
-          <button
-            type="button"
-            className="btn btn-ghost btn-sm"
-            onClick={markAll}
-            disabled={loading || unread === 0}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-          >
-            <Check size={14} weight="regular" aria-hidden="true" /> Mark all read
-          </button>
-          <button
-            ref={closeRef}
-            type="button"
-            className="notif-close"
-            onClick={() => setOpen(false)}
-            aria-label="Close notifications"
-          >
-            <X size={16} weight="regular" aria-hidden="true" />
-          </button>
+        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
+          <button className="notif-filter-btn active">All</button>
+          <button className="notif-filter-btn">Unread</button>
         </div>
       </div>
 
@@ -180,39 +167,38 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
           </div>
         )}
         {data && data.notifications.length > 0 && (
-          <ul className="notif-items">
+          <div className="notif-items">
+            <div className="notif-section-header">Earlier</div>
             {data.notifications.map((n) => {
               const link = notificationDeepLink(n)
               const isUnread = !n.read_at
               return (
-                <li key={n.id}>
-                  <button
-                    type="button"
-                    className={`notif-item${isUnread ? ' unread' : ''}`}
-                    onClick={() => openItem(n)}
-                    aria-label={`${n.title}. ${isUnread ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
-                  >
-                    <span className="notif-item-dot" aria-hidden="true" />
-                    <span className="notif-item-body">
-                      <span className="notif-item-title">
-                        {n.title}
-                        {isUnread && <span className="badge badge-open notif-item-badge">Unread</span>}
-                      </span>
-                      <span className="notif-item-text">{n.body}</span>
-                      <span className="notif-item-meta">
-                        <span className="muted">{formatNotificationTime(n.created_at)}</span>
-                        {link && (
-                          <span className="notif-item-go">
-                            View details <ArrowRight size={12} weight="regular" aria-hidden="true" />
-                          </span>
-                        )}
-                      </span>
-                    </span>
-                  </button>
-                </li>
+                <button
+                  key={n.id}
+                  type="button"
+                  className={`notif-item-fb ${isUnread ? 'unread' : ''}`}
+                  onClick={() => openItem(n)}
+                  aria-label={`${n.title}. ${isUnread ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
+                >
+                  <div className="notif-item-avatar-wrapper">
+                    <img src="/Main%20Logo.jpg" alt="BloodMatch" className="notif-avatar" />
+                    <div className="notif-item-icon-badge">
+                      <Drop size={12} weight="fill" color="#fff" />
+                    </div>
+                  </div>
+                  <div className="notif-item-content">
+                    <div className="notif-item-text-fb">
+                      <strong>BloodMatch Update</strong> {n.title} - {n.body}
+                    </div>
+                    <div className="notif-item-time-fb">
+                      {formatNotificationTime(n.created_at)}
+                    </div>
+                  </div>
+                  {isUnread && <div className="notif-item-unread-dot" aria-hidden="true" />}
+                </button>
               )
             })}
-          </ul>
+          </div>
         )}
         {error && data && <div className="alert alert-error" role="alert" style={{ marginTop: 'var(--space-2)' }}>{error}</div>}
       </div>

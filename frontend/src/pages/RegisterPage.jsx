@@ -7,6 +7,8 @@ import {
   Calendar,
   Check,
   CheckCircle,
+  Eye,
+  EyeSlash,
   FilePdf,
   ShieldCheck,
   Trash,
@@ -18,6 +20,7 @@ import PrivacyNoticeModal, {
   REGISTRATION_PRIVACY_TITLE,
   RegistrationPrivacyBody
 } from '../components/PrivacyNoticeModal'
+import PrivacyConsentModal, { CONSENT_STORAGE_KEY } from '../components/PrivacyConsentModal'
 import styles from './RegisterPage.module.css'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -26,6 +29,10 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const dateInputRef = useRef(null)
 
+  const [showPrivacyModal, setShowPrivacyModal] = useState(() => {
+    return localStorage.getItem(CONSENT_STORAGE_KEY) !== 'granted'
+  })
+  const [showReadonlyPrivacyModal, setShowReadonlyPrivacyModal] = useState(false)
   const [step, setStep] = useState(1)
 
   const [form, setForm] = useState({
@@ -38,6 +45,9 @@ export default function RegisterPage() {
     phone: '',
     blood_type: ''
   })
+
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const [chapters, setChapters] = useState([])
   const [loadingChapters, setLoadingChapters] = useState(true)
@@ -298,10 +308,7 @@ export default function RegisterPage() {
   return (
     <div className="container narrow" style={{ maxWidth: '640px', paddingBlock: 'var(--space-6)' }}>
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
-        <h1 style={{ marginBottom: 'var(--space-2)' }}>Create your account</h1>
-        <p className="muted" style={{ fontSize: 'var(--text-sm)' }}>
-          Join the verified DeMolay Bataan blood donor network.
-        </p>
+        <h1 style={{ marginBottom: '0' }}>Create your account</h1>
       </div>
 
       {message && <div className="alert alert-error" role="alert">{message}</div>}
@@ -414,18 +421,29 @@ export default function RegisterPage() {
               <div className="grid-2">
                 <div className="field">
                   <label htmlFor="password">Password *</label>
-                  <input
-                    id="password"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Min 8 chars with letter & number"
-                    value={form.password}
-                    onChange={setField('password')}
-                    required
-                    minLength={8}
-                    aria-describedby="pwd-hint"
-                    aria-invalid={!!(stepErrors.password || serverErrors.password)}
-                  />
+                  <div className={styles.passwordWrapper}>
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                      value={form.password}
+                      onChange={setField('password')}
+                      required
+                      minLength={8}
+                      aria-describedby="pwd-hint"
+                      aria-invalid={!!(stepErrors.password || serverErrors.password)}
+                    />
+                    <button
+                      type="button"
+                      className={styles.passwordToggle}
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
                   <small id="pwd-hint" className="field-hint">Min 8 chars, letter &amp; number.</small>
                   {(stepErrors.password || serverErrors.password) && (
                     <span className="field-error">
@@ -436,18 +454,31 @@ export default function RegisterPage() {
 
                 <div className="field">
                   <label htmlFor="password_confirm">Confirm password *</label>
-                  <input
-                    id="password_confirm"
-                    type="password"
-                    autoComplete="new-password"
-                    placeholder="Re-enter password"
-                    value={form.password_confirm}
-                    onChange={setField('password_confirm')}
-                    required
-                    aria-invalid={!!stepErrors.password_confirm}
-                  />
-                  {stepErrors.password_confirm && (
-                    <span className="field-error">{stepErrors.password_confirm}</span>
+                  <div className={styles.passwordWrapper}>
+                    <input
+                      id="password_confirm"
+                      type={showConfirmPassword ? "text" : "password"}
+                      autoComplete="new-password"
+                      placeholder="Confirm password"
+                      value={form.password_confirm}
+                      onChange={setField('password_confirm')}
+                      required
+                      aria-invalid={!!(stepErrors.password_confirm || serverErrors.password_confirm)}
+                    />
+                    <button
+                      type="button"
+                      className={styles.passwordToggle}
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                      tabIndex={-1}
+                    >
+                      {showConfirmPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                  {(stepErrors.password_confirm || serverErrors.password_confirm) && (
+                    <span className="field-error">
+                      {stepErrors.password_confirm || serverErrors.password_confirm?.join(' ')}
+                    </span>
                   )}
                 </div>
               </div>
@@ -879,9 +910,39 @@ export default function RegisterPage() {
         Body={RegistrationPrivacyBody}
       />
 
-      <p className="muted text-center" style={{ marginTop: 'var(--space-6)' }}>
-        Already have an account? <Link to="/login" style={{ fontWeight: 600 }}>Sign in</Link>
-      </p>
+      <div className="text-center" style={{ marginTop: 'var(--space-6)' }}>
+        {!showPrivacyModal && (
+          <button 
+            type="button" 
+            onClick={() => setShowReadonlyPrivacyModal(true)} 
+            style={{ 
+              background: 'none', 
+              border: 'none', 
+              color: 'var(--color-text-muted)', 
+              textDecoration: 'underline', 
+              cursor: 'pointer',
+              fontSize: 'var(--text-sm)',
+              marginBottom: 'var(--space-3)'
+            }}
+          >
+            Review Privacy Consent
+          </button>
+        )}
+        <p className="muted">
+          Already have an account? <Link to="/" style={{ fontWeight: 600 }}>Sign in</Link>
+        </p>
+      </div>
+
+      <PrivacyConsentModal 
+        isOpen={showPrivacyModal} 
+        onConsentGranted={() => setShowPrivacyModal(false)} 
+      />
+
+      <PrivacyConsentModal 
+        isOpen={showReadonlyPrivacyModal} 
+        onClose={() => setShowReadonlyPrivacyModal(false)} 
+        readonly
+      />
     </div>
   )
 }

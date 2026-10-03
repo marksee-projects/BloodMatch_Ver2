@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function DashboardView() {
   const [data, setData] = useState(null)
@@ -29,7 +30,7 @@ export default function DashboardView() {
     return (
       <div className="container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading system admin dashboard…</p>
+          <LoadingSpinner text="Loading system admin dashboard…" />
         </div>
       </div>
     )

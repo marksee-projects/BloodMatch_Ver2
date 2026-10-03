@@ -5,7 +5,7 @@ import styles from './PrivacyConsentModal.module.css'
 
 export const CONSENT_STORAGE_KEY = 'bloodmatch_privacy_consent'
 
-export default function PrivacyConsentModal({ isOpen, onConsentGranted }) {
+export default function PrivacyConsentModal({ isOpen, onConsentGranted, onClose, readonly = false }) {
   const navigate = useNavigate()
   const modalRef = useRef(null)
   const agreeBtnRef = useRef(null)
@@ -132,29 +132,44 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted }) {
             Your data is used solely for the operational functionality of BloodMatch and is never shared with third-party advertisers.
           </p>
 
-          <p style={{ fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: 0 }}>
-            By clicking &quot;I Agree,&quot; you consent to these terms and unlock registration. If you click &quot;Decline,&quot; you will be safely redirected to the public homepage with zero data processing.
-          </p>
+          {!readonly && (
+            <p style={{ fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: 0 }}>
+              By clicking &quot;I Agree,&quot; you consent to these terms and unlock registration. If you click &quot;Decline,&quot; you will be safely redirected to the public homepage with zero data processing.
+            </p>
+          )}
         </div>
 
         <div className={styles.actions}>
-          <button
-            ref={agreeBtnRef}
-            type="button"
-            className="btn btn-lg"
-            onClick={handleAgree}
-            style={{ flex: 1 }}
-          >
-            I Agree
-          </button>
-          <button
-            type="button"
-            className="btn btn-lg btn-secondary"
-            onClick={handleDecline}
-            style={{ flex: 1 }}
-          >
-            Decline &amp; Return to Home
-          </button>
+          {readonly ? (
+            <button
+              type="button"
+              className="btn btn-lg"
+              onClick={onClose}
+              style={{ flex: 1 }}
+            >
+              Close
+            </button>
+          ) : (
+            <>
+              <button
+                ref={agreeBtnRef}
+                type="button"
+                className="btn btn-lg"
+                onClick={handleAgree}
+                style={{ flex: 1 }}
+              >
+                I Agree
+              </button>
+              <button
+                type="button"
+                className="btn btn-lg btn-secondary"
+                onClick={handleDecline}
+                style={{ flex: 1 }}
+              >
+                Decline &amp; Return to Home
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

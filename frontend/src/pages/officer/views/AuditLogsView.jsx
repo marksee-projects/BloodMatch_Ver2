@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
 import { useAuth } from '../../../context/AuthContext'
 import { api } from '../../../services/apiClient'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function AuditLogsView() {
   const { user } = useAuth()
@@ -181,7 +182,7 @@ export default function AuditLogsView() {
       {/* Audit Event Table */}
       {loading ? (
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading audit log records…</p>
+          <LoadingSpinner text="Loading audit log records…" />
         </div>
       ) : !data || data.logs?.length === 0 ? (
         <div className="empty-state">

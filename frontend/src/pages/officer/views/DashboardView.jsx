@@ -4,6 +4,7 @@ import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosp
 import { api } from '../../../services/apiClient'
 import { useAuth } from '../../../context/AuthContext'
 import DemandMapWidget from '../../../components/DemandMapWidget'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function DashboardView() {
   const { user } = useAuth()
@@ -32,7 +33,7 @@ export default function DashboardView() {
     return (
       <div className="container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading chapter officer dashboard…</p>
+          <LoadingSpinner text="Loading chapter officer dashboard…" />
         </div>
       </div>
     )

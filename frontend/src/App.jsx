@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { Moon, Sun, User } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, House, ClipboardText, ShieldCheck, SignOut, MagnifyingGlass, CircleNotch } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useTheme } from './context/ThemeContext'
@@ -29,96 +29,8 @@ import OfficerConfirmationsView from './pages/officer/views/ConfirmationsView'
 import OfficerAuditLogsView from './pages/officer/views/AuditLogsView'
 import DemandMapWidget from './components/DemandMapWidget'
 import { api } from './services/apiClient'
-
-function HomePage() {
-  const { user } = useAuth()
-  const { theme } = useTheme()
-  const heroSrc = theme === 'dark' ? '/Home-Page-Picture-Dark.png' : '/Home-Page-Picture-White.png'
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-8)' }}>
-      {/* Hero: editorial, halftone, reduced density */}
-      <section className="hero" aria-labelledby="hero-title">
-        <img
-          className="hero-bg"
-          src={heroSrc}
-          alt=""
-          aria-hidden="true"
-          loading="eager"
-          decoding="async"
-        />
-        <div className="hero-kicker">Bataan · DeMolay Community Network</div>
-        <h1 id="hero-title" className="hero-title">
-          Verified blood <span className="accent">matching</span>,<br />without the noise.
-        </h1>
-        <p className="hero-lede">
-          BloodMatch links patients who need blood with verified volunteer donors from
-          Mt. Samat, Mt. Tarak and Meridian Heights, ranked by compatibility first, proximity second.
-        </p>
-        <div className="hero-actions">
-          <Link to={user ? "/requests/new" : "/login"} className="btn btn-lg">Create Blood Request</Link>
-        </div>
-
-        <div style={{ marginTop: 'var(--space-6)', display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>
-          <span>3 chapters</span><span>·</span><span>8 blood types</span><span>·</span><span>Officer-verified</span>
-        </div>
-      </section>
-
-      {/* Embedded Real-time Regional Demand Map for immediate visibility */}
-      {user && (
-        <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-3)' }}>
-            <div>
-              <div className="section-label" style={{ marginBottom: '2px' }}>Live Regional Demand</div>
-              <h2 style={{ fontSize: 'var(--text-h2)', margin: 0 }}>Active Demand Overview</h2>
-            </div>
-            {(user.role === 'officer' || user.role === 'admin') && (
-              <Link to={user.role === 'admin' ? '/admin/demand-map' : '/demand-map'} className="btn btn-secondary btn-sm">
-                Open Full Demand Map
-              </Link>
-            )}
-          </div>
-          <DemandMapWidget compact={false} showFilters={true} />
-        </section>
-      )}
-
-      {/* Pillars: tighter, typographic */}
-      <div>
-        <div className="section-label">How matching works</div>
-        <section className="grid-3">
-          <div className="card card--halftone">
-            <div className="kicker" style={{ marginBottom: 'var(--space-2)' }}><span className="font-pixel">01</span>: Compatibility</div>
-            <h3 style={{ marginBottom: 'var(--space-2)' }}>Red-cell first</h3>
-            <p className="muted" style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6, margin: 0 }}>
-              Only ABO + Rh compatible donors are considered. Proximity refines the eligible pool, it never overrides compatibility.
-            </p>
-          </div>
-          <div className="card card--halftone">
-            <div className="kicker" style={{ marginBottom: 'var(--space-2)' }}><span className="font-pixel">02</span>: Verification</div>
-            <h3 style={{ marginBottom: 'var(--space-2)' }}>Officer review</h3>
-            <p className="muted" style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6, margin: 0 }}>
-              Donor cards and IDs are checked by chapter officers. Every confirmed donation is logged in a tamper-evident trail.
-            </p>
-          </div>
-          <div className="card card--halftone">
-            <div className="kicker" style={{ marginBottom: 'var(--space-2)' }}><span className="font-pixel">03</span>: Safety</div>
-            <h3 style={{ marginBottom: 'var(--space-2)' }}>Protected intervals</h3>
-            <p className="muted" style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6, margin: 0 }}>
-              Post-donation 42-hour standby and 90-day cooldown are enforced automatically; availability reflects them.
-            </p>
-          </div>
-        </section>
-      </div>
-
-      {/* Medical disclaimer: quieter */}
-      <section className="medical-disclaimer" role="note" aria-label="Medical Disclaimer">
-        <div aria-hidden="true" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--color-text-subtle)', paddingTop: '2px' }}>Note</div>
-        <div>
-          <strong>Clinical confirmation required.</strong> Suggestions are advisory and do not replace crossmatching, infectious screening or physician review at the facility.
-        </div>
-      </section>
-    </div>
-  )
-}
+import LandingPage from './pages/LandingPage'
+import HomeFeedPage from './pages/HomeFeedPage'
 
 function RequireAuth({ children, roles }) {
   const { user, loading } = useAuth()
@@ -138,29 +50,42 @@ function RequireAuth({ children, roles }) {
   return children
 }
 
-function NavbarAvatar({ src, alt }) {
+function NavbarAvatar({ src, alt, className }) {
   const [failed, setFailed] = useState(false)
 
   useEffect(() => { setFailed(false) }, [src])
 
   if (!src || failed) {
     return (
-      <span className="avatar avatar-fallback" role="img" aria-label="No profile picture">
+      <span className={`avatar avatar-fallback ${className || ''}`} role="img" aria-label="No profile picture">
         <User size={16} weight="regular" aria-hidden="true" />
       </span>
     )
   }
-  return <img className="avatar" src={src} alt={alt} onError={() => setFailed(true)} />
+  return <img className={`avatar ${className || ''}`} src={src} alt={alt} onError={() => setFailed(true)} />
 }
 
 export default function App() {
   const { theme, toggleTheme } = useTheme()
-  const { user, loading, logout } = useAuth()
+  const { user, loading, logout, refresh } = useAuth()
   const [unread, setUnread] = useState(0)
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const profileMenuRef = useRef(null)
+
+  useEffect(() => {
+    if (!profileMenuOpen) return undefined
+    const onPointerDown = (e) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target)) {
+        setProfileMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown)
+    return () => document.removeEventListener('mousedown', onPointerDown)
+  }, [profileMenuOpen])
 
   useEffect(() => {
     if (!user) {
@@ -189,7 +114,10 @@ export default function App() {
     location.pathname === '/demand-map' ||
     location.pathname === '/analytics'
 
-  useEffect(() => { setMobileOpen(false) }, [location.pathname])
+  useEffect(() => { 
+    setMobileOpen(false)
+    setProfileMenuOpen(false)
+  }, [location.pathname])
   useEffect(() => {
     if (!mobileOpen) return undefined
     const onKey = (e) => { if (e.key === 'Escape') setMobileOpen(false) }
@@ -198,10 +126,14 @@ export default function App() {
   }, [mobileOpen])
 
   const handleLogout = async () => {
+    setProfileMenuOpen(false)
+    if (!window.confirm("Are you sure you want to log out?")) return
+    setIsLoggingOut(true)
     try {
       await logout()
     } finally {
       clearCsrf()
+      setIsLoggingOut(false)
       setMobileOpen(false)
       navigate('/', { replace: true })
     }
@@ -212,64 +144,155 @@ export default function App() {
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <header className="topbar">
         <div className="topbar-inner">
-          <Link to="/" className="brand" aria-label="BloodMatch Home">
-            <img src="/Main%20Logo.jpg" alt="BloodMatch" className="brand-mark" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
-          </Link>
+          <div className="topbar-left">
+            <Link to="/" className="brand" aria-label="BloodMatch Home">
+              <img src="/Main%20Logo.jpg" alt="BloodMatch" className="brand-mark" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+            </Link>
+
+            {user && (
+              <div className="nav-search-container">
+                <MagnifyingGlass size={18} className="nav-search-icon" weight="bold" />
+                <input type="text" placeholder="Search BloodMatch" className="nav-search-input" aria-label="Search BloodMatch" />
+              </div>
+            )}
+          </div>
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
-            <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined}>Home</Link>
-            {user ? (
-              <>
-                <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined}>Profile</Link>
-              </>
-            ) : null}
+            <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined} title="Home">
+              <House size={24} weight={isActive('/') ? 'fill' : 'regular'} />
+            </Link>
+            {user && (
+              <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} title="Profile">
+                <User size={24} weight={isActive('/profile') ? 'fill' : 'regular'} />
+              </Link>
+            )}
           </nav>
 
           <div className="topbar-right">
             <div className="nav-actions nav-actions--desktop">
               {user ? (
                 <>
+                  <Link
+                    to="/requests/mine"
+                    className="nav-icon-btn nav-icon-btn--accent"
+                    title="My Requests"
+                    aria-label="Manage blood requests"
+                  >
+                    <Plus size={24} weight="bold" />
+                  </Link>
                   <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
-                  <div style={{ position: 'relative' }}>
+                  <div style={{ position: 'relative' }} ref={profileMenuRef}>
                     <button 
                       type="button"
                       onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                       aria-expanded={profileMenuOpen}
-                      style={{ display: 'flex', alignItems: 'center', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                      className="nav-avatar-trigger"
+                      title="Account menu"
                     >
-                      <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
+                      <div style={{ position: 'relative' }}>
+                        <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
+                        <div style={{
+                          position: 'absolute',
+                          bottom: -4,
+                          right: -4,
+                          backgroundColor: 'var(--color-surface)',
+                          borderRadius: '50%',
+                          padding: '2px',
+                          display: 'flex',
+                          boxShadow: 'var(--shadow-sm)',
+                          border: '1px solid var(--color-border)'
+                        }}>
+                          <CaretDown size={10} weight="bold" style={{ color: 'var(--color-text)' }} />
+                        </div>
+                      </div>
                     </button>
                     {profileMenuOpen && (
-                      <div style={{ position: 'absolute', top: '100%', right: '0', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-md)', display: 'flex', flexDirection: 'column', minWidth: '150px', zIndex: 100, marginTop: 'var(--space-2)', padding: 'var(--space-2) 0' }}>
-                        <Link to="/requests/mine" className="dropdown-item" onClick={() => setProfileMenuOpen(false)}>My Requests</Link>
-                        {user.role === 'officer' && <Link to="/officer/dashboard" className="dropdown-item" onClick={() => setProfileMenuOpen(false)}>Officer Portal</Link>}
-                        {user.role === 'admin' && <Link to="/admin/dashboard" className="dropdown-item" onClick={() => setProfileMenuOpen(false)}>Admin Portal</Link>}
-                        <hr style={{ margin: 'var(--space-2) 0', borderTop: '1px solid var(--color-border)', borderBottom: 'none' }} />
-                        <button type="button" className="dropdown-item" onClick={() => { toggleTheme(); setProfileMenuOpen(false); }} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-                          {theme === 'light' ? 'Dark Mode' : 'Light Mode'}
+                      <div className="nav-dropdown">
+                        <div className="dropdown-profile-header">
+                          <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} className="dropdown-avatar-large" />
+                          <div className="dropdown-profile-info">
+                            <strong>{user.full_name}</strong>
+                            <Link to="/profile" className="btn btn-sm" style={{ padding: '4px 12px', fontSize: 'var(--text-xs)', marginTop: '4px' }} onClick={() => setProfileMenuOpen(false)}>See your profile</Link>
+                          </div>
+                        </div>
+                        
+                        <hr className="dropdown-divider" />
+                        
+                        <Link to="/requests/mine" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
+                          <div className="dropdown-icon-wrapper"><ClipboardText size={20} weight="fill" /></div>
+                          <span className="dropdown-item-text">My Requests</span>
+                          <CaretRight size={16} className="dropdown-caret" />
+                        </Link>
+                        
+                        {user.role === 'officer' && (
+                          <Link to="/officer/dashboard" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
+                            <div className="dropdown-icon-wrapper"><ShieldCheck size={20} weight="fill" /></div>
+                            <span className="dropdown-item-text">Officer Portal</span>
+                            <CaretRight size={16} className="dropdown-caret" />
+                          </Link>
+                        )}
+                        
+                        {user.role === 'admin' && (
+                          <Link to="/admin/dashboard" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
+                            <div className="dropdown-icon-wrapper"><ShieldCheck size={20} weight="fill" /></div>
+                            <span className="dropdown-item-text">Admin Portal</span>
+                            <CaretRight size={16} className="dropdown-caret" />
+                          </Link>
+                        )}
+                        
+                        {user.role === 'member' && (
+                          <button type="button" className="dropdown-menu-item" onClick={() => {
+                            const next = user.availability === 'available' ? 'unavailable' : 'available'
+                            api.post('/api/profile/donor-availability', { availability: next }).then(() => refresh()).catch(() => {})
+                            setProfileMenuOpen(false)
+                          }}>
+                            <div className="dropdown-icon-wrapper">
+                              <Circle size={20} weight="fill" style={{ color: user.availability === 'available' ? 'var(--color-success-green)' : 'var(--color-text-subtle)' }} />
+                            </div>
+                            <span className="dropdown-item-text">{user.availability === 'available' ? 'Available to donate' : 'Unavailable to donate'}</span>
+                            <CaretRight size={16} className="dropdown-caret" />
+                          </button>
+                        )}
+                        
+                        <button type="button" className="dropdown-menu-item" onClick={() => { toggleTheme(); setProfileMenuOpen(false); }}>
+                          <div className="dropdown-icon-wrapper">
+                            {theme === 'light' ? <Moon size={20} weight="fill" /> : <Sun size={20} weight="fill" />}
+                          </div>
+                          <span className="dropdown-item-text">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
+                          <CaretRight size={16} className="dropdown-caret" />
                         </button>
-                        <button type="button" className="dropdown-item" onClick={handleLogout} style={{ textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text)' }}>Log out</button>
+                        
+                        <button type="button" className="dropdown-menu-item" onClick={handleLogout}>
+                          <div className="dropdown-icon-wrapper"><SignOut size={20} weight="fill" /></div>
+                          <span className="dropdown-item-text">Log out</span>
+                          <CaretRight size={16} className="dropdown-caret" />
+                        </button>
                       </div>
                     )}
                   </div>
                 </>
-              ) : (
-                <>
-                  <Link to="/login" className={`nav-link ${isActive('/login') ? 'active' : ''}`} aria-current={isActive('/login') ? 'page' : undefined}>Log in</Link>
-                  <Link to="/register" className={`btn btn-sm ${isActive('/register') ? 'active' : ''}`}>Register</Link>
-                </>
-              )}
+              ) : null}
             </div>
 
             <div className="topbar-utilities">
               {user && (
-                <span className="notif-mobile">
-                  <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
-                </span>
+                <>
+                  <Link
+                    to="/requests/mine"
+                    className="nav-icon-btn nav-icon-btn--accent nav-icon-btn--mobile"
+                    title="My Requests"
+                    aria-label="Manage blood requests"
+                  >
+                    <Plus size={24} weight="bold" />
+                  </Link>
+                  <span className="notif-mobile" title="Notifications">
+                    <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
+                  </span>
+                </>
               )}
               <span
                 className="hamburger"
+                title="Menu"
                 onKeyDown={(e) => {
                   if (e.key === ' ' || e.key === 'Spacebar') {
                     e.preventDefault()
@@ -336,14 +359,15 @@ export default function App() {
         )}
       </header>
 
-      <main id="main-content" className={isPortalActive ? 'main--portal' : 'container'}>
-        {loading ? (
-          <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-            <p className="muted">Loading session…</p>
+      <main id="main-content" className={isPortalActive ? 'main--portal' : (location.pathname === '/' && !user) ? 'main--landing' : 'container'}>
+        {loading || isLoggingOut ? (
+          <div className="card text-center" style={{ padding: 'var(--space-12) var(--space-8)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)', minHeight: '40vh', border: 'none', background: 'transparent' }}>
+            <CircleNotch className="spinning" size={48} color="var(--color-brand-navy)" />
+            <p className="muted" style={{ margin: 0, fontWeight: 500 }}>{isLoggingOut ? 'Logging out…' : 'Loading session…'}</p>
           </div>
         ) : (
           <Routes>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={user ? <HomeFeedPage /> : <LandingPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -411,8 +435,6 @@ export default function App() {
 
             {/* Standard Member Routes */}
             <Route path="/requests/mine" element={<RequireAuth><RequestsPage /></RequireAuth>} />
-            <Route path="/requests/new" element={<RequireAuth><RequestFormPage /></RequireAuth>} />
-            <Route path="/requests/:id/edit" element={<RequireAuth><RequestFormPage /></RequireAuth>} />
             <Route path="/requests/:id/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
             <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
 
@@ -426,8 +448,6 @@ export default function App() {
           </Routes>
         )}
       </main>
-
-      <Footer />
     </div>
   )
 }

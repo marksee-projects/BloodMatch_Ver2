@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function ConfirmationsView() {
   const [queue, setQueue] = useState(null)
@@ -39,7 +40,7 @@ export default function ConfirmationsView() {
     return (
       <div className="container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading donation confirmation queue…</p>
+          <LoadingSpinner text="Loading donation confirmation queue…" />
         </div>
       </div>
     )

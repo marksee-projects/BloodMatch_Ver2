@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function VerificationView() {
   const [queue, setQueue] = useState(null)
@@ -62,7 +63,7 @@ export default function VerificationView() {
     return (
       <div className="container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading verification queue…</p>
+          <LoadingSpinner text="Loading verification queue…" />
         </div>
       </div>
     )

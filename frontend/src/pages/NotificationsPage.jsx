@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, Check } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, Check, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { formatNotificationTime, notificationDeepLink as deepLink } from '../services/notifications'
+import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 export default function NotificationsPage() {
   const [data, setData] = useState(null)
@@ -57,7 +58,7 @@ export default function NotificationsPage() {
     return (
       <div className="container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading notifications…</p>
+          <LoadingSpinner text="Loading notifications…" />
         </div>
       </div>
     )
@@ -127,43 +128,33 @@ export default function NotificationsPage() {
           {data.notifications.map((n) => {
             const link = deepLink(n)
             return (
-              <article
+              <button
                 key={n.id}
-                className="card"
-                style={{
-                  borderLeft: n.read_at ? '1px solid var(--color-border)' : '4px solid var(--color-accent)',
-                  backgroundColor: n.read_at ? 'var(--color-surface)' : 'var(--color-surface-sunken)'
+                type="button"
+                className={`notif-item-fb ${!n.read_at ? 'unread' : ''}`}
+                onClick={async () => {
+                  if (!n.read_at) await markRead(n.id)
+                  if (link) window.location.href = link
                 }}
+                style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', marginBottom: '8px' }}
+                aria-label={`${n.title}. ${!n.read_at ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 'var(--space-3)', marginBottom: 'var(--space-2)' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 var(--space-1)', fontSize: '1rem' }}>{n.title}</h3>
-                    <p style={{ margin: 0, fontSize: '0.875rem' }}>{n.body}</p>
+                <div className="notif-item-avatar-wrapper">
+                  <img src="/Main%20Logo.jpg" alt="BloodMatch" className="notif-avatar" />
+                  <div className="notif-item-icon-badge">
+                    <Drop size={12} weight="fill" color="#fff" />
                   </div>
-                  {!n.read_at && (
-                    <span className="badge badge-open">Unread</span>
-                  )}
                 </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)', fontSize: '0.75rem', marginTop: 'var(--space-2)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-2)' }}>
-                  <span className="muted">
+                <div className="notif-item-content">
+                  <div className="notif-item-text-fb">
+                    <strong>BloodMatch Update</strong> {n.title} - {n.body}
+                  </div>
+                  <div className="notif-item-time-fb">
                     {formatNotificationTime(n.created_at)}
-                  </span>
-
-                  <div className="button-group">
-                    {link && (
-                      <Link to={link} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                        View Details <ArrowRight size={14} weight="regular" aria-hidden="true" />
-                      </Link>
-                    )}
-                    {!n.read_at && (
-                      <button type="button" className="btn btn-secondary btn-sm" onClick={() => markRead(n.id)}>
-                        Mark Read
-                      </button>
-                    )}
                   </div>
                 </div>
-              </article>
+                {!n.read_at && <div className="notif-item-unread-dot" aria-hidden="true" />}
+              </button>
             )
           })}
         </div>

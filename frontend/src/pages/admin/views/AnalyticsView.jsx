@@ -6,6 +6,7 @@ import DailyTrendChart from '../../../components/charts/DailyTrendChart'
 import BloodGroupDemandChart from '../../../components/charts/BloodGroupDemandChart'
 import DonorPoolBreakdownChart from '../../../components/charts/DonorPoolBreakdownChart'
 import styles from './AnalyticsView.module.css'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function AnalyticsView() {
   const { user } = useAuth()
@@ -184,7 +185,7 @@ export default function AnalyticsView() {
       {error && <div className="alert alert-error" role="alert">{error}</div>}
       {loading && (
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading analytics summary…</p>
+          <LoadingSpinner text="Loading analytics summary…" />
         </div>
       )}
 

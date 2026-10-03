@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, Info } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 export default function MatchesPage() {
   const { id } = useParams()
@@ -72,7 +73,7 @@ export default function MatchesPage() {
     return (
       <div className="container">
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <p className="muted">Loading matched donors…</p>
+          <LoadingSpinner text="Loading matched donors…" />
         </div>
       </div>
     )
