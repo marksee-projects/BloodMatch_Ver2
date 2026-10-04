@@ -11,7 +11,7 @@ final class BloodRequestRepository
 {
     private const SAFE_COLUMNS =
         'br.id, br.requester_id, br.request_chapter_id, br.required_blood_type, br.quantity_units,
-         br.facility_name, br.location_id, br.latitude, br.longitude, br.urgency, br.needed_datetime,
+         br.facility_name, br.hospital_id, br.location_id, br.latitude, br.longitude, br.urgency, br.needed_datetime,
          br.status, br.review_status, br.created_at, br.updated_at, br.expired_at,
          loc.psgc_code AS loc_psgc, loc.name AS loc_name, loc.level AS loc_level,
          loc.municipality_code AS loc_municipality_code, loc.municipality_name AS loc_municipality_name';
@@ -23,8 +23,8 @@ final class BloodRequestRepository
         $stmt = Database::pdo()->prepare(
             'INSERT INTO blood_requests
                 (requester_id, request_chapter_id, required_blood_type, quantity_units,
-                 facility_name, location_id, latitude, longitude, urgency, needed_datetime, status, review_status)
-              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 facility_name, hospital_id, location_id, latitude, longitude, urgency, needed_datetime, status, review_status)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $r['requester_id'],
@@ -32,6 +32,7 @@ final class BloodRequestRepository
             $r['required_blood_type'],
             $r['quantity_units'],
             $r['facility_name'],
+            $r['hospital_id'] ?? null,
             $r['location_id'],
             $r['latitude'],
             $r['longitude'],
@@ -67,6 +68,7 @@ final class BloodRequestRepository
             'required_blood_type' => 'required_blood_type',
             'quantity_units' => 'quantity_units',
             'facility_name' => 'facility_name',
+            'hospital_id' => 'hospital_id',
             'location_id' => 'location_id',
             'latitude' => 'latitude',
             'longitude' => 'longitude',

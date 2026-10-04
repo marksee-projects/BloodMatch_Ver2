@@ -55,16 +55,11 @@ export default function RequestsPage() {
 
   return (
     <div className="container">
-      <header className="app-header">
+      {!isCreating && !editingId && (<header className="app-header" style={{ justifyContent: 'center' }}>
         <div>
-          <h1>My Blood Requests</h1>
+          <h1 style={{ textAlign: 'center' }}>My Blood Requests</h1>
         </div>
-        {!isCreating && !editingId && (
-          <button type="button" className="btn" onClick={() => setIsCreating(true)}>
-            + Create New Request
-          </button>
-        )}
-      </header>
+      </header>)}
 
       {(isCreating || editingId) && (
         <div style={{ marginBottom: 'var(--space-6)' }}>
@@ -104,9 +99,9 @@ export default function RequestsPage() {
               : `No blood requests currently in "${filter}" status.`}
           </p>
           {filter === 'ALL' && (
-            <Link to="/requests/new" className="btn">
+            <button type="button" onClick={() => setIsCreating(true)} className="btn">
               Create Blood Request
-            </Link>
+            </button>
           )}
         </div>
       ) : (
@@ -178,3 +173,5 @@ export default function RequestsPage() {
     </div>
   )
 }
+
+

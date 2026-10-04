@@ -96,6 +96,13 @@ final class RequestService
             $fields['longitude'] = null;
         }
 
+        if ($has('hospital_id')) {
+            $hIdRaw = $body['hospital_id'] ?? null;
+            $fields['hospital_id'] = $hIdRaw !== null && $hIdRaw !== '' ? (int) $hIdRaw : null;
+        } elseif (!$partial) {
+            $fields['hospital_id'] = null;
+        }
+
         if ($v->fails()) {
             throw new \BloodMatch\Services\Exceptions\ValidationException($v->errors());
         }
@@ -193,6 +200,7 @@ final class RequestService
             'required_blood_type' => (string) $row['required_blood_type'],
             'quantity_units' => (int) $row['quantity_units'],
             'facility_name' => (string) $row['facility_name'],
+            'hospital_id' => isset($row['hospital_id']) && $row['hospital_id'] !== null ? (int) $row['hospital_id'] : null,
             'location' => self::presentLocation($row),
             'latitude' => $row['latitude'] !== null ? (float) $row['latitude'] : null,
             'longitude' => $row['longitude'] !== null ? (float) $row['longitude'] : null,

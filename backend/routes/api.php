@@ -11,6 +11,7 @@ use BloodMatch\Controllers\Auth\CsrfController;
 use BloodMatch\Controllers\CompatibilityController;
 use BloodMatch\Controllers\DocumentController;
 use BloodMatch\Controllers\DonationReportController;
+use BloodMatch\Controllers\HospitalController;
 use BloodMatch\Controllers\LocationController;
 use BloodMatch\Controllers\ProfileController;
 use BloodMatch\Controllers\RequestsController;
@@ -37,6 +38,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/chapters', [new ChaptersController(), 'index']);
     $router->add('GET', '/api/locations/municipalities', [new LocationController(), 'municipalities']);
     $router->add('GET', '/api/locations/barangays', [new LocationController(), 'barangays']);
+    $router->add('GET', '/api/hospitals', [new HospitalController(), 'index']);
 
     $router->add('POST', '/api/register', [new RegisterController(), 'register']);
     $router->add('POST', '/api/login', [new LoginController(), 'login']);

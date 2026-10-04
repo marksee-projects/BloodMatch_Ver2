@@ -99,4 +99,18 @@
 .check-row:focus-within {
   outline: 2px solid var(--color-text);
   outline-offset: 2px;
-}
+}
+
+
+/* Fix for disappearing date/time picker icons */
+.field input[type="date"]::-webkit-calendar-picker-indicator,
+.field input[type="time"]::-webkit-calendar-picker-indicator {
+  display: block !important;
+  opacity: 0.6 !important;
+  cursor: pointer;
+  filter: brightness(0);
+}
+.field input[type="date"]:hover::-webkit-calendar-picker-indicator,
+.field input[type="time"]:hover::-webkit-calendar-picker-indicator {
+  opacity: 0.9 !important;
+}

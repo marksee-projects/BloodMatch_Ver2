@@ -46,6 +46,7 @@ final class RequestsController
             'required_blood_type' => $fields['required_blood_type'],
             'quantity_units' => $fields['quantity_units'],
             'facility_name' => $fields['facility_name'],
+            'hospital_id' => $fields['hospital_id'] ?? null,
             'location_id' => $fields['location_id'],
             'latitude' => $fields['latitude'],
             'longitude' => $fields['longitude'],

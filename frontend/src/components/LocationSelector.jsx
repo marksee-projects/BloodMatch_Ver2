@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api } from '../services/apiClient'
+import SearchableCombobox from './ui/SearchableCombobox'
 
 /**
  * Cascading Bataan location selector (municipality/city -> optional barangay).
@@ -45,9 +46,9 @@ export default function LocationSelector({
     }
   }, [municipalityCode])
 
-  const handleMunicipality = (e) => {
-    const code = e.target.value
-    const muni = municipalities.find((m) => m.psgc_code === code)
+  const handleMunicipality = (val) => {
+    const muni = municipalities.find((m) => m.name.toLowerCase() === val.toLowerCase().trim())
+    const code = muni ? muni.psgc_code : ''
     // Reset barangay: the previous selection may not belong here.
     onChange({
       location_id: muni ? muni.location_id : null,
@@ -56,9 +57,9 @@ export default function LocationSelector({
     })
   }
 
-  const handleBarangay = (e) => {
-    const code = e.target.value
-    const brgy = barangays.find((b) => b.psgc_code === code)
+  const handleBarangay = (val) => {
+    const brgy = barangays.find((b) => b.name.toLowerCase() === val.toLowerCase().trim())
+    const code = brgy ? brgy.psgc_code : ''
     onChange({
       location_id: brgy ? brgy.location_id : (municipalities.find((m) => m.psgc_code === municipalityCode)?.location_id ?? null),
       municipality_code: municipalityCode,
@@ -70,36 +71,29 @@ export default function LocationSelector({
     <>
       <div className="field">
         <label htmlFor={municipalityId}>{municipalityLabel}{required ? ' *' : ''}</label>
-        <select
+        <SearchableCombobox
           id={municipalityId}
-          value={municipalityCode || ''}
+          value={municipalities.find(m => m.psgc_code === municipalityCode)?.name || ''}
           onChange={handleMunicipality}
+          options={municipalities.map(m => ({ label: m.name, value: m.name }))}
+          placeholder="Select Municipality / City..."
           required={required}
-        >
-          <option value="">Select Municipality / City…</option>
-          {municipalities.map((m) => (
-            <option key={m.psgc_code} value={m.psgc_code}>{m.name}</option>
-          ))}
-        </select>
+        />
         {loadError && <span className="field-error">{loadError}</span>}
         {errors.municipality_code && <span className="field-error">{errors.municipality_code.join(' ')}</span>}
         {errors.location_id && <span className="field-error">{errors.location_id.join(' ')}</span>}
       </div>
 
       <div className="field">
-        <label htmlFor={`${municipalityId}-barangay`}>Barangay</label>
-        <select
+        <label htmlFor={`${municipalityId}-barangay`}>Barangay{required ? ' *' : ''}</label>
+        <SearchableCombobox
           id={`${municipalityId}-barangay`}
-          value={barangayCode || ''}
+          value={barangays.find(b => b.psgc_code === barangayCode)?.name || ''}
           onChange={handleBarangay}
-          disabled={!municipalityCode || barangays.length === 0}
-        >
-          <option value="">Select Barangay… (optional)</option>
-          {barangays.map((b) => (
-            <option key={b.psgc_code} value={b.psgc_code}>{b.name}</option>
-          ))}
-        </select>
-        <small className="field-hint">Barangay is optional and helps identify your location within the selected municipality.</small>
+          options={barangays.map(b => ({ label: b.name, value: b.name }))}
+          placeholder="Select Barangay..."
+          required={required}
+        />
         {errors.barangay_code && <span className="field-error">{errors.barangay_code.join(' ')}</span>}
       </div>
     </>
