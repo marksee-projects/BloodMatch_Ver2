@@ -39,13 +39,13 @@ function Invoke-Json($session, $method, $uri, $body, $csrf) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function New-FixtureUser($email, $name, $role, $chapterId, $vs) {
     $hash = & $PhpPath -r "echo password_hash('Str0ngPass1', PASSWORD_BCRYPT);"
     $chapSql = 'NULL'; if ($null -ne $chapterId) { $chapSql = "$chapterId" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status) VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active');"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status) VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active');"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -184,9 +184,9 @@ if ($r.status -eq 200) { Ok 'T22 admin plumbing still functional (sanity)' } els
 $pastOpen = "INSERT INTO blood_requests (requester_id, request_chapter_id, required_blood_type, quantity_units, facility_name, urgency, needed_datetime, status) VALUES ($verId, 1, 'B+', 1, 'Old Clinic', 'routine', DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY), 'OPEN');"
 DbQuery $pastOpen
 DbQuery "INSERT INTO blood_requests (requester_id, request_chapter_id, required_blood_type, quantity_units, facility_name, urgency, needed_datetime, status, expired_at) VALUES ($verId, 1, 'B-', 1, 'Cancelled Past', 'routine', DATE_SUB(UTC_TIMESTAMP(), INTERVAL 1 DAY), 'CANCELLED', NOW());"
-$out = & $PhpPath database\run_expiry.php
+$out = & $PhpPath -d variables_order=EGPCS database\run_expiry.php
 $expiredCount = DbQuery "SELECT COUNT(*) FROM blood_requests WHERE status='EXPIRED' AND requester_id=$verId;"
-$out2 = & $PhpPath database\run_expiry.php
+$out2 = & $PhpPath -d variables_order=EGPCS database\run_expiry.php
 if (($out -join '') -match 'expired (\d+) request' -and [int]$Matches[1] -ge 1 -and ($out2 -join '') -match 'expired 0 request') { Ok 'T23 expiry flips due OPEN rows; idempotent rerun' } else { Bad 'T23' "run1=$out run2=$out2" }
 $cancelPast = DbQuery "SELECT COUNT(*) FROM blood_requests WHERE facility_name='Cancelled Past' AND status='CANCELLED' AND expired_at IS NOT NULL;"
 if ([int]$cancelPast -ge 1) { Ok 'T24 cancelled requests untouched by expiry' } else { Bad 'T24' "count=$cancelPast" }

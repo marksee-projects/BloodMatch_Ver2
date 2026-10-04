@@ -1,0 +1,119 @@
+.profileCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.headerArea {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--color-border-hairline);
+}
+
+@media (max-width: 600px) {
+  .headerArea {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--space-4);
+  }
+}
+
+.avatarWrapper {
+  flex-shrink: 0;
+}
+
+.avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 4px solid var(--color-surface-raised);
+}
+
+.avatarPlaceholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background-color: var(--color-surface-sunken);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4px solid var(--color-surface-raised);
+}
+
+.infoArea {
+  flex: 1;
+}
+
+.name {
+  font-size: var(--text-h2);
+  font-weight: 700;
+  margin: 0 0 var(--space-2) 0;
+  display: flex;
+  align-items: center;
+}
+
+@media (max-width: 600px) {
+  .name {
+    justify-content: center;
+  }
+}
+
+.metaInfo {
+  display: flex;
+  gap: var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+@media (max-width: 600px) {
+  .metaInfo {
+    justify-content: center;
+  }
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.statsArea {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--space-4);
+}
+
+.statBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+@media (max-width: 600px) {
+  .statBox {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+.statLabel {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.statValue {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text);
+}

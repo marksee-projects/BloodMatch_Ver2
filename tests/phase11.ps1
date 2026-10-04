@@ -3,6 +3,8 @@ param(
     [string]$MysqlPath = 'D:\xampp\mysql\bin\mysql.exe',
     [string]$PhpPath = 'D:\xampp\php\php.exe'
 )
+$TEST_DB = if ($env:TEST_DB_NAME) { $env:TEST_DB_NAME } else { 'bloodmatch_dev' }
+$TEST_PORT = if ($env:TEST_DB_PORT) { $env:TEST_DB_PORT } else { '3307' }
 
 $ErrorActionPreference = 'Stop'
 $script:pass = 0
@@ -41,7 +43,7 @@ function Invoke-Json($session, $method, $uri, $body, $csrf) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat, $lng, $enrolled, $avail) {
@@ -53,8 +55,8 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
+             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -78,7 +80,7 @@ Write-Host "== Phase 11 Audit Logging Coverage Completion Tests =="
 Write-Host "`n--- A: Schema and Tamper Resistance ---"
 
 # T01: audit_log table exists with required columns
-$cols = DbQuery "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='bloodmatch_dev' AND TABLE_NAME='audit_log' ORDER BY ORDINAL_POSITION;"
+$cols = DbQuery "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='$TEST_DB' AND TABLE_NAME='audit_log' ORDER BY ORDINAL_POSITION;"
 $expected = @('id','actor_id','action','target_type','target_id','context','created_at')
 $allPresent = $true
 foreach ($c in $expected) {
@@ -87,7 +89,7 @@ foreach ($c in $expected) {
 if ($allPresent) { Ok 'T01 audit_log table columns' } else { Bad 'T01 audit_log table columns' "missing columns" }
 
 # T02: Triggers exist
-$trigs = DbQuery "SELECT TRIGGER_NAME FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA='bloodmatch_dev' AND EVENT_OBJECT_TABLE='audit_log';"
+$trigs = DbQuery "SELECT TRIGGER_NAME FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA='$TEST_DB' AND EVENT_OBJECT_TABLE='audit_log';"
 if ($trigs -contains 'audit_log_block_update' -and $trigs -contains 'audit_log_block_delete') {
     Ok 'T02 append-only triggers exist'
 } else {
@@ -96,7 +98,7 @@ if ($trigs -contains 'audit_log_block_update' -and $trigs -contains 'audit_log_b
 
 # T03: UPDATE rejected by trigger
 $sampleId = DbQuery "SELECT id FROM audit_log ORDER BY id DESC LIMIT 1;"
-$updatePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=3307;dbname=bloodmatch_dev', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('UPDATE audit_log SET action=\'tampered\' WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
+$updatePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=$TEST_PORT;dbname=$TEST_DB', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('UPDATE audit_log SET action=\'tampered\' WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
 $updateRes = & $PhpPath -r $updatePhp
 if ($updateRes -match '45000' -or $updateRes -match 'append-only: UPDATE denied') {
     Ok 'T03 UPDATE audit_log blocked by trigger'
@@ -105,7 +107,7 @@ if ($updateRes -match '45000' -or $updateRes -match 'append-only: UPDATE denied'
 }
 
 # T04: DELETE rejected by trigger
-$deletePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=3307;dbname=bloodmatch_dev', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('DELETE FROM audit_log WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
+$deletePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=$TEST_PORT;dbname=$TEST_DB', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('DELETE FROM audit_log WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
 $deleteRes = & $PhpPath -r $deletePhp
 if ($deleteRes -match '45000' -or $deleteRes -match 'append-only: DELETE denied') {
     Ok 'T04 DELETE audit_log blocked by trigger'

@@ -1,4 +1,11 @@
-param()
+param(
+    [string]$BaseUrl = 'http://127.0.0.1:8000',
+    [string]$MysqlPath = 'C:\xampp\mysql\bin\mysql.exe',
+    [string]$PhpPath = 'C:\xampp\php\php.exe'
+)
+
+if ($env:TEST_DB_NAME) { $env:DB_NAME = $env:TEST_DB_NAME }
+if ($env:TEST_DB_PORT) { $env:DB_PORT = $env:TEST_DB_PORT }
 
 $suites = @(
     'phase3.ps1',
@@ -23,7 +30,7 @@ foreach ($s in $suites) {
     Write-Host " RUNNING SUITE: $s"
     Write-Host "======================================================="
     $path = Join-Path $PSScriptRoot $s
-    & powershell -ExecutionPolicy Bypass -File $path
+    & powershell -ExecutionPolicy Bypass -File $path -BaseUrl $BaseUrl -MysqlPath $MysqlPath -PhpPath $PhpPath
     if ($LASTEXITCODE -eq 0) {
         $passed++
     } else {

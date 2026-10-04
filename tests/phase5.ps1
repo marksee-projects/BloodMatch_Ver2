@@ -69,14 +69,14 @@ function Upload($session, $uri, $fieldName, $fileName, $bytes, $mime, $csrf, $fi
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function New-FixtureUser($email, $name, $role, $chapterId, $dob, $vs) {
     $hash = & $PhpPath -r "echo password_hash('Str0ngPass1', PASSWORD_BCRYPT);"
     $chapSql = 'NULL'; if ($null -ne $chapterId) { $chapSql = "$chapterId" }
     $dobSql = 'NULL'; if ($null -ne $dob) { $dobSql = "'$dob'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, date_of_birth) VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $dobSql);"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, date_of_birth) VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $dobSql);"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -114,7 +114,7 @@ $r = Invoke-Json $mP.s 'Get' '/api/profile' $null $mP.csrf
 $pjson = $r.raw
 if ($r.status -eq 200 -and $r.body.data.profile.capabilities -ne $null -and $pjson -notmatch 'password_hash') { Ok 'A1 GET profile safe+complete' } else { Bad 'A1' "status=$($r.status)" }
 
-$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ full_name = 'Pending Peter Updated'; phone = '+63 917 000 1111' } $mP.csrf
+$r = Invoke-Json $mP.s 'Put' '/api/profile' @{ first_name = 'Pending Peter Updated'; last_name = 'User'; phone = '+63 917 000 1111' } $mP.csrf
 $dbName = DbQuery "SELECT full_name FROM users WHERE id=$memPId;"
 if ($r.status -eq 200 -and $dbName -match 'Updated') { Ok 'A2 PUT permitted fields persisted' } else { Bad 'A2' "status=$($r.status) db=$dbName" }
 

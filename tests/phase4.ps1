@@ -39,15 +39,15 @@ function Invoke-Json($session, $method, $uri, $body, $csrf) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function New-FixtureUser($email, $name, $role, $chapterId, $password) {
     $hash = & $PhpPath -r "echo password_hash('$password', PASSWORD_BCRYPT);"
     $chapSql = 'NULL'
     if ($null -ne $chapterId) { $chapSql = "$chapterId" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$(if ($role -eq 'officer') {'verified'} else {'pending'})', 'active');"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status)
+             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$(if ($role -eq 'officer') {'verified'} else {'pending'})', 'active');"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 

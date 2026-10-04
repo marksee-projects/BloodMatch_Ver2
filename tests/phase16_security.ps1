@@ -3,6 +3,8 @@ param(
     [string]$MysqlPath = 'D:\xampp\mysql\bin\mysql.exe',
     [string]$PhpPath = 'D:\xampp\php\php.exe'
 )
+$TEST_DB = if ($env:TEST_DB_NAME) { $env:TEST_DB_NAME } else { 'bloodmatch_dev' }
+$TEST_PORT = if ($env:TEST_DB_PORT) { $env:TEST_DB_PORT } else { '3307' }
 
 $ErrorActionPreference = 'Stop'
 $script:pass = 0
@@ -45,7 +47,7 @@ function Invoke-Json($session, $method, $uri, $body, $csrf) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat, $lng, $enrolled, $avail) {
@@ -57,8 +59,8 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
+             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -237,7 +239,7 @@ if ($rUpdate.status -eq 403) {
 Write-Host "`n--- E: Database Indexes & Integrity (PERF-01) ---"
 
 # T12: Check composite index on blood_requests
-$idxBreq = DbQuery "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='bloodmatch_dev' AND TABLE_NAME='blood_requests' AND INDEX_NAME='idx_breq_chapter_status_created' LIMIT 1;"
+$idxBreq = DbQuery "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='$TEST_DB' AND TABLE_NAME='blood_requests' AND INDEX_NAME='idx_breq_chapter_status_created' LIMIT 1;"
 if ($idxBreq -eq 'idx_breq_chapter_status_created') {
     Ok 'T12 composite index idx_breq_chapter_status_created exists on blood_requests'
 } else {
@@ -245,7 +247,7 @@ if ($idxBreq -eq 'idx_breq_chapter_status_created') {
 }
 
 # T13: Check composite index on audit_log
-$idxAudit = DbQuery "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='bloodmatch_dev' AND TABLE_NAME='audit_log' AND INDEX_NAME='idx_audit_target_created' LIMIT 1;"
+$idxAudit = DbQuery "SELECT INDEX_NAME FROM information_schema.STATISTICS WHERE TABLE_SCHEMA='$TEST_DB' AND TABLE_NAME='audit_log' AND INDEX_NAME='idx_audit_target_created' LIMIT 1;"
 if ($idxAudit -eq 'idx_audit_target_created') {
     Ok 'T13 composite index idx_audit_target_created exists on audit_log'
 } else {
@@ -254,7 +256,7 @@ if ($idxAudit -eq 'idx_audit_target_created') {
 
 # T14: Append-only trigger protects audit_log against UPDATE
 $sampleId = DbQuery "SELECT id FROM audit_log ORDER BY id DESC LIMIT 1;"
-$updatePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=3307;dbname=bloodmatch_dev', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('UPDATE audit_log SET action=\'hacked\' WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
+$updatePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=$TEST_PORT;dbname=$TEST_DB', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('UPDATE audit_log SET action=\'hacked\' WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
 $outUpdate = & $PhpPath -r $updatePhp
 if ($outUpdate -match '45000' -or $outUpdate -match 'append-only: UPDATE denied') {
     Ok 'T14 audit_log UPDATE blocked by database trigger (SQLSTATE 45000)'
@@ -263,7 +265,7 @@ if ($outUpdate -match '45000' -or $outUpdate -match 'append-only: UPDATE denied'
 }
 
 # T15: Append-only trigger protects audit_log against DELETE
-$deletePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=3307;dbname=bloodmatch_dev', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('DELETE FROM audit_log WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
+$deletePhp = "try { `$pdo = new PDO('mysql:host=127.0.0.1;port=$TEST_PORT;dbname=$TEST_DB', 'root', ''); `$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); `$pdo->exec('DELETE FROM audit_log WHERE id=$sampleId'); echo 'ALLOWED'; } catch (PDOException `$e) { echo 'BLOCKED: ' . `$e->getMessage(); }"
 $outDelete = & $PhpPath -r $deletePhp
 if ($outDelete -match '45000' -or $outDelete -match 'append-only: DELETE denied') {
     Ok 'T15 audit_log DELETE blocked by database trigger (SQLSTATE 45000)'

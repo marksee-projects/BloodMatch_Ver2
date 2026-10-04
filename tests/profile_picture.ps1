@@ -64,7 +64,7 @@ function GetReq($session, $uri) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 Write-Host "== Profile picture verification =="
@@ -86,7 +86,7 @@ $s = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $csrf = Get-Csrf $s
 $email = "ppic$(Get-Random)@test.local"
 $r = PostJson $s '/api/register' @{
-    full_name = 'Pic Tester'; email = $email; password = 'Str0ngPass1';
+    first_name = 'Pic Tester'; last_name = 'User'; email = $email; password = 'Str0ngPass1';
     chapter_id = 1; date_of_birth = '2000-05-10'; blood_type = 'O+'; privacy_acknowledged = $true
 } $csrf
 $uid = $r.body.data.user.id
@@ -138,7 +138,7 @@ $sB = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $csrfB = Get-Csrf $sB
 $emailB = "ppicb$(Get-Random)@test.local"
 PostJson $sB '/api/register' @{
-    full_name = 'Pic Other'; email = $emailB; password = 'Str0ngPass1';
+    first_name = 'Pic Other'; last_name = 'User'; email = $emailB; password = 'Str0ngPass1';
     chapter_id = 1; date_of_birth = '1999-01-01'; privacy_acknowledged = $true
 } $csrfB | Out-Null
 PostJson $sB '/api/login' @{ email = $emailB; password = 'Str0ngPass1' } $csrfB | Out-Null

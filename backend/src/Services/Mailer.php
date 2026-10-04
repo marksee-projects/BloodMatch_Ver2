@@ -29,8 +29,12 @@ final class Mailer
 
         $mail = new PHPMailer(true);
         try {
+            $host = (string) \BloodMatch\Config\Env::get('MAIL_HOST');
+            if ($host === '' || $host === 'mock') {
+                return true;
+            }
             $mail->isSMTP();
-            $mail->Host = (string) \BloodMatch\Config\Env::get('MAIL_HOST');
+            $mail->Host = $host;
             $mail->Port = (int) (\BloodMatch\Config\Env::get('MAIL_PORT', '25'));
             $user = \BloodMatch\Config\Env::get('MAIL_USER', '');
             $pass = \BloodMatch\Config\Env::get('MAIL_PASS', '');

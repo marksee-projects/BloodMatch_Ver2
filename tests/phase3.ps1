@@ -56,21 +56,21 @@ function GetReq($session, $uri) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 Write-Host "== Phase 3 verification audit =="
 
 # --- T01 CSRF missing on POST ---
 $s1 = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$r = Post $s1 '/api/register' @{ full_name = 'X'; email = 'x@t.local'; password = 'abc12345' } $null
+$r = Post $s1 '/api/register' @{ first_name = 'X'; last_name = 'User'; email = 'x@t.local'; password = 'abc12345' } $null
 if ($r.status -eq 403) { Ok 'T01 register without CSRF rejected (403)' } else { Bad 'T01' "got $($r.status)" }
 
 # --- T02 registration happy path ---
 $csrf1 = Get-Csrf $s1
 $email1 = "p3user$(Get-Random)@test.local"
 $r = Post $s1 '/api/register' @{
-    full_name = 'Phase Three Tester'; email = $email1; password = 'Str0ngPass1';
+    first_name = 'Phase Three Tester'; last_name = 'User'; email = $email1; password = 'Str0ngPass1';
     chapter_id = 1; date_of_birth = '2000-05-10'; blood_type = 'O+'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 201 -and $r.body.data.user.verification_status -eq 'pending' -and $r.body.data.user.account_status -eq 'active') {
@@ -80,37 +80,37 @@ $uid1 = $r.body.data.user.id
 
 # --- T03 duplicate email ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'Dup'; email = $email1; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
+    first_name = 'Dup'; last_name = 'User'; email = $email1; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 409) { Ok 'T03 duplicate email 409' } else { Bad 'T03' "got $($r.status)" }
 
 # --- T04 weak password ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'Weak'; email = "weak$(Get-Random)@test.local"; password = 'short'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
+    first_name = 'Weak'; last_name = 'User'; email = "weak$(Get-Random)@test.local"; password = 'short'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 400 -and $r.body.error.details.password) { Ok 'T04 weak password 400 + field error' } else { Bad 'T04' "got $($r.status)" }
 
 # --- T05 invalid chapter ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'BadChap'; email = "bc$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 999; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
+    first_name = 'BadChap'; last_name = 'User'; email = "bc$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 999; date_of_birth = '2000-05-10'; privacy_acknowledged = $true
 } $csrf1
 if ($r.status -eq 400 -and $r.body.error.details.chapter_id) { Ok 'T05 invalid chapter 400' } else { Bad 'T05' "got $($r.status)" }
 
 # --- T05b privacy acknowledgment missing ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'NoPriv'; email = "np$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'
+    first_name = 'NoPriv'; last_name = 'User'; email = "np$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'
 } $csrf1
 if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'T05b missing privacy_acknowledged 400 + field error' } else { Bad 'T05b' "got $($r.status)" }
 
 # --- T05c privacy acknowledgment false ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'NoPriv'; email = "npf$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $false
+    first_name = 'NoPriv'; last_name = 'User'; email = "npf$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = $false
 } $csrf1
 if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'T05c false privacy_acknowledged 400 + field error' } else { Bad 'T05c' "got $($r.status)" }
 
 # --- T05d privacy acknowledgment invalid value ---
 $r = Post $s1 '/api/register' @{
-    full_name = 'NoPriv'; email = "npi$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = 'maybe'
+    first_name = 'NoPriv'; last_name = 'User'; email = "npi$(Get-Random)@test.local"; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '2000-05-10'; privacy_acknowledged = 'maybe'
 } $csrf1
 if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'T05d invalid privacy_acknowledged 400 + field error' } else { Bad 'T05d' "got $($r.status)" }
 
@@ -184,7 +184,7 @@ if ($r.status -eq 400) { Ok 'T18 expired token 400' } else { Bad 'T18' "got $($r
 
 # --- T19 lockout after 5 failures ---
 $lockEmail = "lock$(Get-Random)@test.local"
-Post $s1 '/api/register' @{ full_name = 'Lock Me'; email = $lockEmail; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '1999-01-01'; privacy_acknowledged = $true } $csrf1 | Out-Null
+Post $s1 '/api/register' @{ first_name = 'Lock Me'; last_name = 'User'; email = $lockEmail; password = 'Str0ngPass1'; chapter_id = 1; date_of_birth = '1999-01-01'; privacy_acknowledged = $true } $csrf1 | Out-Null
 $s4 = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $csrf4 = Get-Csrf $s4
 for ($i = 0; $i -lt 5; $i++) { Post $s4 '/api/login' @{ email = $lockEmail; password = 'Nope1234' } $csrf4 | Out-Null }

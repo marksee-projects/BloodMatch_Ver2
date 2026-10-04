@@ -46,7 +46,7 @@ function Invoke-Json($session, $method, $uri, $body, $csrf) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function Login($email) {
@@ -59,7 +59,7 @@ function Login($email) {
 
 function New-FixtureUser($email, $name, $chapterId, $vs, $bloodType) {
     $hash = & $PhpPath -r "echo password_hash('Str0ngPass1', PASSWORD_BCRYPT);"
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, date_of_birth) VALUES ('$email', '$hash', '$name', 'member', $chapterId, '$vs', 'active', '$bloodType', 'self_reported', '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, date_of_birth) VALUES ('$email', '$hash', '$name', 'Doe', 'member', $chapterId, '$vs', 'active', '$bloodType', 'self_reported', '1995-06-15');"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -99,13 +99,13 @@ $legId = New-FixtureUser $legEmail 'Legacy Coords' 1 'verified' 'O+'
 DbQuery "UPDATE users SET latitude=14.681, longitude=120.541, donor_enrolled_at=UTC_TIMESTAMP(), donor_availability='available' WHERE id=$legId;"
 
 # --- L05 profile: municipality-only resolves coords ---
-$r = Invoke-Json $mem.s 'Put' '/api/profile' @{ full_name = 'Loc Member'; location_id = $oraniLocId } $mem.csrf
+$r = Invoke-Json $mem.s 'Put' '/api/profile' @{ first_name = 'Loc Member'; last_name = 'User'; location_id = $oraniLocId } $mem.csrf
 if ($r.status -eq 200 -and $r.body.data.profile.location.municipality_name -eq 'Orani' -and $r.body.data.profile.latitude -eq 14.8) {
     Ok 'L05 profile municipality resolves to Orani reference coords'
 } else { Bad 'L05' "got $($r.status): $($r.raw)" }
 
 # --- L06 profile: barangay resolves ---
-$r = Invoke-Json $mem.s 'Put' '/api/profile' @{ full_name = 'Loc Member'; location_id = $tugatogLocId } $mem.csrf
+$r = Invoke-Json $mem.s 'Put' '/api/profile' @{ first_name = 'Loc Member'; last_name = 'User'; location_id = $tugatogLocId } $mem.csrf
 if ($r.status -eq 200 -and $r.body.data.profile.location.barangay_name -eq 'Tugatog') {
     Ok 'L06 profile barangay (Orani -> Tugatog) saved with names'
 } else { Bad 'L06' "got $($r.status): $($r.raw)" }
@@ -185,13 +185,13 @@ $marivelesLocId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code
 $aEmail = "loca$suffix@test.local"
 $aId = New-FixtureUser $aEmail 'Donor Alpha' 1 'verified' 'O+'
 $a = Login $aEmail
-Invoke-Json $a.s 'Put' '/api/profile' @{ full_name = 'Donor Alpha'; location_id = $samalLocId } $a.csrf | Out-Null
+Invoke-Json $a.s 'Put' '/api/profile' @{ first_name = 'Donor Alpha'; last_name = 'User'; location_id = $samalLocId } $a.csrf | Out-Null
 Invoke-Json $a.s 'Post' '/api/profile/enroll-donor' @{} $a.csrf | Out-Null
 $bEmail = "locb$suffix@test.local"
 $bId = New-FixtureUser $bEmail 'Donor Beta' 1 'verified' 'O+' | Out-Null
 $bId = DbQuery "SELECT id FROM users WHERE email='$bEmail';"
 $b = Login $bEmail
-Invoke-Json $b.s 'Put' '/api/profile' @{ full_name = 'Donor Beta'; location_id = $abucayLocId } $b.csrf | Out-Null
+Invoke-Json $b.s 'Put' '/api/profile' @{ first_name = 'Donor Beta'; last_name = 'User'; location_id = $abucayLocId } $b.csrf | Out-Null
 Invoke-Json $b.s 'Post' '/api/profile/enroll-donor' @{} $b.csrf | Out-Null
 $r = Invoke-Json $mem.s 'Post' '/api/requests' @{
     required_blood_type='O+'; facility_name='Orani Reorder Clinic'; needed_datetime=$future; location_id=$oraniLocId
@@ -203,7 +203,7 @@ $aFirst = [array]::IndexOf($order1, "donor-$aId") -lt [array]::IndexOf($order1, 
 $genBefore = DbQuery "SELECT generation FROM matches WHERE request_id=$reReqId AND donor_id=$aId;"
 $notifBefore = DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$aId AND related_id=$reReqId;"
 if ($aFirst) { Ok 'L17 nearer donor (Samal) ranks before farther donor (Abucay)' } else { Bad 'L17' "order=$($order1 -join ',')" }
-$r = Invoke-Json $a.s 'Put' '/api/profile' @{ full_name = 'Donor Alpha'; location_id = $marivelesLocId } $a.csrf
+$r = Invoke-Json $a.s 'Put' '/api/profile' @{ first_name = 'Donor Alpha'; last_name = 'User'; location_id = $marivelesLocId } $a.csrf
 $hasRefresh = ($r.body.data.matches_refreshed -contains $reReqId)
 $r = Invoke-Json $mem.s 'Get' "/api/requests/$reReqId/matches" $null $mem.csrf
 $order2 = @($r.body.data.matches | ForEach-Object { $_.donor_reference })

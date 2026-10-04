@@ -3,6 +3,8 @@ param(
     [string]$MysqlPath = 'D:\xampp\mysql\bin\mysql.exe',
     [string]$PhpPath = 'D:\xampp\php\php.exe'
 )
+$TEST_DB = if ($env:TEST_DB_NAME) { $env:TEST_DB_NAME } else { 'bloodmatch_dev' }
+$TEST_PORT = if ($env:TEST_DB_PORT) { $env:TEST_DB_PORT } else { '3307' }
 
 $ErrorActionPreference = 'Stop'
 $script:pass = 0
@@ -39,7 +41,7 @@ function Invoke-Json($session, $method, $uri, $body, $csrf) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat, $lng, $enrolled, $avail) {
@@ -51,8 +53,8 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
+             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -76,7 +78,7 @@ Write-Host "== Phase 10 Notifications and Email Tests =="
 Write-Host "`n--- A: Structural ---"
 
 # T01: notifications table exists
-$cols = DbQuery "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='bloodmatch_dev' AND TABLE_NAME='notifications' ORDER BY ORDINAL_POSITION;"
+$cols = DbQuery "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='$TEST_DB' AND TABLE_NAME='notifications' ORDER BY ORDINAL_POSITION;"
 $expected = @('id','user_id','type','title','body','related_type','related_id','dedup_key','generation','emailed_at','read_at','created_at')
 $allPresent = $true
 foreach ($c in $expected) {
@@ -85,11 +87,11 @@ foreach ($c in $expected) {
 if ($allPresent) { Ok 'T01 notifications table columns' } else { Bad 'T01 notifications table columns' "missing columns: expected $($expected -join ','), got $($cols -join ',')" }
 
 # T02: UNIQUE(dedup_key, generation) index exists
-$idx = DbQuery "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='bloodmatch_dev' AND TABLE_NAME='notifications' AND INDEX_NAME='uq_notifications_dedup';"
+$idx = DbQuery "SELECT INDEX_NAME FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='$TEST_DB' AND TABLE_NAME='notifications' AND INDEX_NAME='uq_notifications_dedup';"
 if ($idx) { Ok 'T02 dedup unique index exists' } else { Bad 'T02 dedup unique index exists' 'index uq_notifications_dedup not found' }
 
 # T03: FK to users exists
-$fk = DbQuery "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='bloodmatch_dev' AND TABLE_NAME='notifications' AND COLUMN_NAME='user_id' AND REFERENCED_TABLE_NAME='users';"
+$fk = DbQuery "SELECT CONSTRAINT_NAME FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA='$TEST_DB' AND TABLE_NAME='notifications' AND COLUMN_NAME='user_id' AND REFERENCED_TABLE_NAME='users';"
 if ($fk) { Ok 'T03 FK notifications.user_id -> users.id' } else { Bad 'T03 FK notifications.user_id -> users.id' 'missing FK' }
 
 # -------------------------------------------
@@ -376,7 +378,7 @@ $expReqId = DbQuery "SELECT id FROM blood_requests WHERE facility_name='Expired 
 
 # Run expiry CLI
 $projectRoot = (Get-Item $PSScriptRoot).Parent.FullName
-& $PhpPath "$projectRoot/database/run_expiry.php" 2>$null
+& $PhpPath -d variables_order=EGPCS "$projectRoot/database/run_expiry.php" 2>$null
 
 # T36: Expiry notification created
 $expNotif = DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$memId AND type='request.expired' AND related_id=$expReqId;"

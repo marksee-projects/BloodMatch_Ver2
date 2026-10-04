@@ -39,7 +39,7 @@ function Invoke-Json($session, $method, $uri, $body, $csrf) {
 }
 
 function DbQuery($sql) {
-    (& $MysqlPath -h 127.0.0.1 -P 3307 -u root -N -B bloodmatch_dev -e $sql) | Where-Object { $_ -ne '' }
+    $port = $env:TEST_DB_PORT; if (!$port) { $port = '3307' }; $db = $env:TEST_DB_NAME; if (!$db) { $db = 'bloodmatch_dev' }; (& $MysqlPath -h 127.0.0.1 -P $port -u root -N -B $db -e $sql) | Where-Object { $_ -ne '' }
 }
 
 function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat, $lng, $enrolled, $avail) {
@@ -51,8 +51,8 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, full_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
+             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -176,7 +176,7 @@ $reqRbId = $r.body.data.request.id
 $r = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRbId/matches" $null $reqSess.csrf
 $mRb = $r.body.data.matches | Where-Object { $_.donor_reference -eq "donor-$d1" } | Select-Object -First 1
 Invoke-Json $d1Sess.s 'Post' "/api/matches/$($mRb.match_id)/respond" @{} $d1Sess.csrf | Out-Null
-& $PhpPath (Join-Path $PSScriptRoot 'helpers\create_fail_trigger.php') | Out-Null
+& $PhpPath -d variables_order=EGPCS (Join-Path $PSScriptRoot 'helpers\create_fail_trigger.php') | Out-Null
 $r = Invoke-Json $d1Sess.s 'Post' '/api/donation-reports' @{ match_id = $mRb.match_id; note = 'FORCE_FAIL attempt' } $d1Sess.csrf
 $repFail = $r.body.data.report.id
 if ($repFail) {
