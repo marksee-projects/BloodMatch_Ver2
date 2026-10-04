@@ -8,7 +8,7 @@ frontend/dist/
 vendor/
 
 # AI Workspace & Metadata
-.agents/
+# .agents/ (unignored by request)
 skills-lock.json
 
 # Logs & Local Storage
