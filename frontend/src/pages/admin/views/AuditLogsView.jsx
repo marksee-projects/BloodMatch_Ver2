@@ -65,18 +65,7 @@ export default function AuditLogsView() {
   }
 
   return (
-    <div className="container wide">
-      <header className="app-header">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-1)' }}>
-            <h1 style={{ margin: 0 }}>System-Wide Audit Log Browser</h1>
-            <span className="badge badge-open">Global System Scope</span>
-          </div>
-        </div>
-        <Link to="/admin/dashboard" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-          <ArrowLeft size={14} weight="regular" aria-hidden="true" /> Admin Dashboard
-        </Link>
-      </header>
+    <div className="container wide" style={{ padding: 'var(--space-6) 0' }}>
 
       {error && <div className="alert alert-error" role="alert">{error}</div>}
 

@@ -23,8 +23,8 @@
 .stepperLineBg {
   position: absolute;
   top: 18px;
-  left: 36px;
-  right: 36px;
+  left: 16.666%;
+  right: 16.666%;
   height: 2px;
   background: var(--color-border);
   z-index: 0;
@@ -33,7 +33,7 @@
 .stepperLineFill {
   position: absolute;
   top: 18px;
-  left: 36px;
+  left: 16.666%;
   height: 2px;
   background: var(--color-brand-navy);
   transition: width var(--transition-normal);
@@ -41,6 +41,7 @@
 }
 
 .stepItem {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -63,6 +64,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  line-height: 1;
+  padding-top: 1px;
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 600;
@@ -129,7 +132,8 @@
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
-  color: var(--color-text-subtle);
+  color: #000 !important;
+  z-index: 10;
   cursor: pointer;
   transition: color var(--transition-fast), background var(--transition-fast);
 }
@@ -265,4 +269,11 @@
   .summaryGrid {
     grid-template-columns: 1fr;
   }
+}
+
+/* Date Picker Reset */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 12px;
+  cursor: pointer;
 }

@@ -72,15 +72,7 @@ export default function AnalyticsView() {
   }))
 
   return (
-    <div className="container">
-      <header className="app-header">
-        <div>
-          <h1>Analytics &amp; Operational Reporting</h1>
-          <p className="muted" style={{ fontSize: 'var(--text-sm)' }}>
-            Periodic reporting and activity tracking across donor pools, requests, and verification queues.
-          </p>
-        </div>
-      </header>
+    <div className="container" style={{ padding: 'var(--space-6) 0' }}>
 
       {/* 1-Click Periodic Preset Tabs */}
       <div className={styles.presetsBar}>

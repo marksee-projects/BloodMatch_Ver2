@@ -52,7 +52,9 @@ final class AuthService
     {
         $v = new Validator();
         $email = strtolower((string) (Request::str('email', $input) ?? ''));
-        $fullName = Request::str('full_name', $input);
+        $firstName = Request::str('first_name', $input);
+        $middleName = Request::str('middle_name', $input);
+        $lastName = Request::str('last_name', $input);
         $password = isset($input['password']) && is_string($input['password']) ? $input['password'] : null;
         $phone = Request::str('phone', $input);
         $chapterId = Request::int('chapter_id', $input);
@@ -63,14 +65,16 @@ final class AuthService
 
         $allowedBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-        $v->required('full_name', $fullName, 'Full name')
-            ->length('full_name', $fullName, 2, 150, 'Full name')
+        $v->required('first_name', $firstName, 'First name')
+            ->length('first_name', $firstName, 2, 50, 'First name')
+            ->length('middle_name', $middleName, 0, 50, 'Middle name')
+            ->required('last_name', $lastName, 'Last name')
+            ->length('last_name', $lastName, 2, 50, 'Last name')
             ->required('email', $email, 'Email')
             ->email('email', $email)
             ->required('password', $password, 'Password')
             ->required('chapter_id', $chapterId, 'Chapter')
-            ->required('date_of_birth', $dob, 'Date of birth')
-            ->in('blood_type', $bloodType, $allowedBloodTypes, 'Blood type');
+            ->required('date_of_birth', $dob, 'Date of birth');
 
         if ($password !== null && strlen($password) < 8) {
             $v->addError('password', 'Password must be at least 8 characters.');
@@ -118,7 +122,9 @@ final class AuthService
         $userId = $this->users->create([
             'email' => $email,
             'password_hash' => password_hash((string) $password, PASSWORD_BCRYPT),
-            'full_name' => (string) $fullName,
+            'first_name' => (string) $firstName,
+            'middle_name' => $middleName,
+            'last_name' => (string) $lastName,
             'phone' => $phone,
             'role' => 'member',
             'chapter_id' => $chapterId,

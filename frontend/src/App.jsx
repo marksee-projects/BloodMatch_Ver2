@@ -5,7 +5,6 @@ import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useTheme } from './context/ThemeContext'
 import { clearCsrf } from './services/apiClient'
-import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
@@ -42,7 +41,7 @@ function RequireAuth({ children, roles }) {
     )
   }
   if (!user) {
-    return <Navigate to="/login" replace />
+    return <Navigate to="/" replace />
   }
   if (roles && !roles.includes(user.role)) {
     return <Navigate to="/" replace />
@@ -350,7 +349,7 @@ export default function App() {
               ) : (
                 <>
                   <div className="mobile-section-label">Access</div>
-                  <Link to="/login" className={`mobile-link ${isActive('/login') ? 'active' : ''}`} aria-current={isActive('/login') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Log in</Link>
+
                   <Link to="/register" className={`mobile-link ${isActive('/register') ? 'active' : ''}`} aria-current={isActive('/register') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Register</Link>
                 </>
               )}
@@ -368,7 +367,7 @@ export default function App() {
         ) : (
           <Routes>
             <Route path="/" element={user ? <HomeFeedPage /> : <LandingPage />} />
-            <Route path="/login" element={<LoginPage />} />
+
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />

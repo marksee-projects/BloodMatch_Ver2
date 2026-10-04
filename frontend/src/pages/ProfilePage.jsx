@@ -4,11 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ShieldCheck, User, Camera, CheckCircle, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
-import PrivacyNoticeModal, {
-  ID_PRIVACY_CHECKBOX_LABEL,
-  ID_PRIVACY_TITLE,
-  IdPrivacyBody
-} from '../components/PrivacyNoticeModal'
+import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import LocationSelector from '../components/LocationSelector'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -584,20 +580,10 @@ export default function ProfilePage() {
       </Card>
       </div>
       )}
-      <PrivacyNoticeModal
-        open={idPrivacyModalOpen}
-        title={ID_PRIVACY_TITLE}
-        checkboxLabel={ID_PRIVACY_CHECKBOX_LABEL}
-        checkboxId="id-privacy-ack-modal"
-        acknowledged={idPrivacyAck}
-        onAcknowledgeChange={(v) => {
-          setIdPrivacyAck(v)
-          if (v) setIdPrivacyError(null)
-        }}
-        onClose={() => setIdPrivacyModalOpen(false)}
-        onConfirm={() => setIdPrivacyModalOpen(false)}
-        confirmLabel="Continue"
-        Body={IdPrivacyBody}
+      <PrivacyConsentModal 
+        isOpen={idPrivacyModalOpen} 
+        onClose={() => setIdPrivacyModalOpen(false)} 
+        readonly
       />
       </div>
     </div>

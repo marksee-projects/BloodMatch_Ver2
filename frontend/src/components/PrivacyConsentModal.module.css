@@ -16,7 +16,7 @@
   background: var(--color-surface);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-lg);
-  max-width: var(--modal-max-width, 600px);
+  max-width: var(--modal-max-width, 500px);
   width: 100%;
   padding: var(--space-6);
   box-shadow: var(--shadow-lg);
@@ -55,6 +55,22 @@
   flex-direction: column;
   gap: var(--space-2);
   margin: var(--space-3) 0;
+}
+
+.scrollArea {
+  max-height: 250px;
+  overflow-y: auto;
+  padding: var(--space-4);
+  margin-top: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken, #f9f9f9);
+}
+
+@media (prefers-color-scheme: dark) {
+  .scrollArea {
+    background: var(--color-surface-sunken, #111);
+  }
 }
 
 .item {

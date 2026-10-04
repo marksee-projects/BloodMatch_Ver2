@@ -52,10 +52,20 @@ final class ProfileController
         $v = new Validator();
         $fields = [];
 
-        if (array_key_exists('full_name', $body)) {
-            $name = Request::str('full_name', $body);
-            $v->required('full_name', $name, 'Full name')->length('full_name', $name, 2, 150, 'Full name');
-            $fields['full_name'] = $name;
+        if (array_key_exists('first_name', $body)) {
+            $firstName = Request::str('first_name', $body);
+            $v->required('first_name', $firstName, 'First name')->length('first_name', $firstName, 2, 50, 'First name');
+            $fields['first_name'] = $firstName;
+        }
+        if (array_key_exists('middle_name', $body)) {
+            $middleName = Request::str('middle_name', $body);
+            $v->length('middle_name', $middleName, 0, 50, 'Middle name');
+            $fields['middle_name'] = $middleName;
+        }
+        if (array_key_exists('last_name', $body)) {
+            $lastName = Request::str('last_name', $body);
+            $v->required('last_name', $lastName, 'Last name')->length('last_name', $lastName, 2, 50, 'Last name');
+            $fields['last_name'] = $lastName;
         }
 
         if (array_key_exists('phone', $body)) {

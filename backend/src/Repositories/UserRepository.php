@@ -50,17 +50,19 @@ final class UserRepository
     {
         $stmt = Database::pdo()->prepare(
             'INSERT INTO users
-                (email, password_hash, full_name, phone, role, chapter_id, verification_status,
+                (email, password_hash, first_name, middle_name, last_name, phone, role, chapter_id, verification_status,
                  account_status, date_of_birth, blood_type, blood_type_source, blood_type_verified,
                  latitude, longitude)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         try {
             $stmt->execute([
                 $user['email'],
                 $user['password_hash'],
-                $user['full_name'],
+                $user['first_name'],
+                $user['middle_name'],
+                $user['last_name'],
                 $user['phone'],
                 $user['role'],
                 $user['chapter_id'],
@@ -164,7 +166,9 @@ final class UserRepository
     public function updateProfile(int $userId, array $fields): void
     {
         static $map = [
-            'full_name' => 'full_name',
+            'first_name' => 'first_name',
+            'middle_name' => 'middle_name',
+            'last_name' => 'last_name',
             'phone' => 'phone',
             'date_of_birth' => 'date_of_birth',
             'blood_type' => 'blood_type',

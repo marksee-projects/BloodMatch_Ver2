@@ -16,11 +16,7 @@ import {
   WarningCircle
 } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
-import PrivacyNoticeModal, {
-  REGISTRATION_PRIVACY_TITLE,
-  RegistrationPrivacyBody
-} from '../components/PrivacyNoticeModal'
-import PrivacyConsentModal, { CONSENT_STORAGE_KEY } from '../components/PrivacyConsentModal'
+import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import styles from './RegisterPage.module.css'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -29,14 +25,13 @@ export default function RegisterPage() {
   const navigate = useNavigate()
   const dateInputRef = useRef(null)
 
-  const [showPrivacyModal, setShowPrivacyModal] = useState(() => {
-    return localStorage.getItem(CONSENT_STORAGE_KEY) !== 'granted'
-  })
   const [showReadonlyPrivacyModal, setShowReadonlyPrivacyModal] = useState(false)
   const [step, setStep] = useState(1)
 
   const [form, setForm] = useState({
-    full_name: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
     email: '',
     password: '',
     password_confirm: '',
@@ -62,8 +57,12 @@ export default function RegisterPage() {
   const [serverErrors, setServerErrors] = useState({})
   const [message, setMessage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [privacyAck, setPrivacyAck] = useState(false)
-  const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
+  const [privacyAck, setPrivacyAck] = useState(() => {
+    return localStorage.getItem('bloodmatch_privacy_consent') === 'granted'
+  })
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(() => {
+    return localStorage.getItem('bloodmatch_privacy_consent') !== 'granted'
+  })
 
   const loadChapters = async () => {
     setLoadingChapters(true)
@@ -182,10 +181,16 @@ export default function RegisterPage() {
     const errors = {}
 
     if (currentStep === 1) {
-      if (!form.full_name.trim()) {
-        errors.full_name = 'Full legal name is required.'
-      } else if (form.full_name.trim().length < 2) {
-        errors.full_name = 'Full name must be at least 2 characters.'
+      if (!form.first_name.trim()) {
+        errors.first_name = 'First name is required.'
+      } else if (form.first_name.trim().length < 2) {
+        errors.first_name = 'First name must be at least 2 characters.'
+      }
+
+      if (!form.last_name.trim()) {
+        errors.last_name = 'Last name is required.'
+      } else if (form.last_name.trim().length < 2) {
+        errors.last_name = 'Last name must be at least 2 characters.'
       }
 
       if (!form.email.trim()) {
@@ -228,9 +233,7 @@ export default function RegisterPage() {
     }
 
     if (currentStep === 3) {
-      if (!privacyAck) {
-        errors.privacy_acknowledged = 'You must read and agree to the Privacy Notice to continue.'
-      }
+      // Validation for step 3 is handled during onSubmit by intercepting for the modal
     }
 
     setStepErrors(errors)
@@ -256,6 +259,15 @@ export default function RegisterPage() {
     e.preventDefault()
     if (!validateStep(3)) return
 
+    if (!privacyAck) {
+      setPrivacyModalOpen(true)
+      return
+    }
+
+    await submitRegistration()
+  }
+
+  const submitRegistration = async () => {
     setServerErrors({})
     setMessage(null)
     setSubmitting(true)
@@ -263,7 +275,9 @@ export default function RegisterPage() {
     try {
       if (idFile) {
         const fd = new FormData()
-        fd.append('full_name', form.full_name.trim())
+        fd.append('first_name', form.first_name.trim())
+        if (form.middle_name) fd.append('middle_name', form.middle_name.trim())
+        fd.append('last_name', form.last_name.trim())
         fd.append('email', form.email.trim().toLowerCase())
         fd.append('password', form.password)
         fd.append('chapter_id', form.chapter_id)
@@ -275,7 +289,9 @@ export default function RegisterPage() {
         await api.postForm('/api/register', fd)
       } else {
         await api.post('/api/register', {
-          full_name: form.full_name.trim(),
+          first_name: form.first_name.trim(),
+          middle_name: form.middle_name.trim() || null,
+          last_name: form.last_name.trim(),
           email: form.email.trim().toLowerCase(),
           password: form.password,
           chapter_id: Number(form.chapter_id),
@@ -285,12 +301,12 @@ export default function RegisterPage() {
           privacy_acknowledged: true
         })
       }
-      navigate('/login', { state: { registered: true } })
+      navigate('/', { state: { registered: true } })
     } catch (err) {
       if (err.details && Object.keys(err.details).length > 0) {
         setServerErrors(err.details)
         // If error belongs to step 1 or 2, jump back to that step
-        if (err.details.full_name || err.details.email || err.details.password || err.details.chapter_id) {
+        if (err.details.first_name || err.details.last_name || err.details.email || err.details.password || err.details.chapter_id) {
           setStep(1)
         } else if (err.details.date_of_birth || err.details.blood_type || err.details.phone) {
           setStep(2)
@@ -328,7 +344,7 @@ export default function RegisterPage() {
         <div className={styles.stepperContainer}>
           <div className={styles.stepperTrack}>
             <div className={styles.stepperLineBg} />
-            <div className={styles.stepperLineFill} style={{ width: `calc(${stepPercentage} * 0.88)` }} />
+            <div className={styles.stepperLineFill} style={{ width: step === 1 ? '0%' : step === 2 ? '33.333%' : '66.666%' }} />
 
             {/* Step 1 Node */}
             <button
@@ -379,22 +395,59 @@ export default function RegisterPage() {
           {/* STEP 1: ACCOUNT SETUP */}
           {step === 1 && (
             <div className="form">
+              <div className="grid-2">
+                <div className="field">
+                  <label htmlFor="first_name">First name *</label>
+                  <input
+                    id="first_name"
+                    autoComplete="given-name"
+                    placeholder="e.g. Maria"
+                    value={form.first_name}
+                    onChange={setField('first_name')}
+                    required
+                    maxLength={50}
+                    autoFocus
+                    aria-invalid={!!(stepErrors.first_name || serverErrors.first_name)}
+                  />
+                  {(stepErrors.first_name || serverErrors.first_name) && (
+                    <span className="field-error">
+                      {stepErrors.first_name || serverErrors.first_name?.join(' ')}
+                    </span>
+                  )}
+                </div>
+                <div className="field">
+                  <label htmlFor="last_name">Last name *</label>
+                  <input
+                    id="last_name"
+                    autoComplete="family-name"
+                    placeholder="e.g. Santos"
+                    value={form.last_name}
+                    onChange={setField('last_name')}
+                    required
+                    maxLength={50}
+                    aria-invalid={!!(stepErrors.last_name || serverErrors.last_name)}
+                  />
+                  {(stepErrors.last_name || serverErrors.last_name) && (
+                    <span className="field-error">
+                      {stepErrors.last_name || serverErrors.last_name?.join(' ')}
+                    </span>
+                  )}
+                </div>
+              </div>
               <div className="field">
-                <label htmlFor="full_name">Full legal name *</label>
+                <label htmlFor="middle_name">Middle name (optional)</label>
                 <input
-                  id="full_name"
-                  autoComplete="name"
-                  placeholder="e.g. Maria Santos"
-                  value={form.full_name}
-                  onChange={setField('full_name')}
-                  required
-                  maxLength={150}
-                  autoFocus
-                  aria-invalid={!!(stepErrors.full_name || serverErrors.full_name)}
+                  id="middle_name"
+                  autoComplete="additional-name"
+                  placeholder="e.g. Dela Cruz"
+                  value={form.middle_name}
+                  onChange={setField('middle_name')}
+                  maxLength={50}
+                  aria-invalid={!!(stepErrors.middle_name || serverErrors.middle_name)}
                 />
-                {(stepErrors.full_name || serverErrors.full_name) && (
+                {(stepErrors.middle_name || serverErrors.middle_name) && (
                   <span className="field-error">
-                    {stepErrors.full_name || serverErrors.full_name?.join(' ')}
+                    {stepErrors.middle_name || serverErrors.middle_name?.join(' ')}
                   </span>
                 )}
               </div>
@@ -421,8 +474,9 @@ export default function RegisterPage() {
               <div className="grid-2">
                 <div className="field">
                   <label htmlFor="password">Password *</label>
-                  <div className={styles.passwordWrapper}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <input
+                      style={{ paddingRight: '40px' }}
                       id="password"
                       type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
@@ -436,12 +490,29 @@ export default function RegisterPage() {
                     />
                     <button
                       type="button"
-                      className={styles.passwordToggle}
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
                       tabIndex={-1}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '32px',
+                        height: '32px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        zIndex: 10,
+                        color: 'var(--color-text)'
+                      }}
                     >
-                      {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                      {showPassword ? (
+                        <EyeSlash size={20} />
+                      ) : (
+                        <Eye size={20} />
+                      )}
                     </button>
                   </div>
                   <small id="pwd-hint" className="field-hint">Min 8 chars, letter &amp; number.</small>
@@ -454,8 +525,9 @@ export default function RegisterPage() {
 
                 <div className="field">
                   <label htmlFor="password_confirm">Confirm password *</label>
-                  <div className={styles.passwordWrapper}>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                     <input
+                      style={{ paddingRight: '40px' }}
                       id="password_confirm"
                       type={showConfirmPassword ? "text" : "password"}
                       autoComplete="new-password"
@@ -467,12 +539,29 @@ export default function RegisterPage() {
                     />
                     <button
                       type="button"
-                      className={styles.passwordToggle}
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                       tabIndex={-1}
+                      style={{
+                        position: 'absolute',
+                        right: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: '32px',
+                        height: '32px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        zIndex: 10,
+                        color: 'var(--color-text)'
+                      }}
                     >
-                      {showConfirmPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                      {showConfirmPassword ? (
+                        <EyeSlash size={20} />
+                      ) : (
+                        <Eye size={20} />
+                      )}
                     </button>
                   </div>
                   {(stepErrors.password_confirm || serverErrors.password_confirm) && (
@@ -550,25 +639,6 @@ export default function RegisterPage() {
                       style={{ paddingRight: '2.5rem' }}
                       aria-invalid={!!(stepErrors.date_of_birth || serverErrors.date_of_birth)}
                     />
-                    <button
-                      type="button"
-                      onClick={triggerDatePicker}
-                      aria-label="Open calendar picker"
-                      title="Open calendar picker"
-                      style={{
-                        position: 'absolute',
-                        right: '0.6rem',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        color: 'var(--color-text-muted)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        padding: '4px'
-                      }}
-                    >
-                      <Calendar size={18} weight="bold" />
-                    </button>
                   </div>
 
                   {age !== null && (
@@ -577,10 +647,6 @@ export default function RegisterPage() {
                         <span className="field-error" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <WarningCircle size={14} weight="fill" /> Age: {age} — Ineligible (minimum age is 16)
                         </span>
-                      ) : age < 18 ? (
-                        <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--color-surface-hover)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                          <WarningCircle size={14} weight="bold" /> Age: {age} — Eligible with Parental Consent
-                        </span>
                       ) : (
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--color-surface-hover)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
                           <CheckCircle size={14} weight="fill" /> Age: {age} — Eligible volunteer donor
@@ -588,7 +654,6 @@ export default function RegisterPage() {
                       )}
                     </div>
                   )}
-                  <small id="dob-hint" className="field-hint">Ages 16–17 require parental consent doc upon verification.</small>
                   {(stepErrors.date_of_birth || serverErrors.date_of_birth) && (
                     <span className="field-error">
                       {stepErrors.date_of_birth || serverErrors.date_of_birth?.join(' ')}
@@ -597,7 +662,7 @@ export default function RegisterPage() {
                 </div>
 
                 <div className="field">
-                  <label htmlFor="blood_type">Blood type (self-reported)</label>
+                  <label htmlFor="blood_type">Blood type</label>
                   <select
                     id="blood_type"
                     value={form.blood_type}
@@ -608,7 +673,7 @@ export default function RegisterPage() {
                       <option key={bt} value={bt}>{bt}</option>
                     ))}
                   </select>
-                  <small className="field-hint">Marked self-reported until officer verified.</small>
+
                   {serverErrors.blood_type && (
                     <span className="field-error">{serverErrors.blood_type.join(' ')}</span>
                   )}
@@ -630,11 +695,11 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* National ID / Student Card Drag-and-Drop Zone */}
+              {/* National ID Upload Zone */}
               <div className="field" style={{ marginTop: 'var(--space-2)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-1)' }}>
                   <label htmlFor="national_id_input" style={{ fontWeight: 600 }}>
-                    National ID / Student ID Picture
+                    National ID Picture
                   </label>
                   <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>Recommended for fast verification</span>
                 </div>
@@ -762,7 +827,7 @@ export default function RegisterPage() {
                 <div className={styles.summaryGrid}>
                   <div className={styles.summaryItem}>
                     <span className={styles.summaryItemLabel}>Full Name</span>
-                    <span className={styles.summaryItemValue}>{form.full_name || '—'}</span>
+                    <span className={styles.summaryItemValue}>{`${form.first_name} ${form.middle_name} ${form.last_name}`.replace(/\s+/g, ' ').trim() || '—'}</span>
                   </div>
                   <div className={styles.summaryItem}>
                     <span className={styles.summaryItemLabel}>Email</span>
@@ -810,59 +875,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              {/* Task 4: Clean single checkbox line with hyperlinked Privacy Notice modal trigger */}
-              <div className="check-row" style={{ marginTop: 'var(--space-4)' }}>
-                <input
-                  id="register-privacy-ack"
-                  type="checkbox"
-                  checked={privacyAck}
-                  onChange={(e) => {
-                    setPrivacyAck(e.target.checked)
-                    if (e.target.checked) {
-                      setStepErrors((prev) => {
-                        const next = { ...prev }
-                        delete next.privacy_acknowledged
-                        return next
-                      })
-                    }
-                  }}
-                  aria-describedby="register-privacy-hint"
-                />
-                <label htmlFor="register-privacy-ack">
-                  I have read and agree to the{' '}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault()
-                      setPrivacyModalOpen(true)
-                    }}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      color: 'var(--color-text)',
-                      textDecoration: 'underline',
-                      fontWeight: 650,
-                      cursor: 'pointer',
-                      font: 'inherit'
-                    }}
-                  >
-                    BloodMatch Privacy Notice
-                  </button>{' '}
-                  and terms of processing personal data under the Data Privacy Act of 2012.
-                </label>
-              </div>
 
-              {stepErrors.privacy_acknowledged && (
-                <span className="field-error" style={{ marginTop: 'var(--space-2)' }}>
-                  {stepErrors.privacy_acknowledged}
-                </span>
-              )}
-              {serverErrors.privacy_acknowledged && (
-                <span className="field-error" style={{ marginTop: 'var(--space-2)' }}>
-                  {serverErrors.privacy_acknowledged.join(' ')}
-                </span>
-              )}
 
               <div className={styles.actionRow}>
                 <button
@@ -876,8 +889,6 @@ export default function RegisterPage() {
                 <button
                   type="submit"
                   className="btn btn-lg"
-                  disabled={submitting || !privacyAck}
-                  style={{ minWidth: '160px' }}
                 >
                   {submitting ? (idFile ? 'Creating account & uploading ID…' : 'Creating account…') : 'Create account'}
                 </button>
@@ -888,56 +899,44 @@ export default function RegisterPage() {
       </div>
 
       {/* Full Privacy Notice Modal */}
-      <PrivacyNoticeModal
-        open={privacyModalOpen}
-        title={REGISTRATION_PRIVACY_TITLE}
-        checkboxLabel="I have read and understood the BloodMatch Privacy Notice and acknowledge the processing of my personal information for the purposes stated above."
-        checkboxId="register-privacy-ack-modal"
-        acknowledged={privacyAck}
-        onAcknowledgeChange={(v) => {
-          setPrivacyAck(v)
-          if (v) {
-            setStepErrors((prev) => {
-              const next = { ...prev }
-              delete next.privacy_acknowledged
-              return next
-            })
-          }
-        }}
-        onClose={() => setPrivacyModalOpen(false)}
-        onConfirm={() => setPrivacyModalOpen(false)}
-        confirmLabel="Confirm &amp; Continue"
-        Body={RegistrationPrivacyBody}
-      />
 
       <div className="text-center" style={{ marginTop: 'var(--space-6)' }}>
-        {!showPrivacyModal && (
-          <button 
-            type="button" 
-            onClick={() => setShowReadonlyPrivacyModal(true)} 
-            style={{ 
-              background: 'none', 
-              border: 'none', 
-              color: 'var(--color-text-muted)', 
-              textDecoration: 'underline', 
-              cursor: 'pointer',
-              fontSize: 'var(--text-sm)',
-              marginBottom: 'var(--space-3)'
-            }}
-          >
-            Review Privacy Consent
-          </button>
-        )}
+        <button 
+          type="button" 
+          onClick={() => setShowReadonlyPrivacyModal(true)} 
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: 'var(--color-text-muted)', 
+            textDecoration: 'underline', 
+            cursor: 'pointer',
+            fontSize: 'var(--text-sm)',
+            marginBottom: 'var(--space-3)'
+          }}
+        >
+          Review Privacy Consent
+        </button>
         <p className="muted">
           Already have an account? <Link to="/" style={{ fontWeight: 600 }}>Sign in</Link>
         </p>
       </div>
 
-      <PrivacyConsentModal 
-        isOpen={showPrivacyModal} 
-        onConsentGranted={() => setShowPrivacyModal(false)} 
-      />
 
+      <PrivacyConsentModal 
+        isOpen={privacyModalOpen} 
+        onConsentGranted={() => {
+          setPrivacyAck(true)
+          setPrivacyModalOpen(false)
+          if (step === 3) {
+            submitRegistration()
+          }
+        }} 
+        onDecline={() => {
+          setPrivacyModalOpen(false)
+          navigate('/', { replace: true })
+        }}
+        onClose={() => setPrivacyModalOpen(false)} 
+      />
       <PrivacyConsentModal 
         isOpen={showReadonlyPrivacyModal} 
         onClose={() => setShowReadonlyPrivacyModal(false)} 

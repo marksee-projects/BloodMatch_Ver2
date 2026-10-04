@@ -1,14 +1,38 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ShieldCheck } from '@phosphor-icons/react'
 import styles from './PrivacyConsentModal.module.css'
 
 export const CONSENT_STORAGE_KEY = 'bloodmatch_privacy_consent'
 
-export default function PrivacyConsentModal({ isOpen, onConsentGranted, onClose, readonly = false }) {
+export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDecline, onClose, readonly = false }) {
   const navigate = useNavigate()
   const modalRef = useRef(null)
   const agreeBtnRef = useRef(null)
+  const [scrolledToBottom, setScrolledToBottom] = useState(false)
+
+  const handleScroll = (e) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget
+    if (Math.abs(scrollHeight - clientHeight - scrollTop) <= 5) {
+      setScrolledToBottom(true)
+    }
+  }
+
+  // Reset scroll state when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setScrolledToBottom(false)
+      // Automatically unlock if the content fits exactly without scrolling
+      setTimeout(() => {
+        if (modalRef.current) {
+          const scrollArea = modalRef.current.querySelector('[class*="scrollArea"]')
+          if (scrollArea && scrollArea.scrollHeight <= scrollArea.clientHeight + 5) {
+            setScrolledToBottom(true)
+          }
+        }
+      }, 100)
+    }
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
@@ -79,7 +103,11 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onClose,
     } catch {
       // Storage fallback
     }
-    navigate('/', { replace: true })
+    if (onDecline) {
+      onDecline()
+    } else {
+      navigate('/', { replace: true })
+    }
   }
 
   return (
@@ -105,31 +133,25 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onClose,
           </div>
         </div>
 
-        <div id="privacy-consent-desc">
+        <div id="privacy-consent-desc" className={styles.scrollArea} onScroll={handleScroll}>
           <p style={{ marginTop: 0, fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            To provide you with secure access to the BloodMatch registry and real-time matching features, we require your consent to process specific information.
+            <em>In compliance with Republic Act No. 10173 (Data Privacy Act of 2012)</em>
           </p>
 
-          <h4 style={{ margin: 'var(--space-3) 0 var(--space-2)', fontSize: 'var(--text-sm)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            How We Use Your Data:
-          </h4>
+          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+            In compliance with Republic Act No. 10173, also known as the Data Privacy Act of 2012, BloodMatch Bataan is dedicated to protecting your personal data and safeguarding your privacy rights. To provide you with secure access to our registry and facilitate blood donation matching, we collect both personal and sensitive personal information. This includes your full name, contact details, chapter or organizational affiliation, and generalized location data such as your municipality and barangay. Additionally, we process sensitive personal information, specifically encrypted government-issued identifiers like your National ID, your blood type, and your donation history or cooldown logs.
+          </p>
 
-          <div className={styles.itemsList}>
-            <div className={styles.item}>
-              <strong>Location Data (Demand Map):</strong> We use your generalized location to calculate proximity to local chapters and highlight nearby blood requests.
-            </div>
+          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+            Your data is processed strictly based on your explicit consent and solely for the operational functionality of the platform. Your National ID is encrypted and accessed exclusively by verified chapter officers to confirm member identity and prevent fraudulent requests. Health data, including blood type and donation history, is used to ensure biological compatibility and enforce medically mandated cooldown periods for donor safety. Furthermore, generalized location data allows the system to calculate donor proximity during urgent emergency requests, while in-app messaging and notifications enable real-time coordination between requesters, donors, and chapter administration.
+          </p>
 
-            <div className={styles.item}>
-              <strong>Identity Verification:</strong> Your uploaded National ID is stored securely and accessed exclusively by verified chapter officers to confirm identity and maintain system integrity.
-            </div>
+          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+            We enforce strict access controls and industry-standard encryption, both in transit and at rest, to safeguard your information on a role-based, need-to-know basis. Your personal data is never sold, leased, or disclosed to third-party advertisers, and is only shared with active donors or requesters when a specific blood request is initiated and approved. We retain your personal data only as long as your account remains active or as required for historical audit logs of blood donations. Once an account is deleted or becomes permanently inactive, all personal identification is securely purged or anonymized in accordance with National Privacy Commission guidelines.
+          </p>
 
-            <div className={styles.item}>
-              <strong>Health &amp; Compatibility Data:</strong> Your blood type and donation history are processed strictly to ensure biological compatibility and enforce mandatory cooldown intervals.
-            </div>
-          </div>
-
-          <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', margin: 'var(--space-3) 0' }}>
-            Your data is used solely for the operational functionality of BloodMatch and is never shared with third-party advertisers.
+          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+            Under Section 16 of the Data Privacy Act of 2012, you maintain full rights as a data subject. You have the right to be informed of how your data is processed, request access to your records, rectify inaccurate or outdated information, and request the erasure, blocking, or deletion of your profile from our active registry. You also reserve the right to object to data processing or withdraw your consent at any time, subject to account deactivation for active donation matching. For any privacy inquiries, concerns, or requests to exercise your data subject rights, you may contact the BloodMatch Data Privacy Team or your designated Chapter Administrator at <a href="mailto:admin@bloodmatch.org">admin@bloodmatch.org</a>.
           </p>
 
           {!readonly && (
@@ -157,6 +179,7 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onClose,
                 className="btn btn-lg"
                 onClick={handleAgree}
                 style={{ flex: 1 }}
+                disabled={!scrolledToBottom}
               >
                 I Agree
               </button>
@@ -165,8 +188,9 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onClose,
                 className="btn btn-lg btn-secondary"
                 onClick={handleDecline}
                 style={{ flex: 1 }}
+                disabled={!scrolledToBottom}
               >
-                Decline &amp; Return to Home
+                Decline
               </button>
             </>
           )}
