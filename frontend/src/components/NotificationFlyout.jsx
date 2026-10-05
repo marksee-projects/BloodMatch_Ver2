@@ -20,6 +20,7 @@ function formatBadge(count) {
  */
 export default function NotificationFlyout({ unread = 0, setUnread = () => {}, variant = 'desktop', onNavigate }) {
   const [open, setOpen] = useState(false)
+  const [filter, setFilter] = useState('all')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -32,7 +33,8 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
     setLoading(true)
     setError(null)
     try {
-      const d = await api.get(`/api/notifications?page=1&page_size=${PREVIEW_SIZE}`)
+      const qs = filter === 'unread' ? '&read=unread' : ''
+      const d = await api.get(`/api/notifications?page=1&page_size=${PREVIEW_SIZE}${qs}`)
       setData(d)
     } catch (err) {
       setError(err.message || 'Could not load notifications.')
@@ -49,7 +51,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
       setData(null)
       setError(null)
     }
-  }, [open, load])
+  }, [open, filter, load])
 
   useEffect(() => {
     if (!open) return undefined
@@ -145,8 +147,8 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
           </div>
         </div>
         <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button className="notif-filter-btn active">All</button>
-          <button className="notif-filter-btn">Unread</button>
+          <button type="button" className={`notif-filter-btn ${filter === 'all' ? 'active' : ''}`} style={{ minHeight: '44px', minWidth: '44px' }} onClick={() => setFilter('all')}>All</button>
+          <button type="button" className={`notif-filter-btn ${filter === 'unread' ? 'active' : ''}`} style={{ minHeight: '44px', minWidth: '44px' }} onClick={() => setFilter('unread')}>Unread</button>
         </div>
       </div>
 
@@ -168,7 +170,6 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
         )}
         {data && data.notifications.length > 0 && (
           <div className="notif-items">
-            <div className="notif-section-header">Earlier</div>
             {data.notifications.map((n) => {
               const link = notificationDeepLink(n)
               const isUnread = !n.read_at
@@ -189,6 +190,11 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
                   <div className="notif-item-content">
                     <div className="notif-item-text-fb">
                       <strong>BloodMatch Update</strong> {n.title} - {n.body}
+                      {n.related_type === 'blood_request' && n.related_request_status && (
+                        <div style={{ marginTop: '2px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                          Request Status: {n.related_request_status.charAt(0).toUpperCase() + n.related_request_status.slice(1).toLowerCase()}
+                        </div>
+                      )}
                     </div>
                     <div className="notif-item-time-fb">
                       {formatNotificationTime(n.created_at)}

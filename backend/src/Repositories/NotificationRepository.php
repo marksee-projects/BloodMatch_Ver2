@@ -54,27 +54,29 @@ final class NotificationRepository
     {
         $offset = max(0, ($page - 1) * $pageSize);
 
-        $where = 'WHERE user_id = ?';
+        $where = 'WHERE n.user_id = ?';
         $params = [$userId];
 
         if ($typeFilter !== null && $typeFilter !== '') {
-            $where .= ' AND type = ?';
+            $where .= ' AND n.type = ?';
             $params[] = $typeFilter;
         }
         if ($readFilter === 'read') {
-            $where .= ' AND read_at IS NOT NULL';
+            $where .= ' AND n.read_at IS NOT NULL';
         } elseif ($readFilter === 'unread') {
-            $where .= ' AND read_at IS NULL';
+            $where .= ' AND n.read_at IS NULL';
         }
 
-        $countStmt = Database::pdo()->prepare("SELECT COUNT(*) FROM notifications $where");
+        $countStmt = Database::pdo()->prepare("SELECT COUNT(*) FROM notifications n $where");
         $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
 
         $stmt = Database::pdo()->prepare(
-            "SELECT id, type, title, body, related_type, related_id, emailed_at, read_at, created_at
-             FROM notifications $where
-             ORDER BY created_at DESC, id DESC
+            "SELECT n.id, n.type, n.title, n.body, n.related_type, n.related_id, n.emailed_at, n.read_at, n.created_at, br.status as related_request_status
+             FROM notifications n
+             LEFT JOIN blood_requests br ON n.related_type = 'blood_request' AND n.related_id = br.id
+             $where
+             ORDER BY n.created_at DESC, n.id DESC
              LIMIT " . (int) $pageSize . " OFFSET $offset"
         );
         $stmt->execute($params);

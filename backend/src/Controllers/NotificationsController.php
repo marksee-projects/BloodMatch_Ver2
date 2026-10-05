@@ -39,6 +39,7 @@ final class NotificationsController
                 'body' => (string) $n['body'],
                 'related_type' => $n['related_type'],
                 'related_id' => $n['related_id'] !== null ? (int) $n['related_id'] : null,
+                'related_request_status' => $n['related_request_status'] ?? null,
                 'emailed_at' => $n['emailed_at'],
                 'read_at' => $n['read_at'],
                 'created_at' => (string) $n['created_at'],

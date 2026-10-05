@@ -141,7 +141,7 @@ final class DonationService
             $confirm ? 'Donation confirmed — thank you!' : 'Donation report rejected',
             $confirm
                 ? 'Your donation was confirmed. Thank you for saving a life!'
-                : ('Your donation report could not be confirmed.' . ($pre['report_note'] !== null ? '' : '')),
+                : 'Your donation report could not be confirmed.',
             [
                 'related_type' => 'donation_report',
                 'related_id' => $reportId,

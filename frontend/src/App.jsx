@@ -92,18 +92,49 @@ export default function App() {
       return undefined
     }
     let active = true
-    const tick = () =>
-      api
-        .get('/api/notifications/unread-count')
-        .then((d) => {
-          if (active) setUnread(d.unread_count)
-        })
-        .catch(() => {})
-    tick()
-    const t = setInterval(tick, 30000)
+    let timeoutId = null
+    let isFetching = false
+
+    const fetchUnread = async () => {
+      if (!active) return
+      if (document.visibilityState !== 'visible') {
+        scheduleNext()
+        return
+      }
+      if (isFetching) return
+      isFetching = true
+      try {
+        const d = await api.get('/api/notifications/unread-count')
+        if (active && typeof d?.unread_count === 'number') {
+          setUnread(d.unread_count)
+        }
+      } catch (err) {
+        // ignore
+      } finally {
+        isFetching = false
+        if (active) scheduleNext()
+      }
+    }
+
+    const scheduleNext = () => {
+      if (timeoutId) clearTimeout(timeoutId)
+      if (active) timeoutId = setTimeout(fetchUnread, 45000)
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        if (timeoutId) clearTimeout(timeoutId)
+        fetchUnread()
+      }
+    }
+
+    fetchUnread()
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
       active = false
-      clearInterval(t)
+      if (timeoutId) clearTimeout(timeoutId)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   }, [user])
 
