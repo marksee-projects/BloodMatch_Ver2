@@ -41,6 +41,18 @@ final class AuthThrottleRepository
         return $stmt->fetchColumn() !== false;
     }
 
+    public function setLock(string $identifier, int $lockSeconds, string $nowUtc): void
+    {
+        $lockAt = gmdate('Y-m-d H:i:s', strtotime($nowUtc . ' UTC') + $lockSeconds);
+        $stmt = Database::pdo()->prepare(
+            'INSERT INTO auth_throttle (identifier, failed_count, locked_until)
+             VALUES (?, 1, ?)
+             ON DUPLICATE KEY UPDATE
+                locked_until = VALUES(locked_until)'
+        );
+        $stmt->execute([$identifier, $lockAt]);
+    }
+
     public function clear(string $identifier): void
     {
         $stmt = Database::pdo()->prepare('DELETE FROM auth_throttle WHERE identifier = ?');

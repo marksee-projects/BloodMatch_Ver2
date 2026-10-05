@@ -20,6 +20,13 @@ final class RequestsController
     {
         $actor = AuthMiddleware::requireActiveUser('requests.create');
 
+        if (empty($actor['email_verified_at'])) {
+            Response::error('Please verify your email before creating blood requests.', 403, [
+                'code' => 'EMAIL_UNVERIFIED',
+            ]);
+            return;
+        }
+
         $throttleKey = 'mutation:req_create:' . (int) $actor['id'];
         if (!(new \BloodMatch\Repositories\AuthThrottleRepository())->hitAndCheckRateLimit($throttleKey, 10, 10, \BloodMatch\Services\AuthService::nowUtc())) {
             Response::error('Too many requests created. Please wait before creating more blood requests.', 429);

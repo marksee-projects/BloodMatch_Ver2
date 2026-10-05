@@ -18,6 +18,7 @@ use BloodMatch\Controllers\RequestsController;
 use BloodMatch\Controllers\MatchesController;
 use BloodMatch\Controllers\NotificationsController;
 use BloodMatch\Controllers\ProfilePictureController;
+use BloodMatch\Controllers\Auth\EmailVerificationController;
 use BloodMatch\Controllers\Auth\LoginController;
 use BloodMatch\Controllers\Auth\LogoutController;
 use BloodMatch\Controllers\Auth\MeController;
@@ -44,6 +45,8 @@ return static function (Router $router): void {
     $router->add('POST', '/api/login', [new LoginController(), 'login']);
     $router->add('POST', '/api/logout', [new LogoutController(), 'logout']);
     $router->add('GET', '/api/auth/me', [new MeController(), 'me']);
+    $router->add('POST', '/api/auth/verify', [new EmailVerificationController(), 'verify']);
+    $router->add('POST', '/api/auth/verify/resend', [new EmailVerificationController(), 'resend']);
 
     $router->add('POST', '/api/password-reset/request', [new PasswordResetController(), 'request']);
     $router->add('POST', '/api/password-reset/confirm', [new PasswordResetController(), 'confirm']);

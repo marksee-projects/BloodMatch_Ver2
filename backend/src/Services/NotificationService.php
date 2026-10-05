@@ -147,6 +147,10 @@ final class NotificationService
             return;
         }
 
+        if (empty($user['email_verified_at'])) {
+            return;
+        }
+
         $sent = Mailer::send(
             $user['email'],
             '[BloodMatch] ' . $subject,

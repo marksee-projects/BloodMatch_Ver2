@@ -14,6 +14,14 @@ final class MatchesController
     public function respond(array $params): void
     {
         $actor = AuthMiddleware::requireActiveUser('matches.respond');
+
+        if (empty($actor['email_verified_at'])) {
+            Response::error('Please verify your email before responding to matches.', 403, [
+                'code' => 'EMAIL_UNVERIFIED',
+            ]);
+            return;
+        }
+
         $matchId = (int) $params['matchId'];
 
         $repo = new MatchRepository();

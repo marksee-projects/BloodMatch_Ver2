@@ -16,7 +16,8 @@ final class UserRepository
             'SELECT id, email, full_name, phone, role, chapter_id, verification_status,
                     account_status, blood_type, blood_type_source, blood_type_verified,
                     date_of_birth, password_hash, donor_enrolled_at, donor_availability,
-                    last_verified_donation_at, profile_picture, location_id, latitude, longitude
+                    last_verified_donation_at, profile_picture, location_id, latitude, longitude,
+                    email_verified_at, email_code_hash, email_code_expires_at
              FROM users WHERE id = ? LIMIT 1'
         );
         $stmt->execute([$id]);
@@ -52,8 +53,8 @@ final class UserRepository
             'INSERT INTO users
                 (email, password_hash, first_name, middle_name, last_name, phone, role, chapter_id, verification_status,
                  account_status, date_of_birth, blood_type, blood_type_source, blood_type_verified,
-                 latitude, longitude)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 latitude, longitude, email_verified_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         try {
@@ -74,6 +75,7 @@ final class UserRepository
                 $user['blood_type_verified'],
                 $user['latitude'],
                 $user['longitude'],
+                $user['email_verified_at'] ?? null,
             ]);
         } catch (Throwable $e) {
             if ($e instanceof \PDOException && $e->getCode() === '23000') {
@@ -83,6 +85,30 @@ final class UserRepository
         }
 
         return (int) Database::pdo()->lastInsertId();
+    }
+
+    public function setEmailCode(int $userId, string $codeHash, string $expiresAtUtc): void
+    {
+        $stmt = Database::pdo()->prepare(
+            'UPDATE users SET email_code_hash = ?, email_code_expires_at = ? WHERE id = ?'
+        );
+        $stmt->execute([$codeHash, $expiresAtUtc, $userId]);
+    }
+
+    public function markEmailVerified(int $userId, string $verifiedAtUtc): void
+    {
+        $stmt = Database::pdo()->prepare(
+            'UPDATE users SET email_verified_at = ?, email_code_hash = NULL, email_code_expires_at = NULL WHERE id = ?'
+        );
+        $stmt->execute([$verifiedAtUtc, $userId]);
+    }
+
+    public function clearEmailCode(int $userId): void
+    {
+        $stmt = Database::pdo()->prepare(
+            'UPDATE users SET email_code_hash = NULL, email_code_expires_at = NULL WHERE id = ?'
+        );
+        $stmt->execute([$userId]);
     }
 
     public function updatePasswordHash(int $userId, string $hash): void

@@ -136,11 +136,14 @@ final class AuthService
             'blood_type_verified' => 0,
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'email_verified_at' => null,
         ]);
 
         AuditLogger::log($userId, 'user.registered', 'user', (string) $userId, [
             'verification_status' => 'pending',
         ]);
+
+        EmailVerificationService::sendVerificationCode($userId, $email);
 
         if ($nationalIdFile !== null && ($nationalIdFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
             try {
@@ -299,6 +302,7 @@ final class AuthService
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
             'profile_picture_url' => ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),
+            'email_verified' => !empty($user['email_verified_at']),
         ];
     }
 }
