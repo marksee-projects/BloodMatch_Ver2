@@ -16,6 +16,12 @@ final class Mailer
 
     public static function send(string $toEmail, string $subject, string $htmlBody): bool
     {
+        $domain = strtolower((string) substr(strrchr($toEmail, '@') ?: '', 1));
+        if (preg_match('/(^|\.)(local|test|invalid)$/', $domain) === 1) {
+            error_log('[mailer] skipped: reserved domain (' . $domain . ')');
+            return false;
+        }
+
         if (!self::isConfigured()) {
             error_log('[mailer] skipped: SMTP not configured');
             return false;
