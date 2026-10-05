@@ -17,6 +17,7 @@ import {
 } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
+import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import styles from './RegisterPage.module.css'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -40,6 +41,9 @@ export default function RegisterPage() {
     phone: '',
     blood_type: ''
   })
+
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
+  const [registeredEmail, setRegisteredEmail] = useState('')
 
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
@@ -301,7 +305,8 @@ export default function RegisterPage() {
           privacy_acknowledged: true
         })
       }
-      navigate('/', { state: { registered: true } })
+      setRegisteredEmail(form.email.trim().toLowerCase())
+      setVerifyDialogOpen(true)
     } catch (err) {
       if (err.details && Object.keys(err.details).length > 0) {
         setServerErrors(err.details)

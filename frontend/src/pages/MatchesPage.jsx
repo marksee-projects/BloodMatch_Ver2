@@ -3,11 +3,13 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, Check, Info } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 export default function MatchesPage() {
   const { id } = useParams()
-  const { user } = useAuth()
+  const { user, refresh } = useAuth()
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
   const [matches, setMatches] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [message, setMessage] = useState(null)
@@ -34,7 +36,11 @@ export default function MatchesPage() {
       setMessage('Your willingness to donate has been recorded. Thank you for stepping forward!')
       await load()
     } catch (err) {
-      setErrorAlert(err.message)
+      if (err.status === 403 && err.details?.code === 'EMAIL_UNVERIFIED') {
+        setVerifyDialogOpen(true)
+      } else {
+        setErrorAlert(err.message)
+      }
     }
   }
 
@@ -218,6 +224,15 @@ export default function MatchesPage() {
           </div>
         </div>
       )}
+      <EmailVerificationDialog 
+        isOpen={verifyDialogOpen}
+        initialEmail={user?.email}
+        onClose={() => setVerifyDialogOpen(false)}
+        onSuccess={() => {
+          setVerifyDialogOpen(false)
+          refresh()
+        }}
+      />
     </div>
   )
 }

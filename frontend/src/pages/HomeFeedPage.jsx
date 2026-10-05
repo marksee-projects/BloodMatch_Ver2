@@ -6,14 +6,32 @@ import { Card } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { BloodTypeBlock } from '../components/ui/BloodTypeBlock';
 import DemandMapWidget from '../components/DemandMapWidget';
+import EmailVerificationDialog from '../components/EmailVerificationDialog';
 import styles from './HomeFeedPage.module.css';
 
 export default function HomeFeedPage() {
-  const { user } = useAuth();
+  const { user, refresh } = useAuth();
+  const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false);
 
   return (
     <div className={styles.layout}>
       
+      {user && user.email_verified === false && (
+        <div className={styles.unverifiedBanner}>
+          <div className={styles.unverifiedContent}>
+            <span className={styles.unverifiedText}>
+              Please verify your email address to access all features.
+            </span>
+            <button 
+              className={styles.unverifiedButton}
+              onClick={() => setVerifyDialogOpen(true)}
+            >
+              Verify Now
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Feed Layout */}
       <section className={styles.feedLayout}>
         
@@ -119,6 +137,16 @@ export default function HomeFeedPage() {
         </aside>
 
       </section>
+      
+      <EmailVerificationDialog 
+        isOpen={verifyDialogOpen}
+        initialEmail={user?.email}
+        onClose={() => setVerifyDialogOpen(false)}
+        onSuccess={() => {
+          setVerifyDialogOpen(false);
+          refresh();
+        }}
+      />
     </div>
   );
 }

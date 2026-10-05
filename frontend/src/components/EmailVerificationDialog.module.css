@@ -1,0 +1,165 @@
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--color-overlay, rgba(0, 0, 0, 0.7));
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: var(--spacing-4);
+  backdrop-filter: blur(4px);
+}
+
+.dialog {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-6);
+  width: 100%;
+  max-width: 375px; /* Mobile focused max-width per DESIGN.md */
+  position: relative;
+  box-shadow: var(--shadow-lg);
+}
+
+.closeButton {
+  position: absolute;
+  top: var(--spacing-3);
+  right: var(--spacing-3);
+  background: transparent;
+  border: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: var(--spacing-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: var(--radius-full);
+  transition: background-color 0.2s ease;
+}
+
+.closeButton:hover {
+  background-color: var(--color-surface-hover);
+  color: var(--color-text);
+}
+
+.verifyState h2, .successState h2 {
+  margin: 0 0 var(--spacing-3) 0;
+  color: var(--color-text);
+  font-size: 1.25rem;
+}
+
+.verifyState p, .successState p {
+  margin: 0 0 var(--spacing-5) 0;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+}
+
+.input {
+  width: 100%;
+  background-color: var(--color-surface-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0 var(--spacing-4);
+  min-height: 44px;
+  color: var(--color-text);
+  font-size: 1rem;
+  text-align: center;
+  letter-spacing: 2px;
+  transition: border-color 0.2s ease;
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  color: var(--color-danger);
+  font-size: 0.875rem;
+  background-color: var(--color-danger-subtle, rgba(239, 68, 68, 0.1));
+  padding: var(--spacing-3);
+  border-radius: var(--radius-md);
+}
+
+.submitButton {
+  width: 100%;
+  min-height: 44px;
+  background-color: var(--color-primary);
+  color: var(--color-primary-text, #fff);
+  border: none;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.submitButton:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+}
+
+.submitButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.resendSection {
+  margin-top: var(--spacing-6);
+  text-align: center;
+  border-top: 1px solid var(--color-border);
+  padding-top: var(--spacing-4);
+}
+
+.resendSection p {
+  margin: 0 0 var(--spacing-2) 0;
+}
+
+.resendButton {
+  background: transparent;
+  border: none;
+  color: var(--color-primary);
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 44px;
+  padding: 0 var(--spacing-4);
+}
+
+.resendButton:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.successState {
+  text-align: center;
+  padding: var(--spacing-4) 0;
+}
+
+.successIcon {
+  color: var(--color-success);
+  margin-bottom: var(--spacing-3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .submitButton, .closeButton, .input {
+    transition: none;
+  }
+}

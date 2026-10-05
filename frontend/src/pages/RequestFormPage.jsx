@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, WarningCircle } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
+import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import styles from './RegisterPage.module.css'
 import LocationSelector from '../components/LocationSelector'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
@@ -16,6 +18,8 @@ const URGENCIES = [
 
 export default function RequestFormPage({ id, onSuccess, onCancel }) {
   const editing = Boolean(id)
+  const { user, refresh } = useAuth()
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
 
   const [form, setForm] = useState({
     required_blood_type: '',
@@ -89,7 +93,9 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
       }
       if (onSuccess) onSuccess()
     } catch (err) {
-      if (err.details && Object.keys(err.details).length > 0) {
+      if (err.status === 403 && err.details?.code === 'EMAIL_UNVERIFIED') {
+        setVerifyDialogOpen(true)
+      } else if (err.details && Object.keys(err.details).length > 0) {
         setErrors(err.details)
       } else {
         setMessage(err.message || 'Failed to save request.')
@@ -345,6 +351,15 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
           </div>
         </form>
       </div>
+      <EmailVerificationDialog
+        isOpen={verifyDialogOpen}
+        initialEmail={user?.email}
+        onClose={() => setVerifyDialogOpen(false)}
+        onSuccess={() => {
+          setVerifyDialogOpen(false)
+          refresh()
+        }}
+      />
     </div>
   )
 }
