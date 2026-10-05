@@ -19,7 +19,7 @@ final class EmailVerificationController
     private const MAX_RESEND_ATTEMPTS = 3;
     private const RESEND_LOCK_MINUTES = 15;
     private const RESEND_COOLDOWN_SECONDS = 60;
-    private const DUMMY_HASH = '$2y$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ012';
+    private const DUMMY_HASH = '$2y$10$EvHKGIw69p65IMXgiJWB0O7HSMwAQWpRENdGC3dzsyydzJ1UF4qIK';
 
     private UserRepository $users;
     private AuthThrottleRepository $throttle;
