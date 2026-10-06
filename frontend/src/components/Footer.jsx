@@ -9,7 +9,7 @@ export default function Footer() {
           {/* Col 1: Brand */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
-              <img src="/Main%20Logo.jpg" alt="BloodMatch" style={{ width: 20, height: 20, borderRadius: '50%' }} />
+              <img src="/favicon-demolay.png?v=2" alt="BloodMatch" style={{ width: 20, height: 20, borderRadius: '50%' }} />
               <strong style={{ fontSize: 'var(--text-sm)' }}>BloodMatch</strong>
             </div>
             <p className="site-footer-brand-tagline">

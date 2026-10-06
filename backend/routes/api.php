@@ -61,7 +61,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/officer/users', [new ChapterUsersController(), 'index']);
 
     $router->add('GET', '/api/profile', [new ProfileController(), 'get']);
-    $router->add('GET', '/api/profile/{id}', [new MemberProfileController(), 'show']);
+   
     $router->add('PUT', '/api/profile', [new ProfileController(), 'update']);
     $router->add('POST', '/api/profile/resubmit', [new ProfileController(), 'resubmit']);
     $router->add('POST', '/api/profile/enroll-donor', [new ProfileController(), 'enrollDonor']);
@@ -88,6 +88,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/compatibility-matrix', [new CompatibilityController(), 'show']);
 
     $router->add('POST', '/api/profile/donor-availability', [new ProfileController(), 'setDonorAvailability']);
+     $router->add('GET', '/api/profile/{id}', [new MemberProfileController(), 'show']);
     $router->add('POST', '/api/matches/{matchId}/respond', [new MatchesController(), 'respond']);
     $router->add('POST', '/api/donation-reports', [new DonationReportController(), 'submit']);
     $router->add('GET', '/api/my/donation-reports', [new DonationReportController(), 'myReports']);

@@ -140,7 +140,7 @@ export default function NotificationsPage() {
                 aria-label={`${n.title}. ${!n.read_at ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
               >
                 <div className="notif-item-avatar-wrapper">
-                  <img src="/Main%20Logo.jpg" alt="BloodMatch" className="notif-avatar" />
+                  <img src="/favicon-demolay.png?v=2" alt="BloodMatch" className="notif-avatar" />
                   <div className="notif-item-icon-badge">
                     <Drop size={12} weight="fill" color="#fff" />
                   </div>

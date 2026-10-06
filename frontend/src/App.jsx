@@ -176,7 +176,7 @@ export default function App() {
         <div className="topbar-inner">
           <div className="topbar-left">
             <Link to="/" className="brand" aria-label="BloodMatch Home">
-              <img src="/Main%20Logo.jpg" alt="BloodMatch" className="brand-mark" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
+              <img src="/favicon-demolay.png?v=2" alt="BloodMatch" className="brand-mark" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
             </Link>
 
             {user && (
