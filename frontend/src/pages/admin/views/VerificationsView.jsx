@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, FileText, ShieldCheck } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, CheckCircle, FileText, ShieldCheck } from '@phosphor-icons/react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
+import styles from './VerificationsView.module.css'
 
 const PAGE_SIZE = 20
 
@@ -11,6 +12,16 @@ function formatDate(value) {
   const normalized = String(value).includes('T') ? String(value) : `${String(value).replace(' ', 'T')}Z`
   const date = new Date(normalized)
   return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()
+}
+
+function formatMimeType(value) {
+  const formats = {
+    'application/pdf': 'PDF',
+    'image/jpeg': 'JPEG',
+    'image/png': 'PNG',
+    'image/webp': 'WEBP',
+  }
+  return formats[value] || value || 'Unknown'
 }
 
 export default function VerificationsView() {
@@ -52,7 +63,7 @@ export default function VerificationsView() {
       .catch(() => setChapters([]))
   }, [])
 
-  const openDetail = useCallback(async (userId, updateUrl = true) => {
+  const openDetail = useCallback(async (userId) => {
     setLoadingDetail(true)
     setError(null)
     setMessage(null)
@@ -61,10 +72,10 @@ export default function VerificationsView() {
       setDetail(data.verification)
       setDecision('verified')
       setReason('')
-      if (updateUrl) setSearchParams({ user: String(userId) })
     } catch (err) {
+      setDetail(null)
       setError(err.message || 'Could not load this verification request.')
-      setSearchParams({})
+      setSearchParams({}, { replace: true })
     } finally {
       setLoadingDetail(false)
     }
@@ -72,32 +83,44 @@ export default function VerificationsView() {
 
   const requestedUserId = searchParams.get('user')
   useEffect(() => {
-    if (requestedUserId && String(detail?.user?.id || '') !== requestedUserId && !loadingDetail) {
-      openDetail(requestedUserId, false)
+    if (!requestedUserId) {
+      setDetail(null)
+      return
+    }
+
+    if (String(detail?.user?.id || '') !== requestedUserId && !loadingDetail) {
+      openDetail(requestedUserId)
     }
   }, [requestedUserId, detail?.user?.id, loadingDetail, openDetail])
 
+  const showDetail = (userId) => {
+    setMessage(null)
+    setSearchParams({ user: String(userId) })
+  }
+
   const closeDetail = () => {
-    setDetail(null)
-    setSearchParams({})
+    setSearchParams({}, { replace: true })
   }
 
   const submitDecision = async (event) => {
     event.preventDefault()
     if (!detail) return
+
+    const memberName = detail.user.full_name
+    const approved = decision === 'verified'
     setSubmitting(true)
     setError(null)
     setMessage(null)
     try {
       await api.post(`/api/admin/verifications/${detail.user.id}/decision`, {
         decision,
-        reason: decision === 'rejected' ? reason.trim() : null,
-        accept_donor_card: false
+        reason: approved ? null : reason.trim(),
+        accept_donor_card: false,
       })
       setMessage(
-        decision === 'verified'
-          ? `${detail.user.full_name}'s account has been verified.`
-          : `${detail.user.full_name}'s verification was rejected and the member was notified.`
+        approved
+          ? `Account approved. ${memberName} has been notified of your decision.`
+          : `Verification rejected. ${memberName} has been notified of your decision.`
       )
       closeDetail()
       await loadQueue()
@@ -119,21 +142,30 @@ export default function VerificationsView() {
 
   if (loadingDetail && !detail) {
     return (
-      <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
+      <div className={`card text-center ${styles.loadingCard}`}>
         <LoadingSpinner text="Loading verification request…" />
       </div>
     )
   }
 
   return (
-    <div className="container" style={{ padding: 'var(--space-6) 0' }}>
-      {message && <div className="alert alert-success" role="status">{message}</div>}
-      {error && <div className="alert alert-error" role="alert">{error}</div>}
-
+    <div className={`container ${styles.page}`}>
       {!detail ? (
-        <>
-          <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
-            <div className="field" style={{ maxWidth: '360px', margin: 0 }}>
+        <section className={`card ${styles.queueCard}`} aria-labelledby="verification-queue-heading">
+          {message && (
+            <div className={`alert alert-success ${styles.statusNotice}`} role="status">
+              <CheckCircle size={20} weight="fill" aria-hidden="true" />
+              <span>{message}</span>
+            </div>
+          )}
+          {error && <div className="alert alert-error" role="alert">{error}</div>}
+
+          <div className={styles.queueToolbar}>
+            <div>
+              <h2 id="verification-queue-heading">Pending National ID reviews</h2>
+              <p>{queue?.total || 0} account{queue?.total === 1 ? '' : 's'} awaiting review</p>
+            </div>
+            <div className={`field ${styles.chapterFilter}`}>
               <label htmlFor="verification-chapter">Show requests from</label>
               <select
                 id="verification-chapter"
@@ -151,100 +183,43 @@ export default function VerificationsView() {
             </div>
           </div>
 
-          <section className="card">
-            <div className="card-header">
-              <div>
-                <h2 style={{ margin: 0 }}>Pending National ID reviews</h2>
-                <span className="muted" style={{ fontSize: 'var(--text-sm)' }}>{queue?.total || 0} account{queue?.total === 1 ? '' : 's'} awaiting review</span>
-              </div>
+          {loading ? (
+            <div className={styles.loadingState}>
+              <LoadingSpinner text="Loading verification requests…" />
             </div>
-
-            {loading ? (
-              <div className="text-center" style={{ padding: 'var(--space-8)' }}>
-                <LoadingSpinner text="Loading verification requests…" />
-              </div>
-            ) : !queue || queue.queue.length === 0 ? (
-              <div className="empty-state">
-                <ShieldCheck size={32} aria-hidden="true" />
-                <h3>No pending National IDs</h3>
-                <p>{chapterId ? 'No members in this chapter are waiting for verification.' : 'No members are waiting for verification.'}</p>
-              </div>
-            ) : (
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Member</th>
-                      <th>Chapter</th>
-                      <th>National ID</th>
-                      <th>Submitted</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {queue.queue.map((member) => (
-                      <tr key={member.id}>
-                        <td>
-                          <strong>{member.full_name}</strong>
-                          <div className="muted" style={{ fontSize: 'var(--text-xs)', overflowWrap: 'anywhere' }}>{member.email}</div>
-                        </td>
-                        <td>{member.chapter_name || 'Unassigned'}</td>
-                        <td>{member.national_id_count} file{member.national_id_count === 1 ? '' : 's'}</td>
-                        <td>{formatDate(member.latest_national_id_uploaded_at)}</td>
-                        <td>
-                          <button type="button" className="btn btn-sm" onClick={() => openDetail(member.id)}>
-                            Review <ArrowRight size={14} aria-hidden="true" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            {totalPages > 1 && (
-              <div className="button-group" style={{ justifyContent: 'space-between', marginTop: 'var(--space-4)' }}>
-                <button type="button" className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
-                <span className="muted" style={{ alignSelf: 'center' }}>Page {page} of {totalPages}</span>
-                <button type="button" className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)}>Next</button>
-              </div>
-            )}
-          </section>
-        </>
-      ) : (
-        <section className="card">
-          <div className="card-header">
-            <div>
-              <h2 style={{ margin: 0 }}>{detail.user.full_name}</h2>
-              <p className="muted" style={{ margin: 'var(--space-1) 0 0', overflowWrap: 'anywhere' }}>{detail.user.email}</p>
+          ) : !queue || queue.queue.length === 0 ? (
+            <div className="empty-state">
+              <ShieldCheck size={32} aria-hidden="true" />
+              <h3>No pending National IDs</h3>
+              <p>{chapterId ? 'No members in this chapter are waiting for verification.' : 'No members are waiting for verification.'}</p>
             </div>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={closeDetail}>
-              <ArrowLeft size={14} aria-hidden="true" /> Back to queue
-            </button>
-          </div>
-
-          <div className="grid-3" style={{ marginBottom: 'var(--space-5)' }}>
-            <div><span className="metric-label">Chapter</span><p style={{ margin: 0, fontWeight: 600 }}>{detail.user.chapter_name || 'Unassigned'}</p></div>
-            <div><span className="metric-label">Date of birth</span><p style={{ margin: 0, fontWeight: 600 }}>{detail.user.date_of_birth || 'Not provided'}</p></div>
-            <div><span className="metric-label">Blood type</span><p style={{ margin: 0, fontWeight: 600 }}>{detail.user.blood_type || 'Not provided'}</p></div>
-          </div>
-
-          <h3>Submitted National IDs</h3>
-          {nationalIds.length === 0 ? (
-            <div className="alert alert-error" role="alert">A National ID is required before this account can be approved.</div>
           ) : (
-            <div className="table-container" style={{ marginBottom: 'var(--space-6)' }}>
+            <div className="table-container">
               <table>
-                <thead><tr><th>File</th><th>Format</th><th>Size</th><th>Uploaded</th><th>Action</th></tr></thead>
+                <thead>
+                  <tr>
+                    <th>Member</th>
+                    <th>Chapter</th>
+                    <th>National ID</th>
+                    <th>Submitted</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  {nationalIds.map((document, index) => (
-                    <tr key={document.id}>
-                      <td><FileText size={16} aria-hidden="true" /> National ID {index === 0 && <span className="badge">Latest</span>}</td>
-                      <td>{document.mime_type}</td>
-                      <td>{Math.ceil(document.size_bytes / 1024)} KB</td>
-                      <td>{formatDate(document.uploaded_at)}</td>
-                      <td><a className="btn btn-secondary btn-sm" href={`/api/admin/documents/${document.id}/file`} target="_blank" rel="noreferrer">Inspect file</a></td>
+                  {queue.queue.map((member) => (
+                    <tr key={member.id}>
+                      <td>
+                        <strong>{member.full_name}</strong>
+                        <div className={styles.memberEmail}>{member.email}</div>
+                      </td>
+                      <td>{member.chapter_name || 'Unassigned'}</td>
+                      <td>{member.national_id_count} file{member.national_id_count === 1 ? '' : 's'}</td>
+                      <td>{formatDate(member.latest_national_id_uploaded_at)}</td>
+                      <td>
+                        <button type="button" className="btn btn-sm" onClick={() => showDetail(member.id)}>
+                          Review <ArrowRight size={14} aria-hidden="true" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -252,31 +227,117 @@ export default function VerificationsView() {
             </div>
           )}
 
-          <form className="form" onSubmit={submitDecision} style={{ borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-4)' }}>
-            <h3>Verification decision</h3>
-            <div className="field">
-              <label htmlFor="admin-verification-decision">Decision</label>
-              <select id="admin-verification-decision" value={decision} onChange={(event) => setDecision(event.target.value)}>
-                <option value="verified">Approve account</option>
-                <option value="rejected">Reject verification</option>
-              </select>
+          {totalPages > 1 && (
+            <div className={styles.pagination}>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}>Previous</button>
+              <span>Page {page} of {totalPages}</span>
+              <button type="button" className="btn btn-secondary btn-sm" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)}>Next</button>
             </div>
-            {decision === 'rejected' && (
-              <div className="field">
-                <label htmlFor="admin-verification-reason">Reason and instructions</label>
-                <textarea
-                  id="admin-verification-reason"
-                  value={reason}
-                  onChange={(event) => setReason(event.target.value)}
-                  maxLength={500}
-                  required
-                  placeholder="Explain what was unclear or invalid and what the member should upload next."
-                />
+          )}
+        </section>
+      ) : (
+        <section className={`card ${styles.reviewCard}`} aria-labelledby="verification-member-heading">
+          {error && <div className="alert alert-error" role="alert">{error}</div>}
+
+          <header className={styles.reviewHeader}>
+            <div className={styles.applicantIdentity}>
+              <div className={styles.applicantIcon} aria-hidden="true">
+                <ShieldCheck size={24} weight="duotone" />
+              </div>
+              <div>
+                <h2 id="verification-member-heading">{detail.user.full_name}</h2>
+                <p>{detail.user.email}</p>
+              </div>
+            </div>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={closeDetail}>
+              <ArrowLeft size={14} aria-hidden="true" /> Back to queue
+            </button>
+          </header>
+
+          <dl className={styles.memberSummary}>
+            <div>
+              <dt>Chapter</dt>
+              <dd>{detail.user.chapter_name || 'Unassigned'}</dd>
+            </div>
+            <div>
+              <dt>Date of birth</dt>
+              <dd>{detail.user.date_of_birth || 'Not provided'}</dd>
+            </div>
+            <div>
+              <dt>Blood type</dt>
+              <dd>{detail.user.blood_type || 'Not provided'}</dd>
+            </div>
+          </dl>
+
+          <section className={styles.documentsSection} aria-labelledby="submitted-national-ids-heading">
+            <div className={styles.sectionHeading}>
+              <div>
+                <h3 id="submitted-national-ids-heading">Submitted National ID</h3>
+                <p>Inspect the latest document before making a decision.</p>
+              </div>
+              <span>{nationalIds.length} file{nationalIds.length === 1 ? '' : 's'}</span>
+            </div>
+
+            {nationalIds.length === 0 ? (
+              <div className="alert alert-error" role="alert">A National ID is required before this account can be approved.</div>
+            ) : (
+              <div className={styles.documentList}>
+                {nationalIds.map((document, index) => (
+                  <article className={styles.documentCard} key={document.id}>
+                    <div className={styles.documentIcon} aria-hidden="true">
+                      <FileText size={24} weight="duotone" />
+                    </div>
+                    <div className={styles.documentInfo}>
+                      <div className={styles.documentTitle}>
+                        <strong>National ID</strong>
+                        {index === 0 && <span className="badge">Latest</span>}
+                      </div>
+                      <dl className={styles.documentMeta}>
+                        <div><dt>Format</dt><dd>{formatMimeType(document.mime_type)}</dd></div>
+                        <div><dt>Size</dt><dd>{Math.ceil(document.size_bytes / 1024)} KB</dd></div>
+                        <div><dt>Uploaded</dt><dd>{formatDate(document.uploaded_at)}</dd></div>
+                      </dl>
+                    </div>
+                    <a className="btn btn-secondary btn-sm" href={`/api/admin/documents/${document.id}/file`} target="_blank" rel="noreferrer">
+                      Inspect National ID
+                    </a>
+                  </article>
+                ))}
               </div>
             )}
-            <p className="muted" style={{ fontSize: 'var(--text-sm)' }}>
-              The member will receive this decision through the notification bell and their registered email address.
-            </p>
+          </section>
+
+          <form className={styles.decisionPanel} onSubmit={submitDecision}>
+            <div className={styles.sectionHeading}>
+              <div>
+                <h3>Verification decision</h3>
+                <p>Choose the outcome for this account.</p>
+              </div>
+            </div>
+
+            <div className={styles.decisionFields}>
+              <div className="field">
+                <label htmlFor="admin-verification-decision">Decision</label>
+                <select id="admin-verification-decision" value={decision} onChange={(event) => setDecision(event.target.value)}>
+                  <option value="verified">Approve account</option>
+                  <option value="rejected">Reject verification</option>
+                </select>
+              </div>
+              {decision === 'rejected' && (
+                <div className="field">
+                  <label htmlFor="admin-verification-reason">Reason and instructions</label>
+                  <textarea
+                    id="admin-verification-reason"
+                    value={reason}
+                    onChange={(event) => setReason(event.target.value)}
+                    maxLength={500}
+                    required
+                    placeholder="Explain what needs to be corrected before the member submits another National ID."
+                  />
+                </div>
+              )}
+            </div>
+
             <div className="button-group">
               <button type="submit" className={decision === 'rejected' ? 'btn btn-danger' : 'btn'} disabled={submitting || nationalIds.length === 0}>
                 {submitting ? 'Saving decision…' : decision === 'verified' ? 'Approve account' : 'Reject verification'}
