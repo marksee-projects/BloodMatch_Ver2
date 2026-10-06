@@ -76,6 +76,10 @@ return static function (Router $router): void {
     $router->add('GET', '/api/officer/verifications/{userId}', [new OfficerVerificationController(), 'detail']);
     $router->add('POST', '/api/officer/verifications/{userId}/decision', [new OfficerVerificationController(), 'decide']);
     $router->add('GET', '/api/officer/documents/{documentId}/file', [new DocumentController(), 'fileOfficer']);
+    $router->add('GET', '/api/admin/verifications', [new OfficerVerificationController(), 'adminQueue']);
+    $router->add('GET', '/api/admin/verifications/{userId}', [new OfficerVerificationController(), 'adminDetail']);
+    $router->add('POST', '/api/admin/verifications/{userId}/decision', [new OfficerVerificationController(), 'adminDecide']);
+    $router->add('GET', '/api/admin/documents/{documentId}/file', [new DocumentController(), 'fileAdmin']);
 
     $router->add('POST', '/api/requests', [new RequestsController(), 'create']);
     $router->add('GET', '/api/home-feed', [new RequestsController(), 'homeFeed']);
