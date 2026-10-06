@@ -28,12 +28,15 @@ final class UserRepository
     public function findById(int $id): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT id, email, full_name, phone, role, chapter_id, verification_status,
-                    account_status, blood_type, blood_type_source, blood_type_verified,
-                    date_of_birth, password_hash, donor_enrolled_at, donor_availability,
-                    last_verified_donation_at, profile_picture, location_id, latitude, longitude,
-                    email_verified_at, email_code_hash, email_code_expires_at
-             FROM users WHERE id = ? LIMIT 1'
+            'SELECT u.id, u.email, u.full_name, u.phone, u.role, u.chapter_id, c.name AS chapter_name,
+                    u.verification_status, u.account_status, u.blood_type, u.blood_type_source,
+                    u.blood_type_verified, u.date_of_birth, u.password_hash, u.donor_enrolled_at,
+                    u.donor_availability, u.last_verified_donation_at, u.profile_picture,
+                    u.location_id, u.latitude, u.longitude, u.email_verified_at,
+                    u.email_code_hash, u.email_code_expires_at
+             FROM users u
+             LEFT JOIN chapters c ON c.id = u.chapter_id
+             WHERE u.id = ? LIMIT 1'
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

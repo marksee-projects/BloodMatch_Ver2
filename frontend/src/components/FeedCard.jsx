@@ -177,7 +177,7 @@ export function FeedCard({ request, expandedByDefault = false, hideActions = fal
           {!hideActions && (
             <div className={styles.feedCardActions} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Button variant="primary" size="sm" to={`/requests/${request.id}/matches`}>
-                View Details & Respond
+                View request
               </Button>
               {request.can_view_requester_profile && request.requester_id && (
                 <Button variant="secondary" size="sm" to={`/profile/${request.requester_id}`} style={{ marginLeft: 'auto' }}>

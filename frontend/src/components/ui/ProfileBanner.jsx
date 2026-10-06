@@ -63,10 +63,12 @@ export function ProfileBanner({
                 )}
               </h1>
               <p className={styles.profileSubtitle}>
-                {[
-                  profile.chapter_name ? profile.chapter_name : (profile.chapter_id ? `Chapter #${profile.chapter_id}` : null),
-                  profile.role_label || ((profile.role || 'member').charAt(0).toUpperCase() + (profile.role || 'member').slice(1))
-                ].filter(Boolean).join(' • ')}
+                {(profile.role_label || profile.role || 'member').toLowerCase() === 'member' && profile.chapter_name
+                  ? `${profile.chapter_name} member`
+                  : [
+                    profile.chapter_name || null,
+                    profile.role_label || ((profile.role || 'member').charAt(0).toUpperCase() + (profile.role || 'member').slice(1))
+                  ].filter(Boolean).join(' • ')}
               </p>
 
               {isOwnProfile && (profile.role === 'member' || profile.donor_availability) && (

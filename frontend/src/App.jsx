@@ -467,6 +467,7 @@ export default function App() {
             />
 
             {/* Standard Member Routes */}
+            <Route path="/requests/new" element={<RequireAuth><Navigate replace to="/requests/mine" state={{ openCreate: true }} /></RequireAuth>} />
             <Route path="/requests/mine" element={<RequireAuth><RequestsPage /></RequireAuth>} />
             <Route path="/requests/:id/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
             <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />

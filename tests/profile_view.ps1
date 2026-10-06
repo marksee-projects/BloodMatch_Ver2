@@ -118,7 +118,12 @@ $closedDonorSession = Login $closedDonor
 $result = Get-Profile $closedDonorSession $target.id
 Assert-Status 'T08 donor with only a closed match receives 404' $result.status 404
 $closedFeed = Get-Json $closedDonorSession '/api/home-feed'
-if (@($closedFeed.body.data.requests | Where-Object { $_.id -eq $closedRequest }).Count -eq 0) { Ok 'T08a closed match has no Home profile link' } else { Bad 'T08a closed Home match' 'request was returned' }
+$closedFeedEntry = @($closedFeed.body.data.requests | Where-Object { $_.id -eq $closedRequest })
+if ($closedFeedEntry.Count -eq 1 -and $closedFeedEntry[0].can_view_requester_profile -eq $false) {
+    Ok 'T08a compatible request remains browsable without reopening profile access'
+} else {
+    Bad 'T08a compatibility-only Home card' "matches=$($closedFeedEntry.Count)"
+}
 
 $cancelledRequester = New-User 'cancelled_requester'
 $cancelledDonor = New-User 'cancelled_donor'
@@ -135,10 +140,11 @@ $unrelatedSession = Login $unrelated
 $result = Get-Profile $unrelatedSession $target.id
 Assert-Status 'T10 unrelated member receives 404' $result.status 404
 $unrelatedFeed = Get-Json $unrelatedSession '/api/home-feed'
-if ($unrelatedFeed.status -eq 200 -and @($unrelatedFeed.body.data.requests).Count -eq 0) {
-    Ok 'T10a unrelated member receives no Home profile entry point'
+$unrelatedEntry = @($unrelatedFeed.body.data.requests | Where-Object { $_.id -eq $openRequest })
+if ($unrelatedFeed.status -eq 200 -and $unrelatedEntry.Count -eq 1 -and $unrelatedEntry[0].can_view_requester_profile -eq $false) {
+    Ok 'T10a compatible member can browse request without profile access'
 } else {
-    Bad 'T10a unrelated Home feed' "status=$($unrelatedFeed.status)"
+    Bad 'T10a compatibility-only Home feed' "status=$($unrelatedFeed.status), matches=$($unrelatedEntry.Count)"
 }
 
 $enumViewer = New-User 'enumerator'

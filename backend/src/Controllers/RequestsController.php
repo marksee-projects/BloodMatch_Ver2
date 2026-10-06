@@ -105,13 +105,25 @@ final class RequestsController
     public function homeFeed(): void
     {
         $actor = AuthMiddleware::requireActiveUser('requests.home_feed');
-        if ((string) $actor['role'] !== 'member') {
-            Response::success(['requests' => []]);
+        if ((string) $actor['role'] !== 'member' || empty($actor['blood_type'])) {
+            Response::success([
+                'requests' => [],
+                'blood_type' => $actor['blood_type'] ?? null,
+                'compatible_recipient_types' => [],
+            ]);
             return;
         }
 
-        $rows = (new BloodRequestRepository())->listMatchedOpenForDonor((int) $actor['id']);
+        $recipientTypes = \BloodMatch\Services\BloodCompatibilityService::getCompatibleRecipientTypesForDonor(
+            (string) $actor['blood_type']
+        );
+        $rows = (new BloodRequestRepository())->listCompatibleOpenForDonor(
+            (int) $actor['id'],
+            $recipientTypes
+        );
         Response::success([
+            'blood_type' => (string) $actor['blood_type'],
+            'compatible_recipient_types' => $recipientTypes,
             'requests' => array_map(
                 static fn (array $row): array => RequestService::homeFeedView($row),
                 $rows
@@ -203,9 +215,15 @@ final class RequestsController
         $isSameChapterOfficer = (string) $actor['role'] === 'officer'
             && $actor['chapter_id'] !== null
             && (int) $actor['chapter_id'] === (int) $row['request_chapter_id'];
+        $context = $repo->findRequestContext($requestId, (int) $actor['id']);
+        $requestView = $context !== null ? RequestService::homeFeedView($context) : null;
 
         if ($isOwner || $isAdmin || $isSameChapterOfficer) {
-            Response::success(['matches' => (new \BloodMatch\Services\MatchService())->privacySafeMatches($requestId, null, $actor)]);
+            Response::success([
+                'viewer_mode' => 'requester',
+                'request' => $requestView,
+                'matches' => (new \BloodMatch\Services\MatchService())->privacySafeMatches($requestId, null, $actor),
+            ]);
             return;
         }
 
@@ -215,8 +233,31 @@ final class RequestsController
 
         if ($ownMatch !== null) {
             Response::success([
+                'viewer_mode' => 'donor',
+                'request' => $requestView,
                 'matches' => (new \BloodMatch\Services\MatchService())
                     ->privacySafeMatches($requestId, (int) $actor['id'], $actor),
+            ]);
+            return;
+        }
+
+        // Home is a compatibility browse view. A member may inspect the same
+        // privacy-safe request information shown on its card even when the
+        // account is not currently eligible to respond as a donor.
+        if ((string) $actor['role'] === 'member'
+            && !empty($actor['blood_type'])
+            && (string) $row['status'] === 'OPEN'
+            && in_array(
+                (string) $row['required_blood_type'],
+                \BloodMatch\Services\BloodCompatibilityService::getCompatibleRecipientTypesForDonor(
+                    (string) $actor['blood_type']
+                ),
+                true
+            )) {
+            Response::success([
+                'viewer_mode' => 'browser',
+                'request' => $requestView,
+                'matches' => [],
             ]);
             return;
         }

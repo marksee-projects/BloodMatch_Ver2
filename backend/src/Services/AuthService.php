@@ -212,7 +212,7 @@ final class AuthService
 
         AuditLogger::log((int) $user['id'], 'auth.login.success', 'user', (string) $user['id']);
 
-        return $this->publicUser($user);
+        return $this->publicUser($this->users->findById((int) $user['id']));
     }
 
     public function logout(?int $userId): void
@@ -304,6 +304,11 @@ final class AuthService
             'email' => (string) $user['email'],
             'full_name' => (string) $user['full_name'],
             'role' => (string) $user['role'],
+            'chapter_id' => $user['chapter_id'] !== null ? (int) $user['chapter_id'] : null,
+            'chapter_name' => $user['chapter_name'] ?? null,
+            'blood_type' => $user['blood_type'] ?? null,
+            'donor_enrolled' => !empty($user['donor_enrolled_at']),
+            'availability' => $user['donor_availability'] ?? null,
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
             'profile_picture_url' => ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),

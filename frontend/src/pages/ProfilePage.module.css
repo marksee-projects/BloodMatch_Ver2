@@ -479,6 +479,35 @@
   border-bottom: none;
 }
 
+.historySwitch {
+  align-self: flex-start;
+  display: inline-flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border-hairline);
+  border-radius: var(--radius-control);
+  background: var(--color-surface-sunken);
+}
+
+.historySwitch button {
+  min-height: 40px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.historySwitch .historySwitchActive {
+  background: var(--color-surface);
+  color: var(--color-brand-navy);
+  box-shadow: var(--shadow-sm);
+}
+
 .documentUploadBox {
   padding: var(--space-4);
   background-color: var(--color-surface-sunken);

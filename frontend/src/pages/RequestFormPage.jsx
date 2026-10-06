@@ -180,7 +180,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
       <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%' }}>
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: '0' }}>
-          {editing ? `Edit Blood Request #${id}` : 'Create Blood Request'}
+          {editing ? 'Edit request details' : 'Create blood request'}
         </h1>
       </div>
 

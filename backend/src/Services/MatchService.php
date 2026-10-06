@@ -266,6 +266,7 @@ final class MatchService
             return [
                 'match_id' => (int) $row['match_id'],
                 'donor_reference' => 'donor-' . (int) $row['donor_id'],
+                'is_current_user' => $viewer !== null && (int) $viewer['id'] === (int) $row['donor_id'],
                 'display_name' => (string) $row['full_name'],
                 'chapter_id' => $row['chapter_id'] !== null ? (int) $row['chapter_id'] : null,
                 'chapter_name' => $row['chapter_name'] !== null ? (string) $row['chapter_name'] : null,

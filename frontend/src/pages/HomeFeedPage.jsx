@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, CaretDown } from '@phosphor-icons/react'
+import { MapPin, CaretDown, Drop, Heart } from '@phosphor-icons/react'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -22,6 +22,7 @@ export default function HomeFeedPage() {
     retry: false
   })
   const requests = feedData?.requests || []
+  const donorBloodType = feedData?.blood_type || user?.blood_type || null
 
   return (
     <div className={styles.layout}>
@@ -86,10 +87,21 @@ export default function HomeFeedPage() {
         </aside>
 
         <main className={styles.centerColumn}>
+          <header className={styles.feedHeader}>
+            <div>
+              <span className={styles.feedKicker}><Heart size={16} weight="fill" aria-hidden="true" /> Requests you can help with</span>
+              <h1>Compatible blood requests</h1>
+              <p>
+                {donorBloodType
+                  ? `Based on your ${donorBloodType} blood type. Distance does not affect this list.`
+                  : 'Add your blood type to your profile to see compatible requests.'}
+              </p>
+            </div>
+            {donorBloodType && <div className={styles.accountBloodType} aria-label={`Your blood type is ${donorBloodType}`}><Drop size={18} weight="fill" /> {donorBloodType}</div>}
+          </header>
+
           <div className={styles.contextLine} aria-live="polite">
-            {feedLoading
-              ? 'Loading matched blood requests…'
-              : `${requests.length} matched blood ${requests.length === 1 ? 'request' : 'requests'}`}
+            {feedLoading ? 'Checking compatibility…' : `${requests.length} compatible ${requests.length === 1 ? 'request' : 'requests'}`}
           </div>
 
           {feedLoading && (
@@ -108,10 +120,13 @@ export default function HomeFeedPage() {
 
           {!feedLoading && !feedError && requests.length === 0 && (
             <Card padding="md" className={styles.feedState}>
-              <h2 className={styles.feedStateTitle}>No matched requests right now</h2>
+              <h2 className={styles.feedStateTitle}>{donorBloodType ? 'No compatible requests right now' : 'Blood type needed'}</h2>
               <p className={styles.feedStateText}>
-                Open requests appear here only after the matching system confirms that you can help.
+                {donorBloodType
+                  ? 'There are no open requests your blood type can support at the moment. Check again when new requests are published.'
+                  : 'Update your profile with your blood type to build your compatibility feed.'}
               </p>
+              {!donorBloodType && <Button variant="primary" to="/profile">Update profile</Button>}
             </Card>
           )}
 

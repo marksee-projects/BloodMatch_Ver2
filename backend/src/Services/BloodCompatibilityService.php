@@ -41,4 +41,26 @@ final class BloodCompatibilityService
         }
         return self::$cache;
     }
+
+    /**
+     * Return the recipient blood types that a donor blood type can support.
+     * This is the inverse view of the same centralized red-cell matrix.
+     */
+    public static function getCompatibleRecipientTypesForDonor(string $donorType): array
+    {
+        $matrix = self::fullMatrix();
+        $recipientTypes = [];
+
+        foreach ($matrix as $recipientType => $allowedDonorTypes) {
+            if (in_array($donorType, $allowedDonorTypes, true)) {
+                $recipientTypes[] = $recipientType;
+            }
+        }
+
+        if ($recipientTypes === []) {
+            throw new RuntimeException("Unknown donor blood type: {$donorType}");
+        }
+
+        return $recipientTypes;
+    }
 }

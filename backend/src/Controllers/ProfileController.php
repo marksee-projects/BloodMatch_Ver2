@@ -259,6 +259,7 @@ final class ProfileController
             'phone' => $user['phone'],
             'role' => (string) $user['role'],
             'chapter_id' => $user['chapter_id'] !== null ? (int) $user['chapter_id'] : null,
+            'chapter_name' => $user['chapter_name'] ?? null,
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
             'date_of_birth' => $user['date_of_birth'],

@@ -55,11 +55,68 @@ final class BloodRequestRepository
     public function listByRequester(int $requesterId): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br' . self::LOCATION_JOIN . '
+            'SELECT ' . self::SAFE_COLUMNS . ',
+                    (SELECT COUNT(*) FROM matches mx WHERE mx.request_id = br.id AND mx.status <> \'CLOSED\') AS match_count,
+                    (SELECT COUNT(*) FROM matches rx WHERE rx.request_id = br.id AND rx.status IN (\'RESPONDED\', \'COMPLETED\')) AS response_count
+             FROM blood_requests br' . self::LOCATION_JOIN . '
              WHERE br.requester_id = ? ORDER BY br.id DESC LIMIT 100'
         );
         $stmt->execute([$requesterId]);
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function listCompatibleOpenForDonor(int $donorId, array $recipientTypes, int $limit = 50): array
+    {
+        if ($recipientTypes === []) {
+            return [];
+        }
+
+        $safeLimit = max(1, min($limit, 100));
+        $typePlaceholders = implode(',', array_fill(0, count($recipientTypes), '?'));
+        $stmt = Database::pdo()->prepare(
+            'SELECT ' . self::SAFE_COLUMNS . ',
+                    m.id AS match_id, m.status AS match_status,
+                    requester.full_name AS requester_name,
+                    requester.verification_status AS requester_verification_status,
+                    requester.profile_picture AS requester_profile_picture,
+                    requester_chapter.name AS requester_chapter_name
+             FROM blood_requests br
+             JOIN users requester ON requester.id = br.requester_id
+             LEFT JOIN chapters requester_chapter ON requester_chapter.id = requester.chapter_id
+             LEFT JOIN matches m ON m.request_id = br.id AND m.donor_id = ? AND m.status <> \'CLOSED\'' .
+             self::LOCATION_JOIN . "
+             WHERE br.requester_id <> ?
+               AND br.status = 'OPEN'
+               AND br.needed_datetime > UTC_TIMESTAMP()
+               AND br.required_blood_type IN ($typePlaceholders)
+               AND requester.role = 'member'
+               AND requester.account_status = 'active'
+             ORDER BY FIELD(br.urgency, 'critical', 'urgent', 'routine'), br.needed_datetime ASC, br.created_at DESC
+             LIMIT {$safeLimit}"
+        );
+        $stmt->execute(array_merge([$donorId, $donorId], $recipientTypes));
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function findRequestContext(int $requestId, int $viewerId): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT ' . self::SAFE_COLUMNS . ',
+                    m.id AS match_id, m.status AS match_status,
+                    requester.full_name AS requester_name,
+                    requester.verification_status AS requester_verification_status,
+                    requester.profile_picture AS requester_profile_picture,
+                    requester_chapter.name AS requester_chapter_name
+             FROM blood_requests br
+             JOIN users requester ON requester.id = br.requester_id
+             LEFT JOIN chapters requester_chapter ON requester_chapter.id = requester.chapter_id
+             LEFT JOIN matches m ON m.request_id = br.id AND m.donor_id = ? AND m.status <> \'CLOSED\'' .
+             self::LOCATION_JOIN . '
+             WHERE br.id = ? LIMIT 1'
+        );
+        $stmt->execute([$viewerId, $requestId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
     }
 
     public function listMatchedOpenForDonor(int $donorId, int $limit = 20): array

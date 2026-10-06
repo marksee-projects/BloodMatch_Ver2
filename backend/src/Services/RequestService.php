@@ -209,6 +209,8 @@ final class RequestService
             'status' => (string) $row['status'],
             'review_status' => (string) $row['review_status'],
             'created_at' => (string) $row['created_at'],
+            'match_count' => isset($row['match_count']) ? (int) $row['match_count'] : null,
+            'response_count' => isset($row['response_count']) ? (int) $row['response_count'] : null,
         ];
     }
 
@@ -237,8 +239,14 @@ final class RequestService
             'urgency' => (string) $row['urgency'],
             'needed_datetime' => (string) $row['needed_datetime'],
             'created_at' => (string) $row['created_at'],
-            'match_status' => (string) $row['match_status'],
-            'can_view_requester_profile' => true,
+            'status' => (string) $row['status'],
+            'match_id' => isset($row['match_id']) && $row['match_id'] !== null ? (int) $row['match_id'] : null,
+            'match_status' => isset($row['match_status']) && $row['match_status'] !== null
+                ? (string) $row['match_status']
+                : null,
+            'can_respond' => isset($row['match_status'])
+                && in_array((string) $row['match_status'], ['POTENTIAL', 'NOTIFIED'], true),
+            'can_view_requester_profile' => isset($row['match_id']) && $row['match_id'] !== null,
         ];
     }
 }

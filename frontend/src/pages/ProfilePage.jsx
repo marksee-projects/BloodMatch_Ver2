@@ -36,6 +36,7 @@ export default function ProfilePage() {
   const [pictureFailed, setPictureFailed] = useState(false)
   const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [activeTab, setActiveTab] = useState('overview')
+  const [historyView, setHistoryView] = useState('donations')
   const navigate = useNavigate()
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
@@ -43,17 +44,23 @@ export default function ProfilePage() {
     queryFn: async () => {
       const p = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile');
       let r = [];
+      let requests = [];
       if (!isOtherProfile && p.profile.role === 'member') {
-        const d = await api.get('/api/my/donation-reports');
+        const [d, requestData] = await Promise.all([
+          api.get('/api/my/donation-reports'),
+          api.get('/api/my/requests')
+        ]);
         r = d.reports || [];
+        requests = requestData.requests || [];
       }
-      return { profile: p.profile, reports: r };
+      return { profile: p.profile, reports: r, requests };
     },
     retry: false
   });
 
   const profile = data?.profile;
   const reports = data?.reports || [];
+  const requestHistory = data?.requests || [];
 
   useEffect(() => {
     if (!isOtherProfile && profile && !form) {
@@ -344,8 +351,11 @@ export default function ProfilePage() {
                   )}
                 </h1>
                 <p className={styles.profileSubtitle}>
-                  {profile.chapter_name ? `${profile.chapter_name} • ` : ''}
-                  {profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}
+                  {profile.role === 'member' && profile.chapter_name
+                    ? `${profile.chapter_name} member`
+                    : (profile.chapter_name
+                      ? `${profile.chapter_name} • ${profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}`
+                      : profile.role.charAt(0).toUpperCase() + profile.role.slice(1))}
                 </p>
 
                 {profile.role === 'member' && (
@@ -392,10 +402,10 @@ export default function ProfilePage() {
           </div>
           {profile.role === 'member' && (
             <div 
-              className={`${styles.navTab} ${activeTab === 'donations' ? styles.navTabActive : ''}`}
-              onClick={() => setActiveTab('donations')}
+              className={`${styles.navTab} ${activeTab === 'history' ? styles.navTabActive : ''}`}
+              onClick={() => setActiveTab('history')}
             >
-              Donations
+              History
             </div>
           )}
         </div>
@@ -543,8 +553,15 @@ export default function ProfilePage() {
           </Card>
         )}
 
-        {activeTab === 'donations' && profile.role === 'member' && (
+        {activeTab === 'history' && profile.role === 'member' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+            <div className={styles.historySwitch} role="group" aria-label="Choose history type">
+              <button type="button" className={historyView === 'donations' ? styles.historySwitchActive : ''} onClick={() => setHistoryView('donations')}>Donation history</button>
+              <button type="button" className={historyView === 'requests' ? styles.historySwitchActive : ''} onClick={() => setHistoryView('requests')}>Request history</button>
+            </div>
+
+            {historyView === 'donations' && (
+            <>
             <Card>
               <div className={styles.cardHeader}>
                 <h3 className={styles.cardTitle}>Volunteer Enrollment</h3>
@@ -633,7 +650,6 @@ export default function ProfilePage() {
             <table className={styles.table}>
               <thead>
                 <tr>
-                  <th>Report ID</th>
                   <th>Blood Type</th>
                   <th>Facility</th>
                   <th>Status</th>
@@ -643,7 +659,6 @@ export default function ProfilePage() {
               <tbody>
                 {reports.map((rep) => (
                   <tr key={rep.id}>
-                    <td><code>#{rep.id}</code></td>
                     <td><strong>{rep.required_blood_type}</strong></td>
                     <td>{rep.facility_name}</td>
                     <td>
@@ -659,6 +674,36 @@ export default function ProfilePage() {
           </div>
         )}
       </Card>
+      </>
+      )}
+
+      {historyView === 'requests' && (
+        <Card>
+          <div className={styles.cardHeader}>
+            <h3 className={styles.cardTitle}>My request history</h3>
+            <Button to="/requests/mine" variant="secondary" size="sm">Manage requests</Button>
+          </div>
+          {requestHistory.length === 0 ? (
+            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', margin: 0 }}>No blood requests recorded yet.</p>
+          ) : (
+            <div className={styles.tableContainer}>
+              <table className={styles.table}>
+                <thead><tr><th>Blood type</th><th>Facility</th><th>Status</th><th>Needed by</th></tr></thead>
+                <tbody>
+                  {requestHistory.map((request) => (
+                    <tr key={request.id}>
+                      <td><strong>{request.required_blood_type}</strong> · {request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</td>
+                      <td>{request.facility_name}</td>
+                      <td><Badge variant={request.status === 'FULFILLED' ? 'success' : request.status === 'OPEN' ? 'brand' : 'neutral'}>{request.status}</Badge></td>
+                      <td>{new Date(request.needed_datetime.replace(' ', 'T') + 'Z').toLocaleDateString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      )}
       </div>
       )}
       <PrivacyConsentModal 

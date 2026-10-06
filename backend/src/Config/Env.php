@@ -35,6 +35,11 @@ final class Env
             if ($key === '') {
                 continue;
             }
+            $processValue = getenv($key);
+            if ($processValue !== false) {
+                $_ENV[$key] = $processValue;
+                continue;
+            }
             if (!array_key_exists($key, $_ENV)) {
                 $_ENV[$key] = self::unquote($value);
             }
