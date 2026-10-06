@@ -88,7 +88,7 @@ export function FeedCard({ request, hideActions = false }) {
                   View request
                 </Button>
                 {request.can_view_requester_profile && request.requester_id && (
-                  <Button variant="secondary" size="sm" to={`/profile/${request.requester_id}`}>
+                  <Button className={styles.profileAction} variant="secondary" size="sm" to={`/profile/${request.requester_id}`}>
                     View profile
                   </Button>
                 )}

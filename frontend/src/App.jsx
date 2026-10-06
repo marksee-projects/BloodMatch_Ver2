@@ -240,8 +240,11 @@ export default function App() {
                       className="nav-avatar-trigger"
                       title="Account menu"
                     >
-                      <div style={{ position: 'relative' }}>
+                      <div className="nav-avatar-status-wrap">
                         <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
+                        {user.role === 'member' && user.donor_enrolled && user.availability === 'available' && !user.availability_window?.blocked && (
+                          <span className="nav-availability-dot" role="img" aria-label="Available to donate" title="Available to donate" />
+                        )}
                         <div style={{
                           position: 'absolute',
                           bottom: -4,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowsClockwise, Funnel, MapPin, Warning } from '@phosphor-icons/react'
+import { ArrowsClockwise, CaretDown, Funnel, MapPin, Warning } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import { Card } from './ui/Card'
@@ -175,24 +175,31 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
           {chapters.length > 0 && isMini && (
             <>
-              <div className={styles.miniFilters} aria-label="Chapter demand filters">
-                <label className={styles.miniFilterField} htmlFor="home-demand-chapter">
-                  <span>Chapter</span>
-                  <select id="home-demand-chapter" value={selectedMiniChapter} onChange={(event) => setSelectedMiniChapter(event.target.value)}>
-                    <option value="All">All chapters ({chapters.length})</option>
-                    {chapters.map((chapter) => <option key={chapter.chapter_id} value={chapter.chapter_id}>{chapter.chapter_name}</option>)}
-                  </select>
-                </label>
-                <label className={styles.miniFilterField} htmlFor="home-demand-urgency">
-                  <span>Urgency</span>
-                  <select id="home-demand-urgency" value={selectedMiniUrgency} onChange={(event) => setSelectedMiniUrgency(event.target.value)}>
-                    <option value="All">All urgencies ({totalDemand})</option>
-                    {MINI_URGENCIES.map((urgency) => (
-                      <option key={urgency} value={urgency}>{urgency.charAt(0).toUpperCase() + urgency.slice(1)} ({urgencyTotals[urgency]})</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+              <details className={styles.filterDropdown}>
+                <summary>
+                  <Funnel size={16} aria-hidden="true" />
+                  <span>Filter demand</span>
+                  <CaretDown size={16} aria-hidden="true" />
+                </summary>
+                <div className={styles.miniFilters} aria-label="Chapter demand filters">
+                  <label className={styles.miniFilterField} htmlFor="home-demand-chapter">
+                    <span>Chapter</span>
+                    <select id="home-demand-chapter" value={selectedMiniChapter} onChange={(event) => setSelectedMiniChapter(event.target.value)}>
+                      <option value="All">All chapters ({chapters.length})</option>
+                      {chapters.map((chapter) => <option key={chapter.chapter_id} value={chapter.chapter_id}>{chapter.chapter_name}</option>)}
+                    </select>
+                  </label>
+                  <label className={styles.miniFilterField} htmlFor="home-demand-urgency">
+                    <span>Urgency</span>
+                    <select id="home-demand-urgency" value={selectedMiniUrgency} onChange={(event) => setSelectedMiniUrgency(event.target.value)}>
+                      <option value="All">All urgencies ({totalDemand})</option>
+                      {MINI_URGENCIES.map((urgency) => (
+                        <option key={urgency} value={urgency}>{urgency.charAt(0).toUpperCase() + urgency.slice(1)} ({urgencyTotals[urgency]})</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              </details>
 
               {totalDemand === 0 && selectedMiniUrgency === 'All' && (
                 <p className={styles.miniEmptyState}>No active requests across these chapters.</p>

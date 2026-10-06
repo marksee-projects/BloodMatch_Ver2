@@ -38,6 +38,11 @@ export default function MatchesPage() {
 
   const load = useCallback(() => api.get(`/api/requests/${id}/matches`).then(setPageData).catch((error) => setErrorAlert(error.message)), [id])
   useEffect(() => { load() }, [load])
+  useEffect(() => {
+    if (!message) return undefined
+    const timeoutId = window.setTimeout(() => setMessage(null), 5000)
+    return () => window.clearTimeout(timeoutId)
+  }, [message])
 
   const matches = pageData?.matches || []
   const request = pageData?.request
@@ -125,7 +130,10 @@ export default function MatchesPage() {
             </div>
             <p>{request.requester_chapter_name || 'Chapter not assigned'} member <span aria-hidden="true">&bull;</span> {formatDate(request.created_at || request.needed_datetime)}</p>
           </div>
-          <div className={styles.bloodTypeSquare}>{request.required_blood_type}</div>
+          <div className={styles.requestStatus}>
+            {!isRequesterView && ownMatch && <Badge variant={ownMatch.status === 'COMPLETED' ? 'success' : ownMatch.status === 'RESPONDED' ? 'brand' : 'neutral'}>{ownMatch.status}</Badge>}
+            <div className={styles.bloodTypeSquare}>{request.required_blood_type}</div>
+          </div>
         </div>
 
         <dl className={styles.requestFacts}>
@@ -136,12 +144,15 @@ export default function MatchesPage() {
         </dl>
 
         <div className={styles.requestActions}>
-          {request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
-          {!isRequesterView && ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
-          {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
-          {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
-          {!isRequesterView && ownMatch && <Badge variant={ownMatch.status === 'COMPLETED' ? 'success' : ownMatch.status === 'RESPONDED' ? 'brand' : 'neutral'}>{ownMatch.status}</Badge>}
-          {!isRequesterView && !ownMatch && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
+          <div className={styles.profileActions}>
+            {request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
+          </div>
+          <div className={styles.donorActions}>
+            {!isRequesterView && ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
+            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
+            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
+            {!isRequesterView && !ownMatch && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
+          </div>
         </div>
         {!isRequesterView && !ownMatch && <p className={styles.eligibilityNote}>{eligibilityMessage(user)}</p>}
       </section>

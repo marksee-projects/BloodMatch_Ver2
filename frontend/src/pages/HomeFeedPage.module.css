@@ -179,18 +179,6 @@
 .feedCard {
   width: 100%;
   max-width: 680px;
-  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
-}
-
-.feedCard:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .feedCard:hover {
-    transform: none;
-  }
 }
 
 .feedCardInner {
@@ -229,12 +217,29 @@
   font-size: var(--text-body);
 }
 
+.demandCard { overflow: hidden; }
 .mapHeading {
-  display: flex;
+  width: 100%;
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 20px;
   align-items: center;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   color: var(--color-brand-navy);
+  text-align: center;
 }
+.mapHeading:hover:not(:disabled), .mapHeading:active:not(:disabled) { border-color: transparent; background: transparent; transform: none; }
+.mapHeading:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
 .mapHeading h2 { margin: 0; color: var(--color-text); font-size: var(--text-h3); }
-.mapHeading p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.4; }
+.mapCaret, .mapCaretOpen { color: var(--color-text-muted); transition: transform var(--transition-fast); }
+.mapCaretOpen { transform: rotate(180deg); }
+.demandContent { padding: 0 var(--space-4) var(--space-4); border-top: 1px solid var(--color-border-hairline); }
+.demandContent > * { padding-top: var(--space-4); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mapCaret, .mapCaretOpen { transition: none; }
+}

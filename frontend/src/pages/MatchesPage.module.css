@@ -8,6 +8,7 @@
 .requesterNameLine h1 { margin: 0; font-size: var(--text-h2); }
 .requesterNameLine svg { flex: none; color: var(--color-brand-navy); }
 .requesterIdentity p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.requestStatus { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); }
 
 .requestFacts { display: grid; grid-template-columns: .8fr minmax(220px, 1.8fr) 1.2fr auto; gap: var(--space-4); margin: 0; padding: var(--space-4); border-radius: var(--radius-control); background: var(--color-surface); box-shadow: var(--shadow-sm); }
 .requestFacts div { min-width: 0; }
@@ -15,7 +16,9 @@
 .requestFacts dd { margin: 0; overflow-wrap: anywhere; color: var(--color-text); font-size: var(--text-sm); font-weight: 600; }
 .avatar { width: 48px; height: 48px; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-avatar); background: var(--color-surface-sunken); color: var(--color-text-muted); }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
-.requestActions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-4); flex-wrap: wrap; }
+.requestActions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-top: var(--space-4); }
+.profileActions, .donorActions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.donorActions { justify-content: flex-end; margin-left: auto; }
 .eligibilityNote { max-width: 700px; margin: var(--space-3) 0 0 auto; color: var(--color-text-muted); font-size: var(--text-sm); text-align: right; }
 .cancelOffer { color: var(--color-critical-red) !important; }
 
@@ -53,9 +56,12 @@
 
 @media (max-width: 680px) {
   .requestHeader { grid-template-columns: auto 1fr auto; }
+  .requestStatus { align-items: flex-end; flex-direction: column-reverse; }
   .requestFacts { grid-template-columns: 1fr; }
   .requestActions { align-items: stretch; justify-content: flex-start; flex-direction: column; }
-  .requestActions > * { width: 100% !important; }
+  .profileActions, .donorActions { width: 100%; align-items: stretch; flex-direction: column; }
+  .donorActions { margin-left: 0; }
+  .profileActions > *, .donorActions > * { width: 100% !important; }
   .eligibilityNote { margin-left: 0; text-align: left; }
   .matchRow { grid-template-columns: auto 1fr; }
   .matchRow > :last-child, .matchRow > :nth-last-child(2) { grid-column: 2; justify-self: start; }

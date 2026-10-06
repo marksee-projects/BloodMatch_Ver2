@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin } from '@phosphor-icons/react'
+import { CaretDown, MapPin } from '@phosphor-icons/react'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -15,6 +15,7 @@ import styles from './HomeFeedPage.module.css'
 export default function HomeFeedPage() {
   const { user, refresh } = useAuth()
   const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false)
+  const [demandExpanded, setDemandExpanded] = React.useState(false)
   const { data: feedData, isLoading: feedLoading, error: feedError, refetch: refetchFeed } = useQuery({
     queryKey: ['home-feed'],
     queryFn: () => api.get('/api/home-feed'),
@@ -123,12 +124,23 @@ export default function HomeFeedPage() {
         </main>
 
         <aside className={styles.rightColumn}>
-          <Card padding="md">
-            <div className={styles.mapHeading}>
+          <Card padding="none" className={styles.demandCard}>
+            <button
+              type="button"
+              className={styles.mapHeading}
+              aria-expanded={demandExpanded}
+              aria-controls="home-demand-content"
+              onClick={() => setDemandExpanded((current) => !current)}
+            >
               <MapPin size={20} weight="fill" aria-hidden="true" />
-              <div><h2>Chapter demand</h2><p>Open requests, grouped safely by chapter.</p></div>
-            </div>
-            <DemandMapWidget mode="mini" />
+              <h2>Chapter Demand Map</h2>
+              <CaretDown className={demandExpanded ? styles.mapCaretOpen : styles.mapCaret} size={18} aria-hidden="true" />
+            </button>
+            {demandExpanded && (
+              <div id="home-demand-content" className={styles.demandContent}>
+                <DemandMapWidget mode="mini" />
+              </div>
+            )}
           </Card>
         </aside>
       </section>

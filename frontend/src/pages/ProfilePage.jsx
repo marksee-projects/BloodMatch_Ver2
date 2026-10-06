@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User } from '@phosphor-icons/react'
+import { ArrowLeft, Camera, CheckCircle, Drop, FileText, List, UploadSimple, User } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
@@ -46,6 +46,7 @@ export default function ProfilePage() {
   const [pictureUploading, setPictureUploading] = useState(false)
   const [pictureFailed, setPictureFailed] = useState(false)
   const [activeSection, setActiveSection] = useState('overview')
+  const [sideNavOpen, setSideNavOpen] = useState(true)
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
     queryKey: isOtherProfile ? ['member-profile', profileId] : ['profile'],
@@ -278,7 +279,6 @@ export default function ProfilePage() {
             </label>
             {profile.role === 'member' && profile.donor_enrolled && profile.availability === 'available' && !availabilityBlocked && (
               <span className={styles.availabilityIndicator} title="Available to donate">
-                <CheckCircle size={20} weight="fill" aria-hidden="true" />
                 <span className={styles.visuallyHidden}>Available to donate</span>
               </span>
             )}
@@ -303,13 +303,22 @@ export default function ProfilePage() {
         </div>
       </header>
 
-      <main className={styles.profileLayout}>
-        <aside className={styles.sideNav} aria-label="Profile sections">
-          <p>Profile</p>
-          <button type="button" className={activeSection === 'overview' ? styles.sideNavActive : ''} aria-current={activeSection === 'overview' ? 'page' : undefined} onClick={() => setActiveSection('overview')}>Overview</button>
-          {profile.role === 'member' && <button type="button" className={activeSection === 'verification' ? styles.sideNavActive : ''} aria-current={activeSection === 'verification' ? 'page' : undefined} onClick={() => setActiveSection('verification')}>Verification</button>}
-          {profile.role === 'member' && <button type="button" className={activeSection === 'donations' ? styles.sideNavActive : ''} aria-current={activeSection === 'donations' ? 'page' : undefined} onClick={() => setActiveSection('donations')}>Donation history</button>}
-          {profile.role === 'member' && <button type="button" className={activeSection === 'requests' ? styles.sideNavActive : ''} aria-current={activeSection === 'requests' ? 'page' : undefined} onClick={() => setActiveSection('requests')}>Request history</button>}
+      <main className={`${styles.profileLayout} ${sideNavOpen ? '' : styles.profileLayoutCollapsed}`}>
+        <aside className={`${styles.sideNav} ${sideNavOpen ? '' : styles.sideNavCollapsed}`} aria-label="Profile sections">
+          <div className={styles.sideNavHeader}>
+            {sideNavOpen && <span>Profile</span>}
+            <button type="button" className={styles.sideNavToggle} aria-label={sideNavOpen ? 'Collapse profile navigation' : 'Expand profile navigation'} aria-expanded={sideNavOpen} onClick={() => setSideNavOpen((current) => !current)}>
+              <List size={20} aria-hidden="true" />
+            </button>
+          </div>
+          {sideNavOpen && (
+            <nav className={styles.sideNavMenu}>
+              <button type="button" className={activeSection === 'overview' ? styles.sideNavActive : ''} aria-current={activeSection === 'overview' ? 'page' : undefined} onClick={() => setActiveSection('overview')}>Overview</button>
+              {profile.role === 'member' && <button type="button" className={activeSection === 'verification' ? styles.sideNavActive : ''} aria-current={activeSection === 'verification' ? 'page' : undefined} onClick={() => setActiveSection('verification')}>Verification</button>}
+              {profile.role === 'member' && <button type="button" className={activeSection === 'donations' ? styles.sideNavActive : ''} aria-current={activeSection === 'donations' ? 'page' : undefined} onClick={() => setActiveSection('donations')}>Donation history</button>}
+              {profile.role === 'member' && <button type="button" className={activeSection === 'requests' ? styles.sideNavActive : ''} aria-current={activeSection === 'requests' ? 'page' : undefined} onClick={() => setActiveSection('requests')}>Request history</button>}
+            </nav>
+          )}
         </aside>
 
         <div className={styles.profileContent}>
