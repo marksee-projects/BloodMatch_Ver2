@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
-import { ArrowRight, Bell, Check, X, Drop } from '@phosphor-icons/react'
+import { ArrowRight, Bell, X, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { formatNotificationTime, notificationDeepLink } from '../services/notifications'
 
@@ -36,12 +36,28 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
       const qs = filter === 'unread' ? '&read=unread' : ''
       const d = await api.get(`/api/notifications?page=1&page_size=${PREVIEW_SIZE}${qs}`)
       setData(d)
+      if (d?.notifications?.some((notification) => !notification.read_at)) {
+        try {
+          await api.post('/api/notifications/read-all')
+          const readAt = new Date().toISOString()
+          setData({
+            ...d,
+            notifications: d.notifications.map((notification) => ({
+              ...notification,
+              read_at: notification.read_at || readAt,
+            })),
+          })
+          setUnread(0)
+        } catch (readError) {
+          setError(readError.message || 'Notifications loaded, but could not be marked as read.')
+        }
+      }
     } catch (err) {
       setError(err.message || 'Could not load notifications.')
     } finally {
       setLoading(false)
     }
-  }, [filter])
+  }, [filter, setUnread])
 
   useEffect(() => {
     if (open) {
@@ -112,16 +128,6 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
     }
   }
 
-  const markAll = async () => {
-    try {
-      await api.post('/api/notifications/read-all')
-      await load()
-      await refreshUnread()
-    } catch (err) {
-      setError(err.message || 'Could not mark notifications as read.')
-    }
-  }
-
   const badge = formatBadge(unread)
   const label = `Notifications${unread > 0 ? `, ${unread} unread` : ''}`
 
@@ -131,24 +137,20 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
       role="dialog"
       aria-label="Notifications"
     >
-      <div className="notif-flyout-header" style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: 'none' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: 'var(--space-3)' }}>
-          <h2 className="notif-flyout-title" style={{ fontSize: 'var(--text-h3)', margin: 0, fontWeight: 700 }}>Notifications</h2>
-          <div className="notif-flyout-actions">
-            <button
-              ref={closeRef}
-              type="button"
-              className="notif-close"
-              onClick={() => setOpen(false)}
-              aria-label="Close notifications"
-            >
-              <X size={16} weight="regular" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-          <button type="button" className={`notif-filter-btn ${filter === 'all' ? 'active' : ''}`} style={{ minHeight: '44px', minWidth: '44px' }} onClick={() => setFilter('all')}>All</button>
-          <button type="button" className={`notif-filter-btn ${filter === 'unread' ? 'active' : ''}`} style={{ minHeight: '44px', minWidth: '44px' }} onClick={() => setFilter('unread')}>Unread</button>
+      <div className="notif-flyout-header">
+        <h2 className="notif-flyout-title">Notifications</h2>
+        <button
+          ref={closeRef}
+          type="button"
+          className="notif-close"
+          onClick={() => setOpen(false)}
+          aria-label="Close notifications"
+        >
+          <X size={18} weight="regular" aria-hidden="true" />
+        </button>
+        <div className="notif-filter-row">
+          <button type="button" className={`notif-filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
+          <button type="button" className={`notif-filter-btn ${filter === 'unread' ? 'active' : ''}`} onClick={() => setFilter('unread')}>Unread</button>
         </div>
       </div>
 

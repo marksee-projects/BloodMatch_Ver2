@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight, FileText, MagnifyingGlass, ShieldCheck } from '@phosphor-icons/react'
+import { ArrowLeft, ArrowRight, FileText, ShieldCheck } from '@phosphor-icons/react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
@@ -19,9 +19,7 @@ export default function VerificationsView() {
   const [chapters, setChapters] = useState([])
   const [detail, setDetail] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
-  const [query, setQuery] = useState('')
   const [chapterId, setChapterId] = useState('')
-  const [filters, setFilters] = useState({ q: '', chapter_id: '' })
   const [page, setPage] = useState(1)
   const [decision, setDecision] = useState('verified')
   const [reason, setReason] = useState('')
@@ -35,15 +33,14 @@ export default function VerificationsView() {
     setError(null)
     try {
       const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) })
-      if (filters.q) params.set('q', filters.q)
-      if (filters.chapter_id) params.set('chapter_id', filters.chapter_id)
+      if (chapterId) params.set('chapter_id', chapterId)
       setQueue(await api.get(`/api/admin/verifications?${params.toString()}`))
     } catch (err) {
       setError(err.message || 'Could not load account verification requests.')
     } finally {
       setLoading(false)
     }
-  }, [filters, page])
+  }, [chapterId, page])
 
   useEffect(() => {
     loadQueue()
@@ -83,19 +80,6 @@ export default function VerificationsView() {
   const closeDetail = () => {
     setDetail(null)
     setSearchParams({})
-  }
-
-  const submitFilters = (event) => {
-    event.preventDefault()
-    setPage(1)
-    setFilters({ q: query.trim(), chapter_id: chapterId })
-  }
-
-  const clearFilters = () => {
-    setQuery('')
-    setChapterId('')
-    setPage(1)
-    setFilters({ q: '', chapter_id: '' })
   }
 
   const submitDecision = async (event) => {
@@ -143,51 +127,29 @@ export default function VerificationsView() {
 
   return (
     <div className="container" style={{ padding: 'var(--space-6) 0' }}>
-      <header className="app-header">
-        <div>
-          <h1>Account Verifications</h1>
-          <p className="muted" style={{ margin: 0 }}>Review National IDs submitted by pending members.</p>
-        </div>
-      </header>
-
       {message && <div className="alert alert-success" role="status">{message}</div>}
       {error && <div className="alert alert-error" role="alert">{error}</div>}
 
       {!detail ? (
         <>
-          <form className="card" onSubmit={submitFilters} style={{ marginBottom: 'var(--space-4)' }}>
-            <div className="grid-2" style={{ alignItems: 'end' }}>
-              <div className="field">
-                <label htmlFor="verification-search">Search members</label>
-                <div style={{ position: 'relative' }}>
-                  <MagnifyingGlass size={18} aria-hidden="true" style={{ position: 'absolute', left: 'var(--space-3)', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-                  <input
-                    id="verification-search"
-                    type="search"
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    placeholder="Search by name or email"
-                    style={{ paddingLeft: 'var(--space-6)' }}
-                  />
-                </div>
-              </div>
-              <div className="field">
-                <label htmlFor="verification-chapter">Chapter</label>
-                <select id="verification-chapter" value={chapterId} onChange={(event) => setChapterId(event.target.value)}>
-                  <option value="">All chapters</option>
-                  {chapters.map((chapter) => (
-                    <option key={chapter.id} value={chapter.id}>{chapter.name}</option>
-                  ))}
-                </select>
-              </div>
+          <div className="card" style={{ marginBottom: 'var(--space-4)' }}>
+            <div className="field" style={{ maxWidth: '360px', margin: 0 }}>
+              <label htmlFor="verification-chapter">Show requests from</label>
+              <select
+                id="verification-chapter"
+                value={chapterId}
+                onChange={(event) => {
+                  setChapterId(event.target.value)
+                  setPage(1)
+                }}
+              >
+                <option value="">All chapters</option>
+                {chapters.map((chapter) => (
+                  <option key={chapter.id} value={chapter.id}>{chapter.name}</option>
+                ))}
+              </select>
             </div>
-            <div className="button-group" style={{ marginTop: 'var(--space-4)' }}>
-              <button type="submit" className="btn">Apply filters</button>
-              {(filters.q || filters.chapter_id) && (
-                <button type="button" className="btn btn-secondary" onClick={clearFilters}>Clear filters</button>
-              )}
-            </div>
-          </form>
+          </div>
 
           <section className="card">
             <div className="card-header">
@@ -205,7 +167,7 @@ export default function VerificationsView() {
               <div className="empty-state">
                 <ShieldCheck size={32} aria-hidden="true" />
                 <h3>No pending National IDs</h3>
-                <p>No members match the selected search and chapter filters.</p>
+                <p>{chapterId ? 'No members in this chapter are waiting for verification.' : 'No members are waiting for verification.'}</p>
               </div>
             ) : (
               <div className="table-container">

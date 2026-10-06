@@ -61,33 +61,33 @@
   overflow: hidden;
 }
 .notif-flyout-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  position: relative;
+  padding: var(--space-4);
+  padding-right: calc(var(--space-4) + 44px);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 .notif-flyout-title {
   font-family: var(--font-sans);
-  font-size: 0.9375rem;
+  font-size: var(--text-h3);
   font-weight: 700;
   letter-spacing: -0.02em;
-  margin: 0 0 2px;
+  margin: 0 0 var(--space-3);
   color: var(--color-text);
 }
-.notif-flyout-actions {
+.notif-filter-row {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  flex: none;
+  gap: var(--space-2);
 }
 .notif-close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
@@ -367,6 +367,8 @@
 
 /* Facebook-style Notification Redesign */
 .notif-filter-btn {
+  min-width: 44px;
+  min-height: 44px;
   padding: 6px 14px;
   border-radius: var(--radius-pill);
   border: none;
