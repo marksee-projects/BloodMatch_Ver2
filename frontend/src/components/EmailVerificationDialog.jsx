@@ -1,19 +1,24 @@
-import { useEffect, useState } from 'react'
-import { CheckCircle, WarningCircle, X } from '@phosphor-icons/react'
+import { useEffect, useRef, useState } from 'react'
+import { CheckCircle, EnvelopeSimple, WarningCircle, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import styles from './EmailVerificationDialog.module.css'
 
+const emptyCode = () => Array(6).fill('')
+
 export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, initialEmail = '' }) {
-  const [code, setCode] = useState('')
+  const [code, setCode] = useState(emptyCode)
   const [status, setStatus] = useState('idle') // idle, sending, error, success, rate_limited
   const [errorMsg, setErrorMsg] = useState('')
   const [countdown, setCountdown] = useState(0)
+  const digitRefs = useRef([])
 
   useEffect(() => {
     if (!isOpen) {
-      setCode('')
+      setCode(emptyCode())
       setStatus('idle')
       setErrorMsg('')
+    } else {
+      window.requestAnimationFrame(() => digitRefs.current[0]?.focus())
     }
   }, [isOpen])
 
@@ -27,10 +32,10 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
 
   const handleVerify = async (e) => {
     e.preventDefault()
-    if (!code.trim()) return
+    if (code.some((digit) => !digit)) return
     setStatus('sending')
     try {
-      await api.post('/api/auth/verify', { code: code.trim() })
+      await api.post('/api/auth/verify', { email: initialEmail, code: code.join('') })
       setStatus('success')
       if (onSuccess) {
         setTimeout(onSuccess, 1500)
@@ -41,14 +46,48 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
     }
   }
 
+  const updateDigit = (index, value) => {
+    const digits = value.replace(/\D/g, '')
+    if (digits.length > 1) {
+      const autofilledCode = digits.slice(0, 6)
+      setCode(Array.from({ length: 6 }, (_, digitIndex) => autofilledCode[digitIndex] || ''))
+      setErrorMsg('')
+      digitRefs.current[Math.min(autofilledCode.length, 6) - 1]?.focus()
+      return
+    }
+    const digit = digits.slice(-1)
+    const next = [...code]
+    next[index] = digit
+    setCode(next)
+    setErrorMsg('')
+    if (digit && index < 5) digitRefs.current[index + 1]?.focus()
+  }
+
+  const handleDigitKeyDown = (index, event) => {
+    if (event.key === 'Backspace' && !code[index] && index > 0) {
+      digitRefs.current[index - 1]?.focus()
+    }
+    if (event.key === 'ArrowLeft' && index > 0) digitRefs.current[index - 1]?.focus()
+    if (event.key === 'ArrowRight' && index < 5) digitRefs.current[index + 1]?.focus()
+  }
+
+  const handlePaste = (event) => {
+    const pastedCode = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, 6)
+    if (!pastedCode) return
+    event.preventDefault()
+    setCode(Array.from({ length: 6 }, (_, index) => pastedCode[index] || ''))
+    setErrorMsg('')
+    digitRefs.current[Math.min(pastedCode.length, 6) - 1]?.focus()
+  }
+
   const handleResend = async () => {
     if (countdown > 0 || status === 'sending') return
     setStatus('sending')
     try {
-      await api.post('/api/auth/verify/resend')
+      await api.post('/api/auth/verify/resend', { email: initialEmail })
       setStatus('idle')
       setCountdown(60)
-      setCode('')
+      setCode(emptyCode())
       setErrorMsg('')
     } catch (err) {
       if (err.status === 429) {
@@ -78,22 +117,37 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
           </div>
         ) : (
           <div className={styles.verifyState}>
-            <h2 id="dialog-title">Verify Your Email</h2>
-            <p>We've sent a verification code to your email address {initialEmail && <strong>{initialEmail}</strong>}. Please enter it below.</p>
+            <div className={styles.iconMark} aria-hidden="true">
+              <EnvelopeSimple size={24} weight="duotone" />
+            </div>
+            <h2 id="dialog-title">Check your email</h2>
+            <p className={styles.intro}>
+              Enter the six-digit code sent to
+              {initialEmail && <strong className={styles.email}>{initialEmail}</strong>}.
+            </p>
             
             <form onSubmit={handleVerify} className={styles.form}>
               <div className={styles.inputGroup}>
-                <label htmlFor="otp-code" className="sr-only">Verification Code</label>
-                <input
-                  id="otp-code"
-                  type="text"
-                  placeholder="Enter 6-digit code"
-                  value={code}
-                  onChange={e => setCode(e.target.value)}
-                  className={styles.input}
-                  maxLength={6}
-                  autoComplete="one-time-code"
-                />
+                <span className={styles.inputLabel}>Verification code</span>
+                <div className={styles.codeInputs} onPaste={handlePaste}>
+                  {Array.from({ length: 6 }, (_, index) => (
+                    <input
+                      key={index}
+                      ref={(element) => { digitRefs.current[index] = element }}
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={1}
+                      value={code[index] || ''}
+                      onChange={(event) => updateDigit(index, event.target.value)}
+                      onKeyDown={(event) => handleDigitKeyDown(index, event)}
+                      className={styles.codeInput}
+                      autoComplete={index === 0 ? 'one-time-code' : 'off'}
+                      aria-label={`Verification code digit ${index + 1}`}
+                      aria-invalid={!!errorMsg}
+                    />
+                  ))}
+                </div>
               </div>
 
               {errorMsg && (
@@ -106,20 +160,20 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
               <button 
                 type="submit" 
                 className={styles.submitButton}
-                disabled={!code.trim() || status === 'sending'}
+                disabled={code.some((digit) => !digit) || status === 'sending'}
               >
-                {status === 'sending' ? 'Verifying...' : 'Verify Email'}
+                {status === 'sending' ? 'Verifying…' : 'Verify email'}
               </button>
             </form>
 
             <div className={styles.resendSection}>
-              <p>Didn't receive the code?</p>
+              <span>Didn't receive the code?</span>
               <button 
                 onClick={handleResend} 
                 disabled={countdown > 0 || status === 'sending' || status === 'rate_limited'}
                 className={styles.resendButton}
               >
-                {countdown > 0 ? `Resend available in ${countdown}s` : 'Resend Code'}
+                {countdown > 0 ? `Resend in ${countdown}s` : 'Resend code'}
               </button>
             </div>
           </div>

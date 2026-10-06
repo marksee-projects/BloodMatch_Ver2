@@ -88,3 +88,11 @@
   margin-top: var(--space-5);
   flex-wrap: wrap;
 }
+
+.actions button:disabled {
+  color: var(--color-text-subtle);
+  background: var(--color-surface-sunken);
+  border-color: var(--color-border);
+  opacity: 1;
+  cursor: not-allowed;
+}

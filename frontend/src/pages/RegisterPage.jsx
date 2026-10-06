@@ -1,10 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   ArrowRight,
   ArrowsClockwise,
-  Calendar,
   Check,
   CheckCircle,
   Eye,
@@ -16,7 +15,7 @@ import {
   WarningCircle
 } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
-import PrivacyConsentModal from '../components/PrivacyConsentModal'
+import PrivacyConsentModal, { CONSENT_STORAGE_KEY } from '../components/PrivacyConsentModal'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import styles from './RegisterPage.module.css'
 
@@ -24,7 +23,6 @@ const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 
 export default function RegisterPage() {
   const navigate = useNavigate()
-  const dateInputRef = useRef(null)
 
   const [showReadonlyPrivacyModal, setShowReadonlyPrivacyModal] = useState(false)
   const [step, setStep] = useState(1)
@@ -62,11 +60,13 @@ export default function RegisterPage() {
   const [message, setMessage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [privacyAck, setPrivacyAck] = useState(() => {
-    return localStorage.getItem('bloodmatch_privacy_consent') === 'granted'
+    try {
+      return localStorage.getItem(CONSENT_STORAGE_KEY) === 'granted'
+    } catch {
+      return false
+    }
   })
-  const [privacyModalOpen, setPrivacyModalOpen] = useState(() => {
-    return localStorage.getItem('bloodmatch_privacy_consent') !== 'granted'
-  })
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false)
 
   const loadChapters = async () => {
     setLoadingChapters(true)
@@ -171,16 +171,6 @@ export default function RegisterPage() {
 
   const age = calculateAge(form.date_of_birth)
 
-  const triggerDatePicker = () => {
-    if (dateInputRef.current) {
-      if (typeof dateInputRef.current.showPicker === 'function') {
-        dateInputRef.current.showPicker()
-      } else {
-        dateInputRef.current.focus()
-      }
-    }
-  }
-
   const validateStep = (currentStep) => {
     const errors = {}
 
@@ -277,6 +267,7 @@ export default function RegisterPage() {
     setSubmitting(true)
 
     try {
+      let registration
       if (idFile) {
         const fd = new FormData()
         fd.append('first_name', form.first_name.trim())
@@ -290,9 +281,9 @@ export default function RegisterPage() {
         if (form.phone) fd.append('phone', form.phone.trim())
         fd.append('privacy_acknowledged', 'true')
         fd.append('national_id', idFile)
-        await api.postForm('/api/register', fd)
+        registration = await api.postForm('/api/register', fd)
       } else {
-        await api.post('/api/register', {
+        registration = await api.post('/api/register', {
           first_name: form.first_name.trim(),
           middle_name: form.middle_name.trim() || null,
           last_name: form.last_name.trim(),
@@ -305,8 +296,12 @@ export default function RegisterPage() {
           privacy_acknowledged: true
         })
       }
-      setRegisteredEmail(form.email.trim().toLowerCase())
-      setVerifyDialogOpen(true)
+      setRegisteredEmail(registration?.user?.email || form.email.trim().toLowerCase())
+      if (registration?.user?.email_verified !== true) {
+        setVerifyDialogOpen(true)
+      } else {
+        navigate('/', { state: { registered: true } })
+      }
     } catch (err) {
       if (err.details && Object.keys(err.details).length > 0) {
         setServerErrors(err.details)
@@ -479,9 +474,8 @@ export default function RegisterPage() {
               <div className="grid-2">
                 <div className="field">
                   <label htmlFor="password">Password *</label>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <div className={styles.passwordWrapper}>
                     <input
-                      style={{ paddingRight: '40px' }}
                       id="password"
                       type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
@@ -497,21 +491,8 @@ export default function RegisterPage() {
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
-                      tabIndex={-1}
-                      style={{
-                        position: 'absolute',
-                        right: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '32px',
-                        height: '32px',
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        zIndex: 10,
-                        color: 'var(--color-text)'
-                      }}
+                      aria-pressed={showPassword}
+                      className={styles.passwordToggle}
                     >
                       {showPassword ? (
                         <EyeSlash size={20} />
@@ -530,9 +511,8 @@ export default function RegisterPage() {
 
                 <div className="field">
                   <label htmlFor="password_confirm">Confirm password *</label>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <div className={styles.passwordWrapper}>
                     <input
-                      style={{ paddingRight: '40px' }}
                       id="password_confirm"
                       type={showConfirmPassword ? "text" : "password"}
                       autoComplete="new-password"
@@ -546,21 +526,8 @@ export default function RegisterPage() {
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                       aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
-                      tabIndex={-1}
-                      style={{
-                        position: 'absolute',
-                        right: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: '32px',
-                        height: '32px',
-                        background: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        zIndex: 10,
-                        color: 'var(--color-text)'
-                      }}
+                      aria-pressed={showConfirmPassword}
+                      className={styles.passwordToggle}
                     >
                       {showConfirmPassword ? (
                         <EyeSlash size={20} />
@@ -577,9 +544,9 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="field">
+              <div className={`field ${styles.chapterField}`}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <label htmlFor="chapter_id">Assigned Chapter *</label>
+                  <label htmlFor="chapter_id">DeMolay chapter *</label>
                   {loadingChapters && (
                     <span className="muted" style={{ fontSize: 'var(--text-xs)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <ArrowsClockwise size={12} className="spinning" /> Loading chapters...
@@ -603,6 +570,7 @@ export default function RegisterPage() {
                     </option>
                   ))}
                 </select>
+                <small className="field-hint">Choose the Bataan chapter where your membership can be verified.</small>
                 {(stepErrors.chapter_id || serverErrors.chapter_id) && (
                   <span className="field-error">
                     {stepErrors.chapter_id || serverErrors.chapter_id?.join(' ')}
@@ -626,25 +594,22 @@ export default function RegisterPage() {
           {/* STEP 2: PERSONAL DETAILS & ID UPLOAD */}
           {step === 2 && (
             <div className="form">
-              <div className="grid-2">
+              <div className={styles.healthFields}>
                 <div className="field">
                   <label htmlFor="date_of_birth">Date of birth *</label>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input
-                      ref={dateInputRef}
-                      id="date_of_birth"
-                      type="date"
-                      autoComplete="bday"
-                      max={new Date().toISOString().slice(0, 10)}
-                      min="1920-01-01"
-                      value={form.date_of_birth}
-                      onChange={setField('date_of_birth')}
-                      required
-                      aria-describedby="dob-hint"
-                      style={{ paddingRight: '2.5rem' }}
-                      aria-invalid={!!(stepErrors.date_of_birth || serverErrors.date_of_birth)}
-                    />
-                  </div>
+                  <input
+                    id="date_of_birth"
+                    type="date"
+                    autoComplete="bday"
+                    max={new Date().toISOString().slice(0, 10)}
+                    min="1920-01-01"
+                    value={form.date_of_birth}
+                    onChange={setField('date_of_birth')}
+                    required
+                    aria-describedby="dob-hint"
+                    className={styles.dateInput}
+                    aria-invalid={!!(stepErrors.date_of_birth || serverErrors.date_of_birth)}
+                  />
 
                   {age !== null && (
                     <div style={{ marginTop: 'var(--space-1)' }}>
@@ -946,6 +911,15 @@ export default function RegisterPage() {
         isOpen={showReadonlyPrivacyModal} 
         onClose={() => setShowReadonlyPrivacyModal(false)} 
         readonly
+      />
+      <EmailVerificationDialog
+        isOpen={verifyDialogOpen}
+        initialEmail={registeredEmail}
+        onClose={() => {
+          setVerifyDialogOpen(false)
+          navigate('/', { state: { registered: true } })
+        }}
+        onSuccess={() => navigate('/', { state: { registered: true } })}
       />
     </div>
   )

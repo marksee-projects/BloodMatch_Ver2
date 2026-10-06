@@ -8,7 +8,7 @@ export const CONSENT_STORAGE_KEY = 'bloodmatch_privacy_consent'
 export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDecline, onClose, readonly = false }) {
   const navigate = useNavigate()
   const modalRef = useRef(null)
-  const agreeBtnRef = useRef(null)
+  const scrollAreaRef = useRef(null)
   const [scrolledToBottom, setScrolledToBottom] = useState(false)
 
   const handleScroll = (e) => {
@@ -25,7 +25,7 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
       // Automatically unlock if the content fits exactly without scrolling
       setTimeout(() => {
         if (modalRef.current) {
-          const scrollArea = modalRef.current.querySelector('[class*="scrollArea"]')
+          const scrollArea = scrollAreaRef.current
           if (scrollArea && scrollArea.scrollHeight <= scrollArea.clientHeight + 5) {
             setScrolledToBottom(true)
           }
@@ -41,9 +41,9 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
     const originalOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
-    // Focus primary action on mount
+    // Focus the notice so keyboard users can scroll it immediately.
     const timeout = setTimeout(() => {
-      agreeBtnRef.current?.focus()
+      scrollAreaRef.current?.focus()
     }, 50)
 
     // Keyboard focus trap
@@ -52,13 +52,17 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
 
       if (e.key === 'Escape') {
         e.preventDefault()
-        handleDecline()
+        if (readonly) {
+          onClose?.()
+        } else if (scrolledToBottom) {
+          handleDecline()
+        }
         return
       }
 
       if (e.key === 'Tab') {
         const focusableElements = modalRef.current.querySelectorAll(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
         )
         const firstElement = focusableElements[0]
         const lastElement = focusableElements[focusableElements.length - 1]
@@ -84,7 +88,7 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
       document.body.style.overflow = originalOverflow
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen])
+  }, [isOpen, readonly, scrolledToBottom])
 
   if (!isOpen) return null
 
@@ -133,7 +137,13 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
           </div>
         </div>
 
-        <div id="privacy-consent-desc" className={styles.scrollArea} onScroll={handleScroll}>
+        <div
+          id="privacy-consent-desc"
+          ref={scrollAreaRef}
+          className={styles.scrollArea}
+          onScroll={handleScroll}
+          tabIndex={0}
+        >
           <p style={{ marginTop: 0, fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
             <em>In compliance with Republic Act No. 10173 (Data Privacy Act of 2012)</em>
           </p>
@@ -178,7 +188,6 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
           ) : (
             <>
               <button
-                ref={agreeBtnRef}
                 type="button"
                 className="btn btn-lg"
                 onClick={handleAgree}
@@ -194,7 +203,7 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
                 style={{ flex: 1 }}
                 disabled={!scrolledToBottom}
               >
-                Decline
+                I don't agree
               </button>
             </>
           )}

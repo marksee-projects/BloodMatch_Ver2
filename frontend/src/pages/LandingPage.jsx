@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle, ShieldCheck, Clock } from '@phosphor-icons/react'
+import { CheckCircle, Clock, Eye, EyeSlash, ShieldCheck } from '@phosphor-icons/react'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
@@ -17,9 +17,21 @@ export default function LandingPage() {
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
+  const [privacyReadonly, setPrivacyReadonly] = useState(true)
+
+  const openRegistrationConsent = () => {
+    setPrivacyReadonly(false)
+    setShowPrivacyModal(true)
+  }
+
+  const openPrivacyNotice = () => {
+    setPrivacyReadonly(true)
+    setShowPrivacyModal(true)
+  }
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -95,21 +107,31 @@ export default function LandingPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
               />
-              <div>
+              <div className={styles.loginPasswordGroup}>
                 <Input
                   label="Password"
                   id="landing-password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className={styles.loginPasswordInput}
                 />
-                <Link to="/forgot-password" className={styles.forgotLink}>
-                  Forgot password?
-                </Link>
+                <button
+                  type="button"
+                  className={styles.passwordToggle}
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  aria-pressed={showPassword}
+                >
+                  {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
+                </button>
               </div>
+              <Link to="/forgot-password" className={styles.forgotLink}>
+                Forgot password?
+              </Link>
 
               <Button
                 type="submit"
@@ -126,7 +148,13 @@ export default function LandingPage() {
               <span>or</span>
             </div>
 
-            <Button to="/register" variant="secondary" fullWidth size="md">
+            <Button
+              type="button"
+              variant="secondary"
+              fullWidth
+              size="md"
+              onClick={openRegistrationConsent}
+            >
               Create an account
             </Button>
           </div>
@@ -185,7 +213,7 @@ export default function LandingPage() {
             <button 
               className={styles.footerLink} 
               style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
-              onClick={() => setShowPrivacyModal(true)}
+              onClick={openPrivacyNotice}
             >
               Privacy
             </button>
@@ -196,7 +224,15 @@ export default function LandingPage() {
       <PrivacyConsentModal 
         isOpen={showPrivacyModal} 
         onClose={() => setShowPrivacyModal(false)}
-        readonly 
+        onConsentGranted={() => {
+          setShowPrivacyModal(false)
+          navigate('/register')
+        }}
+        onDecline={() => {
+          setShowPrivacyModal(false)
+          navigate('/', { replace: true })
+        }}
+        readonly={privacyReadonly}
       />
     </div>
   )

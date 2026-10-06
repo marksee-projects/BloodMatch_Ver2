@@ -132,6 +132,54 @@
   gap: var(--space-4);
 }
 
+.loginPasswordGroup {
+  position: relative;
+}
+
+.loginPasswordInput input {
+  width: 100%;
+  padding-right: 52px !important;
+}
+
+.passwordToggle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  color: var(--color-text-muted);
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-control);
+}
+
+.passwordToggle::before {
+  content: '';
+  position: absolute;
+  inset: var(--space-2);
+  z-index: 0;
+  background: transparent;
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.passwordToggle svg {
+  position: relative;
+  z-index: 1;
+}
+
+.passwordToggle:hover:not(:disabled) {
+  color: var(--color-accent-fg);
+  background: transparent;
+  border-color: transparent;
+  transform: none;
+}
+
+.passwordToggle:hover:not(:disabled)::before {
+  background: var(--color-brand-navy);
+}
+
 .forgotLink {
   display: block;
   margin-top: var(--space-2);
