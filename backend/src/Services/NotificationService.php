@@ -40,6 +40,40 @@ final class NotificationService
         return "donation:{$reportId}:{$decision}";
     }
 
+    public static function notifyVerificationRequested(
+        int $memberId,
+        string $memberName,
+        int $documentId,
+        bool $resubmitted = false
+    ): array {
+        $adminIds = (new \BloodMatch\Repositories\UserRepository())->activeIdsByRole('admin');
+        $notified = [];
+        $title = $resubmitted ? 'National ID resubmitted' : 'New account verification request';
+        $body = $resubmitted
+            ? "{$memberName} uploaded another National ID and is ready for review."
+            : "{$memberName} uploaded a National ID and is ready for review.";
+
+        foreach ($adminIds as $adminId) {
+            $notificationId = self::notify(
+                $adminId,
+                'verification.requested',
+                $title,
+                $body,
+                [
+                    'related_type' => 'verification',
+                    'related_id' => $memberId,
+                    'dedup_key' => "verification-request:{$documentId}:admin:{$adminId}",
+                    'email' => self::EMAIL_NONE,
+                ]
+            );
+            if ($notificationId !== null) {
+                $notified[] = $adminId;
+            }
+        }
+
+        return $notified;
+    }
+
     public static function notify(
         int $userId,
         string $type,

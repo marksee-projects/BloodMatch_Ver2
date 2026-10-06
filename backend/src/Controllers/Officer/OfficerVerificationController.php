@@ -20,28 +20,62 @@ final class OfficerVerificationController
 {
     private const ENDPOINT = 'officer.verifications';
 
+    public function adminQueue(): void
+    {
+        AuthMiddleware::requireRoles(['admin'], 'admin.verifications.queue');
+        $this->queue();
+    }
+
+    public function adminDetail(array $params): void
+    {
+        AuthMiddleware::requireRoles(['admin'], 'admin.verifications.detail');
+        $this->detail($params);
+    }
+
+    public function adminDecide(array $params): void
+    {
+        AuthMiddleware::requireRoles(['admin'], 'admin.verifications.decide');
+        $this->decide($params);
+    }
+
     public function queue(): void
     {
-        $actor = AuthMiddleware::requireRoles(['officer'], self::ENDPOINT . '.queue');
-
+        $actor = AuthMiddleware::requireRoles(['officer', 'admin'], self::ENDPOINT . '.queue');
+        $isAdmin = (string) $actor['role'] === 'admin';
         $ownChapter = $actor['chapter_id'] === null ? null : (int) $actor['chapter_id'];
-        if ($ownChapter === null) {
+        if (!$isAdmin && $ownChapter === null) {
             AuthMiddleware::requireChapterScope($actor, -1, self::ENDPOINT . '.queue');
             return;
         }
 
-        $members = (new UserRepository())->pendingMembersByChapter($ownChapter);
+        $page = max(1, Request::int('page') ?? 1);
+        $pageSize = min(100, max(1, Request::int('page_size') ?? 25));
+        $requestedChapter = Request::str('chapter_id');
+        $filters = [
+            'chapter_id' => $isAdmin ? $requestedChapter : (string) $ownChapter,
+            'q' => Request::str('q'),
+        ];
+        $result = (new UserRepository())->pendingVerificationMembers($filters, $page, $pageSize);
         Response::success([
-            'chapter_id' => $ownChapter,
+            'chapter_id' => $isAdmin
+                ? ($requestedChapter !== null && preg_match('/^\d+$/', $requestedChapter) ? (int) $requestedChapter : null)
+                : $ownChapter,
+            'page' => $page,
+            'page_size' => $pageSize,
+            'total' => $result['total'],
             'queue' => array_map(static fn (array $m): array => [
                 'id' => (int) $m['id'],
                 'full_name' => (string) $m['full_name'],
                 'email' => (string) $m['email'],
+                'chapter_id' => $m['chapter_id'] !== null ? (int) $m['chapter_id'] : null,
+                'chapter_name' => $m['chapter_name'],
                 'date_of_birth' => $m['date_of_birth'],
                 'blood_type' => $m['blood_type'],
                 'blood_type_verified' => (int) $m['blood_type_verified'] === 1,
                 'created_at' => (string) $m['created_at'],
-            ], $members),
+                'national_id_count' => (int) $m['national_id_count'],
+                'latest_national_id_uploaded_at' => (string) $m['latest_national_id_uploaded_at'],
+            ], $result['users']),
         ]);
     }
 
@@ -52,6 +86,7 @@ final class OfficerVerificationController
 
         $repo = new UserRepository();
         $target = $repo->findById($targetId);
+        $display = $repo->findProfileDisplayById($targetId);
 
         if ($target === null || (string) $target['role'] !== 'member') {
             Response::error('Verification target not found.', 404);
@@ -78,6 +113,8 @@ final class OfficerVerificationController
                 'phone' => $target['phone'],
                 'date_of_birth' => $target['date_of_birth'],
                 'verification_status' => (string) $target['verification_status'],
+                'chapter_id' => $target['chapter_id'] !== null ? (int) $target['chapter_id'] : null,
+                'chapter_name' => $display['chapter_name'] ?? null,
                 'blood_type' => $target['blood_type'],
                 'blood_type_source' => $target['blood_type_source'],
                 'blood_type_verified' => (int) $target['blood_type_verified'] === 1,

@@ -55,6 +55,12 @@ final class VerificationService
             if ($currentVs !== 'pending') {
                 throw new RuntimeException("Only pending members can receive a decision (current: {$currentVs}).", 409);
             }
+            if ($decision === 'rejected' && ($reason === null || trim($reason) === '')) {
+                throw new RuntimeException('A rejection reason is required so the member knows what to correct.', 400);
+            }
+            if ($decision === 'verified' && !$docs->hasType($targetId, 'national_id')) {
+                throw new RuntimeException('A National ID is required before this account can be approved.', 409);
+            }
             $ver->setVerificationStatus($targetId, $decision);
             $ver->addDecision($targetId, (int) $actor['id'], $decision, $reason, $nowUtc);
             $auditId = AuditLogger::log(
@@ -68,10 +74,11 @@ final class VerificationService
             \BloodMatch\Services\NotificationService::notify(
                 $targetId,
                 'verification.decision',
-                $decision === 'verified' ? 'Your membership has been verified' : 'Verification update',
+                $decision === 'verified' ? 'Your membership has been verified' : 'Account verification rejected',
                 $decision === 'verified'
                     ? 'An officer verified your membership. You can now participate as a donor.'
-                    : 'Your verification was rejected. You may upload corrected documents and resubmit.',
+                    : 'Your National ID could not be approved: ' . trim((string) $reason)
+                        . '. Upload a clearer or valid National ID to request another review.',
                 [
                     'related_type' => 'verification',
                     'related_id' => $targetId,
@@ -122,8 +129,24 @@ final class VerificationService
 
         $ver->setVerificationStatus($userId, 'pending');
         $ver->addDecision($userId, $userId, 'resubmitted', null, $nowUtc);
-        AuditLogger::log($userId, 'verification.resubmitted', 'user', (string) $userId);
+        $auditId = AuditLogger::log($userId, 'verification.resubmitted', 'user', (string) $userId);
 
-        return ['verification_status' => 'pending'];
+        NotificationService::notify(
+            $userId,
+            'verification.resubmitted',
+            'Verification is being processed',
+            'We received your new National ID. Your account is being reviewed. Please wait—you will be notified when a decision is made.',
+            [
+                'related_type' => 'verification',
+                'related_id' => $userId,
+                'dedup_key' => "verification:{$userId}:resubmitted:{$auditId}",
+                'email' => NotificationService::EMAIL_NORMAL,
+            ]
+        );
+
+        return [
+            'verification_status' => 'pending',
+            'message' => 'Your new National ID is being reviewed. You will be notified when a decision is made.',
+        ];
     }
 }

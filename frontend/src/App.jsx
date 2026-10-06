@@ -21,6 +21,7 @@ import DashboardView from './pages/admin/views/DashboardView'
 import DemandMapView from './pages/admin/views/DemandMapView'
 import AnalyticsView from './pages/admin/views/AnalyticsView'
 import AuditLogsView from './pages/admin/views/AuditLogsView'
+import AdminVerificationsView from './pages/admin/views/VerificationsView'
 import OfficerLayout from './pages/officer/OfficerLayout'
 import OfficerDashboardView from './pages/officer/views/DashboardView'
 import OfficerVerificationView from './pages/officer/views/VerificationView'
@@ -416,6 +417,7 @@ export default function App() {
             >
               <Route index element={<Navigate replace to="dashboard" />} />
               <Route path="dashboard" element={<DashboardView />} />
+              <Route path="verifications" element={<AdminVerificationsView />} />
               <Route path="demand-map" element={<DemandMapView />} />
               <Route path="analytics" element={<AnalyticsView />} />
               <Route path="audit-logs" element={<AuditLogsView />} />

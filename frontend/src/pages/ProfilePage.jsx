@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, ShieldCheck, User, Camera, CheckCircle, Drop } from '@phosphor-icons/react'
+import { ArrowLeft, User, Camera, CheckCircle, Drop, FileText, UploadSimple } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
@@ -15,12 +15,6 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { ProfileBanner } from '../components/ui/ProfileBanner'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-const DOC_TYPES = [
-  { id: 'national_id', label: 'Government-Issued ID (National ID, Passport, Driver\'s License)' },
-  { id: 'donor_card', label: 'Official Blood Donor Card (Philippine Red Cross / DOH)' },
-  { id: 'parental_consent', label: 'Parental / Guardian Consent Form (Ages 16–17)' }
-]
-
 export default function ProfilePage() {
   const { id: profileId } = useParams()
   const isOtherProfile = Boolean(profileId)
@@ -29,12 +23,13 @@ export default function ProfilePage() {
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
-  const [docType, setDocType] = useState('national_id')
   const [file, setFile] = useState(null)
+  const [documentInputKey, setDocumentInputKey] = useState(0)
+  const [documentUploading, setDocumentUploading] = useState(false)
   
   const [submitting, setSubmitting] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
-  const [idPrivacyAck, setIdPrivacyAck] = useState(true)
+  const [idPrivacyAck, setIdPrivacyAck] = useState(false)
   const [idPrivacyModalOpen, setIdPrivacyModalOpen] = useState(false)
   const [idPrivacyError, setIdPrivacyError] = useState(null)
   const [pictureFile, setPictureFile] = useState(null)
@@ -178,29 +173,34 @@ export default function ProfilePage() {
     }
     setIdPrivacyError(null)
     if (!file) {
-      setErrorAlert('Please select a file to upload.')
+      setErrorAlert('Select a National ID file to upload.')
       return
     }
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+    if (!allowedTypes.includes(file.type)) {
+      setErrorAlert('National ID upload failed. Choose a JPG, PNG, WEBP, or PDF file.')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorAlert('National ID upload failed. The file must be 5 MB or smaller.')
+      return
+    }
+    setDocumentUploading(true)
     try {
-      await api.upload('/api/profile/documents', file, { doc_type: docType, privacy_acknowledged: '1' })
+      const result = await api.upload('/api/profile/documents', file, { doc_type: 'national_id', privacy_acknowledged: '1' })
       setFile(null)
+      setDocumentInputKey((value) => value + 1)
       setIdPrivacyAck(false)
       await load()
-      setMessage('Document uploaded successfully.')
+      setMessage(
+        result?.resubmitted
+          ? 'We received your new National ID. Your account is being reviewed. Please wait—you will be notified when a decision is made.'
+          : 'National ID uploaded. Your account is being reviewed, and you will be notified when a decision is made.'
+      )
     } catch (err) {
       setErrorAlert(err.message)
-    }
-  }
-
-  const onResubmit = async () => {
-    setMessage(null)
-    setErrorAlert(null)
-    try {
-      await api.post('/api/profile/resubmit')
-      await load()
-      setMessage('Verification resubmitted. An officer will review your updated documents.')
-    } catch (err) {
-      setErrorAlert(err.message)
+    } finally {
+      setDocumentUploading(false)
     }
   }
 
@@ -274,6 +274,10 @@ export default function ProfilePage() {
     )
   }
 
+  const nationalIdDocuments = (profile.documents || [])
+    .filter((document) => document.doc_type === 'national_id')
+    .sort((a, b) => b.id - a.id)
+
   return (
     <div className={styles.container}>
       {message && <StatusPill variant="active" style={{ width: '100%' }}>{message}</StatusPill>}
@@ -283,10 +287,10 @@ export default function ProfilePage() {
         <div className={`${styles.alertBox} ${styles.alertDanger}`}>
           <p className={styles.alertDangerTitle}>Verification Needs Attention</p>
           <p className={styles.alertDangerText}>
-            Your verification was rejected by a chapter officer. Please review and upload clear identification or donor documents below, then resubmit for review.
+            Your National ID could not be approved. Upload a clearer or valid National ID to request another review.
           </p>
-          <Button variant="primary" onClick={onResubmit}>
-            Resubmit for Verification
+          <Button variant="primary" onClick={() => setActiveTab('verification')}>
+            Upload another National ID
           </Button>
         </div>
       )}
@@ -477,28 +481,48 @@ export default function ProfilePage() {
         {activeTab === 'verification' && (
           <Card>
             <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>Verification Documents</h3>
+              <div>
+                <h3 className={styles.cardTitle}>National ID Verification</h3>
+                <p className="muted" style={{ margin: 'var(--space-1) 0 0', fontSize: 'var(--text-sm)' }}>
+                  A National ID is the required document for account verification.
+                </p>
+              </div>
+              <Badge variant={profile.verification_status === 'verified' ? 'success' : profile.verification_status === 'rejected' ? 'urgent' : 'neutral'}>
+                {profile.verification_status.replace('_', ' ').toUpperCase()}
+              </Badge>
             </div>
-            
+
+            {profile.verification_status === 'pending' && nationalIdDocuments.length > 0 && (
+              <div className="alert alert-success" role="status" style={{ marginBottom: 'var(--space-4)' }}>
+                Your account is being processed. Please wait—you will receive a notification and email when a decision is made.
+              </div>
+            )}
+
             <div style={{ marginBottom: 'var(--space-4)' }}>
-              {profile.documents.length === 0 ? (
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>No verification documents uploaded yet. Upload a valid ID during registration to get verified.</p>
+              {nationalIdDocuments.length === 0 ? (
+                <div className="empty-state" style={{ padding: 'var(--space-5)' }}>
+                  <FileText size={30} aria-hidden="true" />
+                  <h3>No National ID uploaded</h3>
+                  <p>Upload a clear National ID to request account verification.</p>
+                </div>
               ) : (
                 <div className={styles.tableContainer}>
                   <table className={styles.table}>
                     <thead>
                       <tr>
-                        <th>Document Type</th>
+                        <th>Document</th>
+                        <th>Uploaded</th>
                         <th>Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {profile.documents.map((d) => (
+                      {nationalIdDocuments.map((d, index) => (
                         <tr key={d.id}>
-                          <td><strong>{d.doc_type.replace('_', ' ').toUpperCase()}</strong></td>
+                          <td><strong>National ID</strong> {index === 0 && <Badge variant="neutral">Latest</Badge>}</td>
+                          <td>{new Date(String(d.uploaded_at).replace(' ', 'T') + 'Z').toLocaleString()}</td>
                           <td>
                             <Button to={`/api/profile/documents/${d.id}/file`} target="_blank" rel="noreferrer" variant="secondary" size="sm">
-                              View
+                              View ID
                             </Button>
                           </td>
                         </tr>
@@ -509,22 +533,48 @@ export default function ProfilePage() {
               )}
             </div>
 
-            <div style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-4)', marginTop: 'var(--space-4)' }}>
-              <p style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '4px', margin: 0 }}>
-                <ShieldCheck size={14} weight="fill" color="var(--color-brand-blue)" />
-                You have agreed to the ID Privacy Policy. 
-                <button
-                  type="button"
-                  style={{ background: 'none', border: 'none', color: 'var(--color-brand-blue)', cursor: 'pointer', textDecoration: 'underline', padding: 0, fontWeight: 500, fontSize: 'var(--text-xs)' }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIdPrivacyModalOpen(true);
-                  }}
-                >
-                  Read full privacy notice
-                </button>
-              </p>
-            </div>
+            {profile.role === 'member' && profile.verification_status !== 'verified' && (
+              <form onSubmit={onUpload} style={{ borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-4)', marginTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div className="field">
+                  <label htmlFor="profile-national-id">{profile.verification_status === 'rejected' ? 'Upload another National ID' : 'Upload National ID'}</label>
+                  <input
+                    key={documentInputKey}
+                    id="profile-national-id"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={(event) => setFile(event.target.files?.[0] || null)}
+                  />
+                  <small className="field-hint">JPG, PNG, WEBP, or PDF. Maximum file size: 5 MB.</small>
+                  {file && <p className="muted" style={{ margin: 'var(--space-2) 0 0', fontSize: 'var(--text-sm)', overflowWrap: 'anywhere' }}>Selected: {file.name}</p>}
+                </div>
+
+                <div className="check-row">
+                  <input
+                    id="profile-id-privacy"
+                    type="checkbox"
+                    checked={idPrivacyAck}
+                    onChange={(event) => {
+                      setIdPrivacyAck(event.target.checked)
+                      if (event.target.checked) setIdPrivacyError(null)
+                    }}
+                  />
+                  <label htmlFor="profile-id-privacy">
+                    I have read and acknowledge the Identification Document Privacy Notice.
+                  </label>
+                </div>
+                {idPrivacyError && <span className="field-error" role="alert">{idPrivacyError}</span>}
+
+                <div className="button-group">
+                  <Button type="submit" isLoading={documentUploading} disabled={!file || !idPrivacyAck}>
+                    <UploadSimple size={18} aria-hidden="true" />
+                    {profile.verification_status === 'rejected' ? 'Upload ID and request another review' : 'Upload National ID'}
+                  </Button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setIdPrivacyModalOpen(true)}>
+                    Read privacy notice
+                  </button>
+                </div>
+              </form>
+            )}
           </Card>
         )}
 

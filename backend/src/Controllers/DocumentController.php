@@ -11,6 +11,8 @@ use BloodMatch\Repositories\UserRepository;
 use BloodMatch\Services\AuditLogger;
 use BloodMatch\Services\AuthService;
 use BloodMatch\Services\DocumentStorageService;
+use BloodMatch\Services\NotificationService;
+use BloodMatch\Services\VerificationService;
 use BloodMatch\Utils\Response;
 
 final class DocumentController
@@ -85,6 +87,25 @@ final class DocumentController
             'mime_type' => $stored['mime_type'],
         ]);
 
+        $verificationStatus = (string) $actor['verification_status'];
+        $resubmitted = false;
+        if ($docType === 'national_id' && (string) $actor['role'] === 'member') {
+            if ($verificationStatus === 'rejected') {
+                (new VerificationService())->resubmit($actor);
+                $verificationStatus = 'pending';
+                $resubmitted = true;
+            }
+
+            if ($verificationStatus === 'pending') {
+                NotificationService::notifyVerificationRequested(
+                    (int) $actor['id'],
+                    (string) $actor['full_name'],
+                    $docId,
+                    $resubmitted
+                );
+            }
+        }
+
         Response::success([
             'document' => [
                 'id' => $docId,
@@ -92,6 +113,8 @@ final class DocumentController
                 'mime_type' => $stored['mime_type'],
                 'size_bytes' => $stored['size_bytes'],
             ],
+            'verification_status' => $verificationStatus,
+            'resubmitted' => $resubmitted,
         ], 201);
     }
 
@@ -142,6 +165,12 @@ final class DocumentController
         ]);
 
         $this->stream($doc);
+    }
+
+    public function fileAdmin(array $params): void
+    {
+        AuthMiddleware::requireRoles(['admin'], 'admin.documents.file');
+        $this->fileOfficer($params);
     }
 
     private function streamForOwner(?array $doc, int $ownerId, array $actor): void

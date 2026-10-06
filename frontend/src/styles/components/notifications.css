@@ -398,7 +398,7 @@
 
 .notif-item-fb {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   padding: var(--space-3) var(--space-4);
   background: transparent;
   border: none;
@@ -409,6 +409,8 @@
   text-decoration: none;
   transition: background-color var(--transition-fast);
   border-radius: var(--radius-md);
+  min-width: 0;
+  overflow: visible;
 }
 
 .notif-item-fb:hover {
@@ -421,8 +423,8 @@
 }
 
 .notif-avatar {
-  width: 56px;
-  height: 56px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   object-fit: cover;
   background-color: var(--color-surface-sunken);
@@ -433,8 +435,8 @@
   position: absolute;
   bottom: -2px;
   right: -2px;
-  width: 24px;
-  height: 24px;
+  width: 20px;
+  height: 20px;
   border-radius: 50%;
   background-color: var(--color-brand-navy);
   display: flex;
@@ -445,21 +447,48 @@
 
 .notif-item-content {
   flex: 1;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-1);
 }
 
-.notif-item-text-fb {
+.notif-item-title-fb {
   font-size: var(--text-sm);
   color: var(--color-text);
-  line-height: 1.4;
+  font-weight: 700;
+  line-height: 1.35;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.notif-item-body-fb {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  line-height: 1.5;
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 
 .notif-item-time-fb {
   font-size: var(--text-xs);
   color: var(--color-brand-navy);
+  font-weight: 600;
+}
+
+.notif-item-meta-fb {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-1);
+}
+
+.notif-item-status-fb {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
   font-weight: 600;
 }
 
@@ -470,4 +499,4 @@
   background-color: var(--color-brand-navy);
   flex: none;
 }
-
+

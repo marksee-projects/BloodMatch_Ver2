@@ -146,6 +146,10 @@ $row = DbQuery "SELECT stored_name FROM member_documents WHERE id=$docId;"
 $storedPath = "backend/storage/documents/$row"
 if ($row -match '^[0-9a-f]{64}$' -and (Test-Path $storedPath)) { Ok 'B2 random name stored outside webroot' } else { Bad 'B2' "stored=$row" }
 
+$r = Invoke-Json $adm.s 'Get' '/api/notifications?type=verification.requested' $null $adm.csrf
+$adminRequestNotice = @($r.body.data.notifications | Where-Object { $_.related_id -eq [int]$memPId }).Count
+if ($r.status -eq 200 -and $adminRequestNotice -eq 1) { Ok 'B2b National ID upload notifies admin bell once' } else { Bad 'B2b' "status=$($r.status) count=$adminRequestNotice" }
+
 $r = Upload $mP.s '/api/profile/documents' 'file' 'nopriv.pdf' $pdfBytes 'application/pdf' $mP.csrf @{ doc_type = 'national_id' }
 if ($r.status -eq 400 -and $r.body.error.details.privacy_acknowledged) { Ok 'B1b missing privacy_acknowledged 400 + field error' } else { Bad 'B1b' "got $($r.status)" }
 $countAfterMissing = DbQuery "SELECT COUNT(*) FROM member_documents WHERE user_id=$memPId;"
@@ -210,6 +214,7 @@ if ($r.status -eq 403) { Ok 'C5 cross-chapter decision blocked' } else { Bad 'C5
 # provenance: approve with donor card
 $provSess = Login $provEmail
 Upload $provSess.s '/api/profile/documents' 'file' 'card.pdf' $pdfBytes 'application/pdf' $provSess.csrf @{ doc_type = 'donor_card'; privacy_acknowledged = '1' } | Out-Null
+Upload $provSess.s '/api/profile/documents' 'file' 'national-id.pdf' $pdfBytes 'application/pdf' $provSess.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' } | Out-Null
 $r = Invoke-Json $off.s 'Post' "/api/officer/verifications/$provId/decision" @{ decision = 'verified'; accept_donor_card = $true } $off.csrf
 $dbProv = DbQuery "SELECT CONCAT(blood_type_source,'|',blood_type_verified) FROM users WHERE id=$provId;"
 if ($r.status -eq 200 -and $dbProv -eq 'donor_card|1') { Ok 'C6 donor-card provenance accepted on approval' } else { Bad 'C6' "db=$dbProv" }
@@ -219,17 +224,24 @@ if ($r.raw -match 'not a substitute for medical confirmation') { Ok 'C7 medical 
 # reject + resubmission
 $rejEmail = "p5rejflow$suffix@test.local"
 $rejFlowId = New-FixtureUser $rejEmail 'Reject Flow' 'member' 1 $null 'pending'
+$r = Invoke-Json $off.s 'Post' "/api/officer/verifications/$rejFlowId/decision" @{ decision = 'rejected' } $off.csrf
+if ($r.status -eq 400) { Ok 'C8 rejection requires corrective guidance' } else { Bad 'C8' "got $($r.status)" }
 $r = Invoke-Json $off.s 'Post' "/api/officer/verifications/$rejFlowId/decision" @{ decision = 'rejected'; reason = 'unreadable ID' } $off.csrf
 $dbVs = DbQuery "SELECT verification_status FROM users WHERE id=$rejFlowId;"
-if ($r.status -eq 200 -and $dbVs -eq 'rejected') { Ok 'C8 pending->rejected with reason' } else { Bad 'C8' "db=$dbVs" }
+if ($r.status -eq 200 -and $dbVs -eq 'rejected') { Ok 'C8a pending->rejected with reason' } else { Bad 'C8a' "db=$dbVs" }
 
 $rejSess = Login $rejEmail
+$r = Invoke-Json $rejSess.s 'Get' '/api/notifications?type=verification.decision' $null $rejSess.csrf
+$rejectionNotice = @($r.body.data.notifications | Where-Object { $_.body -match 'unreadable ID' }).Count
+if ($r.status -eq 200 -and $rejectionNotice -eq 1) { Ok 'C8b rejection bell notification includes the reason' } else { Bad 'C8b' "status=$($r.status) count=$rejectionNotice" }
+
 $r = Invoke-Json $rejSess.s 'Post' '/api/profile/resubmit' @{} $rejSess.csrf
 if ($r.status -eq 400) { Ok 'C9 resubmit without documents blocked' } else { Bad 'C9' "got $($r.status)" }
 Upload $rejSess.s '/api/profile/documents' 'file' 'better-id.pdf' $pdfBytes 'application/pdf' $rejSess.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' } | Out-Null
-$r = Invoke-Json $rejSess.s 'Post' '/api/profile/resubmit' @{} $rejSess.csrf
 $dbVs = DbQuery "SELECT verification_status FROM users WHERE id=$rejFlowId;"
-if ($r.status -eq 200 -and $dbVs -eq 'pending') { Ok 'C10 rejected->pending after resubmission' } else { Bad 'C10' "db=$dbVs" }
+if ($dbVs -eq 'pending') { Ok 'C10 replacement National ID automatically returns rejected member to pending' } else { Bad 'C10' "db=$dbVs" }
+$r = Invoke-Json $rejSess.s 'Get' '/api/notifications?type=verification.resubmitted' $null $rejSess.csrf
+if ($r.status -eq 200 -and @($r.body.data.notifications).Count -eq 1) { Ok 'C10b replacement ID creates processing notification' } else { Bad 'C10b' "status=$($r.status)" }
 
 $r = Invoke-Json $off.s 'Post' "/api/officer/verifications/$memPId/decision" @{ decision = 'verified' } $off.csrf
 $dbVs = DbQuery "SELECT verification_status FROM users WHERE id=$memPId;"
@@ -237,8 +249,22 @@ if ($r.status -eq 200 -and $dbVs -eq 'verified') { Ok 'C11 pending->verified app
 $r = Invoke-Json $off.s 'Post' "/api/officer/verifications/$memPId/decision" @{ decision = 'rejected' } $off.csrf
 if ($r.status -eq 409) { Ok 'C12 non-pending target 409' } else { Bad 'C12' "got $($r.status)" }
 
-$r = Invoke-Json $adm.s 'Post' "/api/officer/verifications/$memOId/decision" @{ decision = 'verified' } $adm.csrf
-if ($r.status -eq 200) { Ok 'C13 admin override on any chapter allowed' } else { Bad 'C13' "got $($r.status)" }
+$r = Invoke-Json $adm.s 'Post' "/api/admin/verifications/$memOId/decision" @{ decision = 'verified' } $adm.csrf
+if ($r.status -eq 409) { Ok 'C13 approval without a National ID is blocked' } else { Bad 'C13' "got $($r.status)" }
+
+$memOIdUpload = Upload $mO.s '/api/profile/documents' 'file' 'other-national-id.pdf' $pdfBytes 'application/pdf' $mO.csrf @{ doc_type = 'national_id'; privacy_acknowledged = '1' }
+$r = Invoke-Json $adm.s 'Get' '/api/admin/verifications?chapter_id=2&q=Other' $null $adm.csrf
+$adminQueueHit = @($r.body.data.queue | Where-Object { $_.id -eq [int]$memOId }).Count
+if ($r.status -eq 200 -and $adminQueueHit -eq 1) { Ok 'C13a admin queue filters pending National IDs across chapters' } else { Bad 'C13a' "status=$($r.status) hit=$adminQueueHit" }
+
+$r = Invoke-Json $off.s 'Get' '/api/admin/verifications' $null $off.csrf
+if ($r.status -eq 403) { Ok 'C14 officer cannot access admin verification route' } else { Bad 'C14' "got $($r.status)" }
+
+$r = Invoke-Json $adm.s 'Get' "/api/admin/documents/$($memOIdUpload.body.data.document.id)/file" $null $adm.csrf
+if ($r.status -eq 200) { Ok 'C15 admin can inspect a cross-chapter National ID' } else { Bad 'C15' "got $($r.status)" }
+
+$r = Invoke-Json $adm.s 'Post' "/api/admin/verifications/$memOId/decision" @{ decision = 'verified' } $adm.csrf
+if ($r.status -eq 200) { Ok 'C16 admin override on any chapter allowed' } else { Bad 'C16' "got $($r.status)" }
 
 # ===== D. AGE ELIGIBILITY =====
 function AgeCase($years, $withConsent, $expectAllowed, $label) {

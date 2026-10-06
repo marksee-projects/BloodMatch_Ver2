@@ -41,7 +41,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [filter])
 
   useEffect(() => {
     if (open) {
@@ -188,16 +188,15 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
                     </div>
                   </div>
                   <div className="notif-item-content">
-                    <div className="notif-item-text-fb">
-                      <strong>BloodMatch Update</strong> {n.title} - {n.body}
+                    <div className="notif-item-title-fb">{n.title}</div>
+                    <div className="notif-item-body-fb">{n.body}</div>
+                    <div className="notif-item-meta-fb">
                       {n.related_type === 'blood_request' && n.related_request_status && (
-                        <div style={{ marginTop: '2px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)' }}>
+                        <span className="notif-item-status-fb">
                           Request Status: {n.related_request_status.charAt(0).toUpperCase() + n.related_request_status.slice(1).toLowerCase()}
-                        </div>
+                        </span>
                       )}
-                    </div>
-                    <div className="notif-item-time-fb">
-                      {formatNotificationTime(n.created_at)}
+                      <span className="notif-item-time-fb">{formatNotificationTime(n.created_at)}</span>
                     </div>
                   </div>
                   {isUnread && <div className="notif-item-unread-dot" aria-hidden="true" />}

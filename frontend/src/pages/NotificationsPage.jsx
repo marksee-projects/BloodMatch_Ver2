@@ -106,7 +106,9 @@ export default function NotificationsPage() {
             >
               <option value="">All Categories</option>
               <option value="match.new">Match Alerts</option>
+              <option value="verification.requested">Verification Requests</option>
               <option value="verification.decision">Verification Updates</option>
+              <option value="verification.resubmitted">Verification Processing</option>
               <option value="donation.confirmed">Donation Confirmations</option>
               <option value="account.status_changed">Account Alerts</option>
             </select>
@@ -146,11 +148,15 @@ export default function NotificationsPage() {
                   </div>
                 </div>
                 <div className="notif-item-content">
-                  <div className="notif-item-text-fb">
-                    <strong>BloodMatch Update</strong> {n.title} - {n.body}
-                  </div>
-                  <div className="notif-item-time-fb">
-                    {formatNotificationTime(n.created_at)}
+                  <div className="notif-item-title-fb">{n.title}</div>
+                  <div className="notif-item-body-fb">{n.body}</div>
+                  <div className="notif-item-meta-fb">
+                    {n.related_type === 'blood_request' && n.related_request_status && (
+                      <span className="notif-item-status-fb">
+                        Request Status: {n.related_request_status.charAt(0).toUpperCase() + n.related_request_status.slice(1).toLowerCase()}
+                      </span>
+                    )}
+                    <span className="notif-item-time-fb">{formatNotificationTime(n.created_at)}</span>
                   </div>
                 </div>
                 {!n.read_at && <div className="notif-item-unread-dot" aria-hidden="true" />}

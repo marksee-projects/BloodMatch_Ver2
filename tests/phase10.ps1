@@ -261,6 +261,8 @@ if ($r.status -eq 200 -and $r.body.data.total -eq 0) { Ok 'T20 filter read=unrea
 Write-Host "`n--- H: Verification-decision notification ---"
 
 # Officer approves mem2 (pending)
+$mem2StoredName = [guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N')
+DbQuery "INSERT INTO member_documents (user_id, doc_type, stored_name, mime_type, original_ext, size_bytes, uploaded_at) VALUES ($mem2Id, 'national_id', '$mem2StoredName', 'application/pdf', 'pdf', 128, UTC_TIMESTAMP());"
 DbQuery "DELETE FROM notifications WHERE user_id=$mem2Id;" 2>$null
 $offAuth = Login $offEmail
 $r = Invoke-Json $offAuth.s 'Post' "/api/officer/verifications/$mem2Id/decision" @{ decision = 'verified' } $offAuth.csrf

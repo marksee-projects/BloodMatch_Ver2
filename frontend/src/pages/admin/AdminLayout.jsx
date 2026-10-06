@@ -9,6 +9,7 @@ import {
   List,
   MapPin,
   Scroll,
+  ShieldCheck,
   User,
   X
 } from '@phosphor-icons/react'
@@ -46,6 +47,7 @@ export default function AdminLayout() {
 
   const adminNavItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: ChartBar },
+    { label: 'Account Verifications', path: '/admin/verifications', icon: ShieldCheck },
     { label: 'Demand Map', path: '/admin/demand-map', icon: MapPin },
     { label: 'Analytics', path: '/admin/analytics', icon: ChartLineUp },
     { label: 'Audit Logs', path: '/admin/audit-logs', icon: Scroll }

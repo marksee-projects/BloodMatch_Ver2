@@ -194,6 +194,66 @@ final class UserRepository
         return ['total' => $total, 'users' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
     }
 
+    public function pendingVerificationMembers(array $filters, int $page, int $pageSize): array
+    {
+        $where = [
+            "u.role = 'member'",
+            "u.verification_status = 'pending'",
+            "u.account_status = 'active'",
+            "EXISTS (
+                SELECT 1 FROM member_documents required_id
+                WHERE required_id.user_id = u.id AND required_id.doc_type = 'national_id'
+            )",
+        ];
+        $params = [];
+
+        if (!empty($filters['chapter_id']) && preg_match('/^\d+$/', (string) $filters['chapter_id'])) {
+            $where[] = 'u.chapter_id = ?';
+            $params[] = (int) $filters['chapter_id'];
+        }
+        if (!empty($filters['q']) && is_string($filters['q'])) {
+            $where[] = '(u.email LIKE ? OR u.full_name LIKE ?)';
+            $like = '%' . trim($filters['q']) . '%';
+            array_push($params, $like, $like);
+        }
+
+        $whereSql = implode(' AND ', $where);
+        $offset = max(0, ($page - 1) * $pageSize);
+
+        $countStmt = Database::pdo()->prepare("SELECT COUNT(*) FROM users u WHERE $whereSql");
+        $countStmt->execute($params);
+        $total = (int) $countStmt->fetchColumn();
+
+        $stmt = Database::pdo()->prepare(
+            "SELECT u.id, u.email, u.full_name, u.chapter_id, u.date_of_birth,
+                    u.blood_type, u.blood_type_source, u.blood_type_verified,
+                    u.verification_status, u.created_at, c.name AS chapter_name,
+                    COUNT(md.id) AS national_id_count,
+                    MAX(md.uploaded_at) AS latest_national_id_uploaded_at
+             FROM users u
+             LEFT JOIN chapters c ON c.id = u.chapter_id
+             INNER JOIN member_documents md ON md.user_id = u.id AND md.doc_type = 'national_id'
+             WHERE $whereSql
+             GROUP BY u.id, u.email, u.full_name, u.chapter_id, u.date_of_birth,
+                      u.blood_type, u.blood_type_source, u.blood_type_verified,
+                      u.verification_status, u.created_at, c.name
+             ORDER BY latest_national_id_uploaded_at ASC, u.id ASC
+             LIMIT " . (int) $pageSize . " OFFSET " . (int) $offset
+        );
+        $stmt->execute($params);
+
+        return ['total' => $total, 'users' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+    }
+
+    public function activeIdsByRole(string $role): array
+    {
+        $stmt = Database::pdo()->prepare(
+            "SELECT id FROM users WHERE role = ? AND account_status = 'active' ORDER BY id ASC"
+        );
+        $stmt->execute([$role]);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
+
     public function listByChapter(int $chapterId): array
     {
         $stmt = Database::pdo()->prepare(

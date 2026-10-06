@@ -159,6 +159,11 @@ final class AuthService
                     'mime_type' => $stored['mime_type'],
                     'source' => 'registration',
                 ]);
+                NotificationService::notifyVerificationRequested(
+                    $userId,
+                    trim((string) $firstName . ' ' . (string) $lastName),
+                    $docId
+                );
             } catch (\RuntimeException $e) {
                 // Throw validation-level exception so user is alerted if their ID format is invalid
                 throw new \RuntimeException('National ID upload failed: ' . $e->getMessage(), 0, $e);

@@ -10,7 +10,11 @@ export function notificationDeepLink(n) {
   if (n.related_type === 'blood_request' && n.related_id) {
     return `/requests/${n.related_id}/matches`
   }
+  if (n.type === 'verification.requested' && n.related_id) {
+    return `/admin/verifications?user=${n.related_id}`
+  }
   if (n.type === 'verification.decision') return '/profile'
+  if (n.type === 'verification.resubmitted') return '/profile'
   if (n.type === 'account.status_changed') return '/profile'
   if (n.type === 'donation.confirmed' || n.type === 'donation.rejected') return '/profile'
   return null
