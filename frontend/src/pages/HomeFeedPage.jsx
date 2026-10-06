@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { MapPin, CaretDown, Drop, Heart } from '@phosphor-icons/react'
+import { MapPin } from '@phosphor-icons/react'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -87,19 +87,6 @@ export default function HomeFeedPage() {
         </aside>
 
         <main className={styles.centerColumn}>
-          <header className={styles.feedHeader}>
-            <div>
-              <span className={styles.feedKicker}><Heart size={16} weight="fill" aria-hidden="true" /> Requests you can help with</span>
-              <h1>Compatible blood requests</h1>
-              <p>
-                {donorBloodType
-                  ? `Based on your ${donorBloodType} blood type. Distance does not affect this list.`
-                  : 'Add your blood type to your profile to see compatible requests.'}
-              </p>
-            </div>
-            {donorBloodType && <div className={styles.accountBloodType} aria-label={`Your blood type is ${donorBloodType}`}><Drop size={18} weight="fill" /> {donorBloodType}</div>}
-          </header>
-
           <div className={styles.contextLine} aria-live="polite">
             {feedLoading ? 'Checking compatibility…' : `${requests.length} compatible ${requests.length === 1 ? 'request' : 'requests'}`}
           </div>
@@ -135,24 +122,15 @@ export default function HomeFeedPage() {
           ))}
         </main>
 
-        {(user?.role === 'admin' || user?.role === 'officer') && (
-          <aside className={styles.rightColumn}>
-            <Card padding="none">
-              <details className={styles.demandMapDetails} open={false}>
-                <summary className={styles.demandMapSummary}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                    <MapPin size={20} weight="fill" color="var(--color-brand-navy)" />
-                    <span>Chapter Demand Map</span>
-                  </div>
-                  <CaretDown size={16} className={styles.summaryChevron} color="var(--color-text-subtle)" />
-                </summary>
-                <div style={{ padding: '0 var(--space-4) var(--space-4) var(--space-4)' }}>
-                  <DemandMapWidget mode="mini" />
-                </div>
-              </details>
-            </Card>
-          </aside>
-        )}
+        <aside className={styles.rightColumn}>
+          <Card padding="md">
+            <div className={styles.mapHeading}>
+              <MapPin size={20} weight="fill" aria-hidden="true" />
+              <div><h2>Chapter demand</h2><p>Open requests, grouped safely by chapter.</p></div>
+            </div>
+            <DemandMapWidget mode="mini" />
+          </Card>
+        </aside>
       </section>
 
       <EmailVerificationDialog

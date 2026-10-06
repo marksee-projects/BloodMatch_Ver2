@@ -88,7 +88,7 @@ Assert-Status 'T05 donor matched to target open request may view target' $result
 $feedResult = Get-Json $donorSession '/api/home-feed'
 $feedRequest = @($feedResult.body.data.requests | Where-Object { $_.id -eq $openRequest })
 if ($feedResult.status -eq 200 -and $feedRequest.Count -eq 1 -and $feedRequest[0].requester_id -eq $target.id -and $feedRequest[0].can_view_requester_profile -eq $true) {
-    Ok 'T05a Home feed exposes View Profile target only for persisted match relation'
+    Ok 'T05a Home feed exposes the requester public profile'
 } else {
     Bad 'T05a Home feed profile access metadata' "status=$($feedResult.status), matches=$($feedRequest.Count)"
 }
@@ -109,18 +109,18 @@ $notRespondedDonor = New-User 'not_responded'
 $notRespondedRequest = New-Request $requester.id
 New-Match $notRespondedRequest $notRespondedDonor.id 'NOTIFIED'
 $result = Get-Profile (Login $requester) $notRespondedDonor.id
-Assert-Status 'T07 requester cannot view donor who has not responded' $result.status 404
+Assert-Status 'T07 member may view the limited profile of a donor who has not responded' $result.status 200
 
 $closedDonor = New-User 'closed_match'
 $closedRequest = New-Request $target.id
 New-Match $closedRequest $closedDonor.id 'CLOSED'
 $closedDonorSession = Login $closedDonor
 $result = Get-Profile $closedDonorSession $target.id
-Assert-Status 'T08 donor with only a closed match receives 404' $result.status 404
+Assert-Status 'T08 active member may view another active member after a match closes' $result.status 200
 $closedFeed = Get-Json $closedDonorSession '/api/home-feed'
 $closedFeedEntry = @($closedFeed.body.data.requests | Where-Object { $_.id -eq $closedRequest })
-if ($closedFeedEntry.Count -eq 1 -and $closedFeedEntry[0].can_view_requester_profile -eq $false) {
-    Ok 'T08a compatible request remains browsable without reopening profile access'
+if ($closedFeedEntry.Count -eq 1 -and $closedFeedEntry[0].can_view_requester_profile -eq $true) {
+    Ok 'T08a compatible request keeps limited requester profile access'
 } else {
     Bad 'T08a compatibility-only Home card' "matches=$($closedFeedEntry.Count)"
 }
@@ -131,18 +131,18 @@ $cancelledRequest = New-Request $cancelledRequester.id 'CANCELLED'
 New-Match $cancelledRequest $cancelledDonor.id 'RESPONDED'
 $cancelledDonorSession = Login $cancelledDonor
 $result = Get-Profile $cancelledDonorSession $cancelledRequester.id
-Assert-Status 'T09 donor tied only to a cancelled request receives 404' $result.status 404
+Assert-Status 'T09 active members retain limited account-detail visibility after cancellation' $result.status 200
 $cancelledFeed = Get-Json $cancelledDonorSession '/api/home-feed'
 if (@($cancelledFeed.body.data.requests | Where-Object { $_.id -eq $cancelledRequest }).Count -eq 0) { Ok 'T09a cancelled request has no Home profile link' } else { Bad 'T09a cancelled Home request' 'request was returned' }
 
 $unrelated = New-User 'unrelated'
 $unrelatedSession = Login $unrelated
 $result = Get-Profile $unrelatedSession $target.id
-Assert-Status 'T10 unrelated member receives 404' $result.status 404
+Assert-Status 'T10 unrelated active member receives the limited account view' $result.status 200
 $unrelatedFeed = Get-Json $unrelatedSession '/api/home-feed'
 $unrelatedEntry = @($unrelatedFeed.body.data.requests | Where-Object { $_.id -eq $openRequest })
-if ($unrelatedFeed.status -eq 200 -and $unrelatedEntry.Count -eq 1 -and $unrelatedEntry[0].can_view_requester_profile -eq $false) {
-    Ok 'T10a compatible member can browse request without profile access'
+if ($unrelatedFeed.status -eq 200 -and $unrelatedEntry.Count -eq 1 -and $unrelatedEntry[0].can_view_requester_profile -eq $true) {
+    Ok 'T10a compatible member can browse the requester limited profile'
 } else {
     Bad 'T10a compatibility-only Home feed' "status=$($unrelatedFeed.status), matches=$($unrelatedEntry.Count)"
 }
@@ -151,7 +151,7 @@ $enumViewer = New-User 'enumerator'
 $enumA = New-User 'enum_a'; $enumB = New-User 'enum_b'; $enumC = New-User 'enum_c'
 $enumSession = Login $enumViewer
 $enumStatuses = @((Get-Profile $enumSession $enumA.id).status, (Get-Profile $enumSession $enumB.id).status, (Get-Profile $enumSession $enumC.id).status)
-if (@($enumStatuses | Where-Object { $_ -ne 404 }).Count -eq 0) { Ok 'T11 sequential-ID enumeration returns only 404' } else { Bad 'T11 sequential-ID enumeration' ($enumStatuses -join ',') }
+if (@($enumStatuses | Where-Object { $_ -ne 200 }).Count -eq 0) { Ok 'T11 active members receive only allow-listed account details' } else { Bad 'T11 member profile visibility' ($enumStatuses -join ',') }
 
 $allowResult = Get-Profile (Login (New-User 'allow_admin' 'admin' $null)) $target.id
 $actualKeys = @($allowResult.body.data.profile.PSObject.Properties.Name | Sort-Object)

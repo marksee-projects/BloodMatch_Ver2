@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, Hospital, MapPin, User } from '@phosphor-icons/react'
+import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, Hospital, MapPin, User, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
@@ -16,6 +16,13 @@ function formatDate(value) {
   })
 }
 
+function eligibilityMessage(user) {
+  if (user?.verification_status !== 'verified') return 'Your blood type can support this request. Complete account verification before offering to donate.'
+  if (!user?.donor_enrolled) return 'Your blood type can support this request. Enroll as a donor before offering to help.'
+  if (user?.availability !== 'available') return 'Your blood type can support this request. Set your donor status to available to join its eligible matches.'
+  return 'Your blood type can support this request, but your donor eligibility has not been added to this request yet. Review your donor details or ask an officer to refresh the matches.'
+}
+
 export default function MatchesPage() {
   const { id } = useParams()
   const { user, refresh } = useAuth()
@@ -23,11 +30,13 @@ export default function MatchesPage() {
   const [pageData, setPageData] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [message, setMessage] = useState(null)
+  const [confirmation, setConfirmation] = useState(null)
+  const [actionLoading, setActionLoading] = useState(false)
   const [reportingMatchId, setReportingMatchId] = useState(null)
   const [reportNote, setReportNote] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
 
-  const load = useCallback(() => api.get(`/api/requests/${id}/matches`).then(setPageData).catch((err) => setErrorAlert(err.message)), [id])
+  const load = useCallback(() => api.get(`/api/requests/${id}/matches`).then(setPageData).catch((error) => setErrorAlert(error.message)), [id])
   useEffect(() => { load() }, [load])
 
   const matches = pageData?.matches || []
@@ -36,16 +45,40 @@ export default function MatchesPage() {
   const ownMatch = matches.find((match) => match.is_current_user)
   const isRequesterView = viewerMode === 'requester'
 
-  const onRespond = async (matchId) => {
+  const respond = async () => {
+    if (!ownMatch) return
+    setActionLoading(true)
     setMessage(null)
     setErrorAlert(null)
     try {
-      await api.post(`/api/matches/${matchId}/respond`)
-      setMessage('Your offer to donate has been sent to the requester.')
+      await api.post(`/api/matches/${ownMatch.match_id}/respond`)
+      setConfirmation(null)
+      setMessage('Your offer to help has been sent to the requester.')
       await load()
-    } catch (err) {
-      if (err.status === 403 && err.details?.code === 'EMAIL_UNVERIFIED') setVerifyDialogOpen(true)
-      else setErrorAlert(err.message)
+    } catch (error) {
+      setConfirmation(null)
+      if (error.status === 403 && error.details?.code === 'EMAIL_UNVERIFIED') setVerifyDialogOpen(true)
+      else setErrorAlert(error.message)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const withdraw = async () => {
+    if (!ownMatch) return
+    setActionLoading(true)
+    setMessage(null)
+    setErrorAlert(null)
+    try {
+      await api.post(`/api/matches/${ownMatch.match_id}/withdraw`)
+      setConfirmation(null)
+      setMessage('Your offer to help has been cancelled. You can offer again while the request remains open.')
+      await load()
+    } catch (error) {
+      setConfirmation(null)
+      setErrorAlert(error.message)
+    } finally {
+      setActionLoading(false)
     }
   }
 
@@ -61,83 +94,79 @@ export default function MatchesPage() {
       setReportingMatchId(null)
       setReportNote('')
       await load()
-    } catch (err) {
-      setErrorAlert(err.message)
+    } catch (error) {
+      setErrorAlert(error.message)
     } finally {
       setSubmittingReport(false)
     }
   }
 
   if (errorAlert && !pageData) {
-    return <div className={styles.container}><div className="alert alert-error" role="alert">{errorAlert}</div><Button to={isRequesterView ? '/requests/mine' : '/'} variant="secondary"><ArrowLeft size={16} /> Back</Button></div>
+    return <div className={styles.container}><div className="alert alert-error" role="alert">{errorAlert}</div><Button to="/" variant="secondary"><ArrowLeft size={16} /> Back</Button></div>
   }
   if (!pageData || !request) return <div className={styles.container}><LoadingSpinner text="Loading request…" minHeight="24rem" /></div>
 
+  const statusVariant = request.status === 'OPEN' ? 'brand' : request.status === 'FULFILLED' ? 'success' : 'neutral'
+  const urgencyVariant = request.urgency === 'critical' ? 'critical' : request.urgency === 'urgent' ? 'urgent' : 'neutral'
+
   return (
     <div className={styles.container}>
-      <Link className={styles.backLink} to={isRequesterView ? '/requests/mine' : '/'}><ArrowLeft size={16} aria-hidden="true" /> {isRequesterView ? 'My blood requests' : 'Compatible requests'}</Link>
-
-      <header className={styles.header}>
-        <div>
-          <p className={styles.kicker}>{isRequesterView ? 'Requester view' : 'Compatible request'}</p>
-          <h1>{isRequesterView ? 'Potential matches' : 'Blood request details'}</h1>
-          <p>{isRequesterView ? 'Compatible donors are ordered using eligibility and approximate proximity.' : `Your ${user?.blood_type || 'saved'} blood type is compatible with this request.`}</p>
-        </div>
-        <Badge variant={request.status === 'OPEN' ? 'brand' : request.status === 'FULFILLED' ? 'success' : 'neutral'}>{request.status}</Badge>
-      </header>
+      <Link className={styles.backLink} to={isRequesterView ? '/requests/mine' : '/'}><ArrowLeft size={16} /> {isRequesterView ? 'My blood requests' : 'Compatible requests'}</Link>
 
       {message && <div className="alert alert-success" role="status">{message}</div>}
       {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
 
-      <section className={styles.requestSummary}>
-        <div className={styles.bloodBlock}><Drop size={22} weight="fill" aria-hidden="true" /><strong>{request.required_blood_type}</strong><span>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</span></div>
-        <div className={styles.summaryDetails}>
-          <div><Hospital size={19} aria-hidden="true" /><span><small>Facility</small><strong>{request.facility_name}</strong></span></div>
-          <div><MapPin size={19} aria-hidden="true" /><span><small>Location</small><strong>{request.location?.municipality_name || 'Bataan'}</strong></span></div>
-          <div><CalendarBlank size={19} aria-hidden="true" /><span><small>Needed by</small><strong>{formatDate(request.needed_datetime)}</strong></span></div>
+      <section className={styles.requestSurface} aria-labelledby="request-title">
+        <div className={styles.requestTopline}>
+          <div className={styles.bloodBlock}><Drop size={21} weight="fill" aria-hidden="true" /><strong>{request.required_blood_type}</strong><span>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</span></div>
+          <div className={styles.requestTitle}><h1 id="request-title">Blood request</h1><p>{request.facility_name}</p></div>
+          <div className={styles.badges}><Badge variant={urgencyVariant}>{request.urgency}</Badge><Badge variant={statusVariant}>{request.status}</Badge></div>
         </div>
-        <Badge variant={request.urgency === 'critical' ? 'critical' : request.urgency === 'urgent' ? 'urgent' : 'neutral'}>{request.urgency}</Badge>
-      </section>
 
-      <section className={styles.requesterCard} aria-labelledby="requester-heading">
-        <div className={styles.avatar}>
-          {request.requester_profile_picture_url ? <img src={request.requester_profile_picture_url} alt="" /> : <User size={28} aria-hidden="true" />}
+        <dl className={styles.requestFacts}>
+          <div><dt><Hospital size={18} /> Facility</dt><dd>{request.facility_name}</dd></div>
+          <div><dt><MapPin size={18} /> Location</dt><dd>{request.location?.municipality_name || 'Bataan'}</dd></div>
+          <div><dt><CalendarBlank size={18} /> Needed by</dt><dd>{formatDate(request.needed_datetime)}</dd></div>
+        </dl>
+
+        <div className={styles.requesterRow}>
+          <div className={styles.avatar}>{request.requester_profile_picture_url ? <img src={request.requester_profile_picture_url} alt="" /> : <User size={25} aria-hidden="true" />}</div>
+          <div className={styles.requesterIdentity}><span>Requested by</span><h2>{request.requester_name}</h2><p>{request.requester_chapter_name || 'Chapter not assigned'}</p></div>
+          {request.requester_verification_status === 'verified' && <span className={styles.verified}><CheckCircle size={17} weight="fill" /> Verified</span>}
+          {request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
         </div>
-        <div>
-          <p className={styles.sectionLabel} id="requester-heading">Requester</p>
-          <h2>{request.requester_name}</h2>
-          <p>{request.requester_chapter_name || 'Chapter not assigned'}</p>
-        </div>
-        {request.requester_verification_status === 'verified' && <span className={styles.verified}><CheckCircle size={18} weight="fill" /> Verified member</span>}
-        {request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
       </section>
 
       {!isRequesterView && (
-        <section className={styles.responsePanel}>
-          <div>
-            <h2>{ownMatch ? 'Your response' : 'Interested in helping?'}</h2>
-            <p>{ownMatch ? 'Your match status is shown here. The receiving facility makes the final clinical eligibility decision.' : 'This request matches your blood type, but your account is not currently in its eligible donor match set.'}</p>
+        <section className={styles.actionSurface} aria-labelledby="response-heading">
+          <div className={styles.actionCopy}>
+            <h2 id="response-heading">{ownMatch?.status === 'RESPONDED' ? 'You offered to help' : ownMatch ? 'You can help with this request' : 'Before you offer to help'}</h2>
+            <p>{ownMatch?.status === 'RESPONDED' ? 'The requester can now see your response. You may cancel it before submitting a donation report.' : ownMatch ? 'Confirm your availability before your response is shared with the requester.' : eligibilityMessage(user)}</p>
           </div>
-          {ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => onRespond(ownMatch.match_id)}><Check size={18} /> I can help</Button>}
-          {ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
-          {ownMatch && <Badge variant={ownMatch.status === 'COMPLETED' ? 'success' : ownMatch.status === 'RESPONDED' ? 'brand' : 'neutral'}>{ownMatch.status}</Badge>}
-          {!ownMatch && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
+
+          <div className={styles.actionControls}>
+            {ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
+            {ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
+            {ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel offer</Button>}
+            {ownMatch && <Badge variant={ownMatch.status === 'COMPLETED' ? 'success' : ownMatch.status === 'RESPONDED' ? 'brand' : 'neutral'}>{ownMatch.status}</Badge>}
+            {!ownMatch && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
+          </div>
         </section>
       )}
 
       {isRequesterView && (
-        <section className={styles.matchesSection}>
-          <div className={styles.sectionHeading}><div><p className={styles.sectionLabel}>Matched donors</p><h2>{matches.length} potential {matches.length === 1 ? 'match' : 'matches'}</h2></div><p>Approximate distance is used here for ranking, never on Home.</p></div>
+        <section className={styles.matchesSurface} aria-labelledby="matches-heading">
+          <div className={styles.sectionHeading}><div><h2 id="matches-heading">Potential donors</h2><p>{matches.length} eligible {matches.length === 1 ? 'match' : 'matches'}, ordered using eligibility and approximate proximity.</p></div></div>
           {matches.length === 0 ? (
-            <div className={styles.emptyState}><h3>No eligible donors yet</h3><p>The matching engine will update this list when compatible members become eligible and available.</p></div>
+            <div className={styles.emptyState}><h3>No eligible donors yet</h3><p>This list updates when compatible members become eligible and available.</p></div>
           ) : (
             <div className={styles.matchList}>
               {matches.map((match, index) => (
-                <article key={match.match_id} className={styles.matchCard}>
+                <article key={match.match_id} className={styles.matchRow}>
                   <div className={styles.rank}>{index + 1}</div>
                   <div className={styles.donorIdentity}><h3>{match.display_name}</h3><p>{match.chapter_name || 'Chapter not assigned'}</p></div>
-                  <div className={styles.matchMetric}><small>Availability</small><strong>{match.availability || 'Not provided'}</strong></div>
-                  <div className={styles.matchMetric}><small>Distance</small><strong>{match.approximate_distance_km !== null ? `About ${match.approximate_distance_km} km` : 'Not available'}</strong></div>
+                  <div className={styles.matchMetric}><span>Availability</span><strong>{match.availability || 'Not provided'}</strong></div>
+                  <div className={styles.matchMetric}><span>Distance</span><strong>{match.approximate_distance_km !== null ? `About ${match.approximate_distance_km} km` : 'Not available'}</strong></div>
                   <Badge variant={match.status === 'COMPLETED' ? 'success' : match.status === 'RESPONDED' ? 'brand' : 'neutral'}>{match.status}</Badge>
                   {match.profile_user_id && <Button to={`/profile/${match.profile_user_id}`} variant="secondary" size="sm">View profile</Button>}
                 </article>
@@ -147,8 +176,25 @@ export default function MatchesPage() {
         </section>
       )}
 
+      {confirmation && (
+        <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !actionLoading) setConfirmation(null) }}>
+          <div className={styles.modalContent} role="dialog" aria-modal="true" aria-labelledby="confirmation-title">
+            <h2 id="confirmation-title">{confirmation === 'respond' ? 'Confirm that you can help' : 'Cancel your offer to help?'}</h2>
+            {confirmation === 'respond' ? (
+              <p>Your response will be shared with the requester for this {request.required_blood_type} request at {request.facility_name}. The receiving facility makes the final medical eligibility decision.</p>
+            ) : (
+              <p>The requester will no longer see you as a responding donor. You can offer again while this request remains open.</p>
+            )}
+            <div className={styles.modalActions}>
+              <Button type="button" variant="secondary" disabled={actionLoading} onClick={() => setConfirmation(null)}>Not now</Button>
+              <Button type="button" variant={confirmation === 'withdraw' ? 'destructive' : 'primary'} isLoading={actionLoading} onClick={confirmation === 'respond' ? respond : withdraw}>{confirmation === 'respond' ? 'Confirm I can help' : 'Confirm cancellation'}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {reportingMatchId && (
-        <div className={styles.modalBackdrop}>
+        <div className={styles.modalBackdrop} role="presentation">
           <form className={styles.modalContent} onSubmit={onSubmitReport} role="dialog" aria-modal="true" aria-labelledby="report-title">
             <h2 id="report-title">Report completed donation</h2>
             <p>The report will be reviewed by a chapter officer before the donation is confirmed.</p>

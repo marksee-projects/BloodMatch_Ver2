@@ -161,7 +161,7 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
           </p>
 
           <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            <strong>Profile visibility.</strong> BloodMatch does not provide a member directory or member search. When another member is connected to you through an open blood request&mdash;or when an administrator or your chapter officer is acting within their authorized role&mdash;that person may view your name, profile photo, chapter, role label, member-since date, verification status, blood type, and email address. Other members are never shown your phone number, date of birth, identification documents or OCR data, exact address, barangay, coordinates, donation history, availability, password, credentials, or security tokens.
+            <strong>Profile visibility.</strong> BloodMatch does not provide a member directory or member search. A logged-in member may view your limited account details: name, profile photo, chapter, role label, member-since date, verification status, blood type, and email address. Other members are never shown your phone number, date of birth, identification documents or OCR data, exact address, barangay, coordinates, donation history, availability, password, credentials, or security tokens.
           </p>
 
           <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
@@ -170,7 +170,7 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
 
           {!readonly && (
             <p style={{ fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: 0 }}>
-              By clicking &quot;I Agree,&quot; you acknowledge that an authorized member connected to you through an open blood request may see your name, profile photo, chapter, role label, member-since date, verification status, blood type, and email address, and you consent to the processing described in this notice.
+              By clicking &quot;I Agree,&quot; you acknowledge that another logged-in member may see your limited account details listed above, and you consent to the processing described in this notice.
             </p>
           )}
         </div>

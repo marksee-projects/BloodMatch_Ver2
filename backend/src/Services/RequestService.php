@@ -246,7 +246,7 @@ final class RequestService
                 : null,
             'can_respond' => isset($row['match_status'])
                 && in_array((string) $row['match_status'], ['POTENTIAL', 'NOTIFIED'], true),
-            'can_view_requester_profile' => isset($row['match_id']) && $row['match_id'] !== null,
+            'can_view_requester_profile' => true,
         ];
     }
 }

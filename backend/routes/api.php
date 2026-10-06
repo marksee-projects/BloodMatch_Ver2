@@ -94,6 +94,7 @@ return static function (Router $router): void {
     $router->add('POST', '/api/profile/donor-availability', [new ProfileController(), 'setDonorAvailability']);
      $router->add('GET', '/api/profile/{id}', [new MemberProfileController(), 'show']);
     $router->add('POST', '/api/matches/{matchId}/respond', [new MatchesController(), 'respond']);
+    $router->add('POST', '/api/matches/{matchId}/withdraw', [new MatchesController(), 'withdraw']);
     $router->add('POST', '/api/donation-reports', [new DonationReportController(), 'submit']);
     $router->add('GET', '/api/my/donation-reports', [new DonationReportController(), 'myReports']);
     $router->add('GET', '/api/officer/donation-reports', [new DonationReportController(), 'officerQueue']);

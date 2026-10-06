@@ -15,19 +15,19 @@ final class DemandMapController
 
     public function index(): void
     {
-        $actor = AuthMiddleware::requireRoles(['admin', 'officer'], self::ENDPOINT);
+        $actor = AuthMiddleware::requireRoles(['admin', 'officer', 'member'], self::ENDPOINT);
 
         $scopedChapterId = null;
-        if ($actor['role'] === 'officer') {
+        if ($actor['role'] === 'officer' || $actor['role'] === 'member') {
             $ownChapter = $actor['chapter_id'] === null ? null : (int) $actor['chapter_id'];
             if ($ownChapter === null) {
-                AuthMiddleware::requireChapterScope($actor, -1, self::ENDPOINT);
+                Response::error('Assign a chapter to your account to view chapter demand.', 409);
                 return;
             }
 
             $requestedChapter = Request::int('chapter_id');
             if ($requestedChapter !== null && $requestedChapter !== $ownChapter) {
-                AuthMiddleware::requireChapterScope($actor, $requestedChapter, self::ENDPOINT);
+                Response::error('You can only view aggregated demand for your own chapter.', 403);
                 return;
             }
 

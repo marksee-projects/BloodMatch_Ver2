@@ -254,6 +254,7 @@ final class MatchService
             $canViewProfile = $viewer !== null && (
                 (int) $viewer['id'] === (int) $row['donor_id']
                 || (string) $viewer['role'] === 'admin'
+                || (string) $viewer['role'] === 'member'
                 || ((string) $viewer['role'] === 'officer'
                     && $viewer['chapter_id'] !== null
                     && $row['chapter_id'] !== null

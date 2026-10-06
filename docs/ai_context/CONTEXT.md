@@ -392,6 +392,8 @@ Priority order (unchanged): `Compatibility → Availability → Verification →
 
 **Match statuses:** `POTENTIAL`, `NOTIFIED`, `RESPONDED`, `COMPLETED`.
 
+- A donor may withdraw a `RESPONDED` offer while the request is still OPEN and no donation report is pending; the match returns to `NOTIFIED` so the donor may offer again later.
+
 - Donor response transitions `POTENTIAL`/`NOTIFIED` → `RESPONDED`.
 - **Multiple donors may remain engaged in parallel** while a request is open; accepting one donor does not cancel others (backups until FULFILLED).
 - When a request becomes FULFILLED/CANCELLED/EXPIRED, remaining unresolved matches close accordingly.
@@ -445,7 +447,7 @@ Rationale: BloodMatch is a private community of verified DeMolay members, and me
 
 - Displays **aggregated counts of currently OPEN requests at chapter level, grouped by blood type**.
 - Never displays individual request locations, requestor identities, exact coordinates, or pins.
-- Access: authorized Chapter Officers and System Administrators only.
+- Access: active members may view privacy-safe aggregated demand for their own chapter only; Chapter Officers retain their assigned-chapter view; System Administrators may view all chapters.
 - Trend windows: default **30 days**; optional 7-day, 90-day, custom ranges.
 
 ### 9.10 Audit Logging (FR-18)

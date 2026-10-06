@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, User, Camera, CheckCircle, Drop, FileText, UploadSimple } from '@phosphor-icons/react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
@@ -10,57 +10,65 @@ import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Badge, StatusPill } from '../components/ui/Badge'
-import styles from './ProfilePage.module.css'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
-import { ProfileBanner } from '../components/ui/ProfileBanner'
+import styles from './ProfilePage.module.css'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+
+function formatDate(value, fallback = 'Not provided') {
+  if (!value) return fallback
+  return new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`).toLocaleDateString()
+}
+
+function titleCase(value) {
+  if (!value) return 'Not provided'
+  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
+}
+
 export default function ProfilePage() {
   const { id: profileId } = useParams()
   const isOtherProfile = Boolean(profileId)
   const { refresh } = useAuth()
+  const navigate = useNavigate()
   const [form, setForm] = useState(null)
+  const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [errors, setErrors] = useState({})
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [enrolling, setEnrolling] = useState(false)
+  const [availabilityUpdating, setAvailabilityUpdating] = useState(false)
   const [file, setFile] = useState(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
   const [documentUploading, setDocumentUploading] = useState(false)
-  
-  const [submitting, setSubmitting] = useState(false)
-  const [enrolling, setEnrolling] = useState(false)
   const [idPrivacyModalOpen, setIdPrivacyModalOpen] = useState(false)
-  const [pictureFile, setPictureFile] = useState(null)
   const [pictureInputKey, setPictureInputKey] = useState(0)
   const [pictureUploading, setPictureUploading] = useState(false)
   const [pictureFailed, setPictureFailed] = useState(false)
-  const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
-  const [activeTab, setActiveTab] = useState('overview')
-  const [historyView, setHistoryView] = useState('donations')
-  const navigate = useNavigate()
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
     queryKey: isOtherProfile ? ['member-profile', profileId] : ['profile'],
     queryFn: async () => {
-      const p = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile');
-      let r = [];
-      let requests = [];
-      if (!isOtherProfile && p.profile.role === 'member') {
-        const [d, requestData] = await Promise.all([
-          api.get('/api/my/donation-reports'),
-          api.get('/api/my/requests')
-        ]);
-        r = d.reports || [];
-        requests = requestData.requests || [];
+      const response = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile')
+      if (isOtherProfile || response.profile.role !== 'member') {
+        return { profile: response.profile, reports: [], requests: [] }
       }
-      return { profile: p.profile, reports: r, requests };
+      const [donations, requests] = await Promise.all([
+        api.get('/api/my/donation-reports'),
+        api.get('/api/my/requests')
+      ])
+      return {
+        profile: response.profile,
+        reports: donations.reports || [],
+        requests: requests.requests || []
+      }
     },
     retry: false
-  });
+  })
 
-  const profile = data?.profile;
-  const reports = data?.reports || [];
-  const requestHistory = data?.requests || [];
+  const profile = data?.profile
+  const reports = data?.reports || []
+  const requestHistory = data?.requests || []
 
   useEffect(() => {
     if (!isOtherProfile && profile && !form) {
@@ -69,169 +77,129 @@ export default function ProfilePage() {
         phone: profile.phone || '',
         date_of_birth: profile.date_of_birth || '',
         blood_type: profile.blood_type || ''
-      });
+      })
       setLocation({
         location_id: profile.location?.location_id ?? null,
         municipality_code: profile.location?.municipality_code ?? null,
         barangay_code: profile.location?.barangay_code ?? null
-      });
+      })
     }
-  }, [isOtherProfile, profile, form]);
+  }, [form, isOtherProfile, profile])
 
-  const load = () => refetch();
+  useEffect(() => setPictureFailed(false), [profile?.profile_picture_url])
 
-  const setAvailability = async (value) => {
-    setMessage(null)
-    setErrorAlert(null)
+  const showError = (error) => setErrorAlert(error?.message || 'The change could not be saved.')
+  const clearNotices = () => { setMessage(null); setErrorAlert(null) }
+
+  const setAvailability = async () => {
+    const next = profile.availability === 'available' ? 'unavailable' : 'available'
+    clearNotices()
+    setAvailabilityUpdating(true)
     try {
-      await api.post('/api/profile/donor-availability', { availability: value })
-      await load()
-      setMessage(`Donor availability updated to ${value.toUpperCase()}.`)
-    } catch (err) {
-      setErrorAlert(err.message)
+      await api.post('/api/profile/donor-availability', { availability: next })
+      await Promise.all([refetch(), refresh()])
+      setMessage(next === 'available' ? 'You are now available to donate.' : 'You are now unavailable for donor matches.')
+    } catch (error) {
+      showError(error)
+    } finally {
+      setAvailabilityUpdating(false)
     }
   }
 
   const enrollAsDonor = async () => {
+    clearNotices()
     setEnrolling(true)
-    setMessage(null)
-    setErrorAlert(null)
     try {
       await api.post('/api/profile/enroll-donor')
-      await load()
-      setMessage('Successfully enrolled as a volunteer blood donor! You will now be matched when compatible requests arise in your area.')
-    } catch (err) {
-      setErrorAlert(err.message)
+      await Promise.all([refetch(), refresh()])
+      setMessage('You are now enrolled and available for compatible donor matches.')
+    } catch (error) {
+      showError(error)
     } finally {
       setEnrolling(false)
     }
   }
 
-
-
-  useEffect(() => {
-    setPictureFailed(false)
-  }, [profile?.profile_picture_url])
-
-  const onPictureUpload = async (fileToUpload) => {
-    setMessage(null)
-    setErrorAlert(null)
-    if (!fileToUpload) {
-      setErrorAlert('Please select an image to upload.')
-      return
-    }
+  const onPictureUpload = async (pictureFile) => {
+    if (!pictureFile) return
+    clearNotices()
     setPictureUploading(true)
     try {
-      await api.upload('/api/profile/picture', fileToUpload)
-      setPictureFile(null)
-      setPictureInputKey((k) => k + 1)
-      await load()
-      await refresh()
-      setMessage('Profile picture updated successfully.')
-    } catch (err) {
-      setErrorAlert(err.message)
+      await api.upload('/api/profile/picture', pictureFile)
+      setPictureInputKey((key) => key + 1)
+      await Promise.all([refetch(), refresh()])
+      setMessage('Profile picture updated.')
+    } catch (error) {
+      showError(error)
     } finally {
       setPictureUploading(false)
     }
   }
 
-  const setField = (name) => (e) => setForm((f) => ({ ...f, [name]: e.target.value }))
+  const setField = (name) => (event) => setForm((current) => ({ ...current, [name]: event.target.value }))
 
-  const onSave = async (e) => {
-    e.preventDefault()
+  const onSave = async (event) => {
+    event.preventDefault()
+    clearNotices()
     setErrors({})
-    setMessage(null)
-    setErrorAlert(null)
     if (!location.location_id) {
       setErrors({ location_id: ['Please select your municipality or city.'] })
       return
     }
     setSubmitting(true)
     try {
-      const data = await api.put('/api/profile', {
+      await api.put('/api/profile', {
         full_name: form.full_name,
         phone: form.phone || null,
         date_of_birth: form.date_of_birth || null,
         blood_type: form.blood_type || null,
         location_id: location.location_id
       })
-      refetch()
-      setMessage('Profile details saved successfully.')
-    } catch (err) {
-      if (err.details && Object.keys(err.details).length > 0) {
-        setErrors(err.details)
-      } else {
-        setErrorAlert(err.message)
-      }
+      await Promise.all([refetch(), refresh()])
+      setMessage('Profile details saved.')
+    } catch (error) {
+      if (error.details && Object.keys(error.details).length) setErrors(error.details)
+      else showError(error)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const onUpload = async (e) => {
-    e.preventDefault()
-    setMessage(null)
-    setErrorAlert(null)
+  const onUpload = async (event) => {
+    event.preventDefault()
+    clearNotices()
     if (!file) {
       setErrorAlert('Select a National ID file to upload.')
       return
     }
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-    if (!allowedTypes.includes(file.type)) {
-      setErrorAlert('National ID upload failed. Choose a JPG, PNG, WEBP, or PDF file.')
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrorAlert('National ID upload failed. The file must be 5 MB or smaller.')
+    if (!allowedTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
+      setErrorAlert('Choose a JPG, PNG, WEBP, or PDF file no larger than 5 MB.')
       return
     }
     setDocumentUploading(true)
     try {
-      const result = await api.upload('/api/profile/documents', file, { doc_type: 'national_id', privacy_acknowledged: '1' })
+      await api.upload('/api/profile/documents', file, { doc_type: 'national_id', privacy_acknowledged: '1' })
       setFile(null)
-      setDocumentInputKey((value) => value + 1)
-      await load()
-      setMessage(
-        result?.resubmitted
-          ? 'We received your new National ID. Your account is being reviewed. Please wait—you will be notified when a decision is made.'
-          : 'National ID uploaded. Your account is being reviewed, and you will be notified when a decision is made.'
-      )
-    } catch (err) {
-      setErrorAlert(err.message)
+      setDocumentInputKey((key) => key + 1)
+      await refetch()
+      setMessage('National ID submitted for review.')
+    } catch (error) {
+      showError(error)
     } finally {
       setDocumentUploading(false)
     }
   }
 
-  if (isLoading && !profile) {
-    return (
-      <Card padding="lg" style={{ textAlign: 'center', marginTop: 'var(--space-8)' }}>
-        <LoadingSpinner text="Loading profile…" />
-      </Card>
-    )
-  }
-
-  if (isOtherProfile && profileError?.status === 404) {
-    return (
-      <div className={styles.container} style={{ padding: 'var(--space-4)' }}>
-        <Card padding="lg" style={{ textAlign: 'center' }}>
-          <h1>This profile isn&apos;t available</h1>
-          <p className="muted">It may not exist, or you may not have an active request relationship that permits access.</p>
-          <Button variant="secondary" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} aria-hidden="true" /> Go Back
-          </Button>
-        </Card>
-      </div>
-    )
-  }
+  if (isLoading && !profile) return <Card padding="lg" className={styles.loadingCard}><LoadingSpinner text="Loading profile…" /></Card>
 
   if (isOtherProfile && profileError) {
     return (
-      <div className={styles.container} style={{ padding: 'var(--space-4)' }}>
-        <Card padding="lg" style={{ textAlign: 'center' }}>
-          <h1>Profile unavailable</h1>
-          <p className="muted">{profileError.message}</p>
-          <Button variant="secondary" onClick={() => navigate(-1)}><ArrowLeft size={16} aria-hidden="true" /> Go Back</Button>
+      <div className={styles.container}>
+        <Card padding="lg" className={styles.errorCard}>
+          <h1>{profileError.status === 404 ? 'This profile isn’t available' : 'Profile unavailable'}</h1>
+          <p>{profileError.message}</p>
+          <Button variant="secondary" onClick={() => navigate(-1)}><ArrowLeft size={16} /> Go back</Button>
         </Card>
       </div>
     )
@@ -240,478 +208,183 @@ export default function ProfilePage() {
   if (isOtherProfile) {
     return (
       <div className={styles.container}>
-        <div style={{ padding: 'var(--space-4) var(--space-4) 0' }}>
-          <Button variant="secondary" size="sm" onClick={() => navigate(-1)}>
-            <ArrowLeft size={16} aria-hidden="true" /> Back
-          </Button>
-        </div>
-        <ProfileBanner profile={profile} navTabs={[{ id: 'overview', label: 'Overview' }]} />
-        <div style={{ maxWidth: '800px', margin: 'var(--space-6) auto 0', padding: '0 var(--space-4)' }}>
-          <Card>
-            <div className={styles.cardHeader}>
-              <h2 className={styles.cardTitle}>Member Profile</h2>
+        <div className={styles.backRow}><Button variant="secondary" size="sm" onClick={() => navigate(-1)}><ArrowLeft size={16} /> Back</Button></div>
+        <header className={styles.profileHeader}>
+          <div className={styles.headerInner}>
+            <div className={styles.avatarWrapper}>
+              {profile.profile_picture_url ? <img className={styles.avatarLarge} src={profile.profile_picture_url} alt={`${profile.full_name}'s profile picture`} /> : <span className={styles.avatarLarge} role="img" aria-label="No profile picture"><User size={64} aria-hidden="true" /></span>}
             </div>
-            <dl className={styles.grid2}>
-              <div><dt className={styles.metricLabel}>Email</dt><dd className={styles.metricValue}><a href={`mailto:${profile.email}`}>{profile.email}</a></dd></div>
-              <div><dt className={styles.metricLabel}>Blood Type</dt><dd className={styles.metricValue}>{profile.blood_type || 'Not provided'}</dd></div>
-              <div><dt className={styles.metricLabel}>Chapter</dt><dd className={styles.metricValue}>{profile.chapter_name || 'Not assigned'}</dd></div>
-              <div><dt className={styles.metricLabel}>Role</dt><dd className={styles.metricValue}>{profile.role_label}</dd></div>
-              <div><dt className={styles.metricLabel}>Member Since</dt><dd className={styles.metricValue}>{new Date(`${profile.member_since}T00:00:00`).toLocaleDateString()}</dd></div>
-              <div><dt className={styles.metricLabel}>Verification</dt><dd className={styles.metricValue} style={{ textTransform: 'capitalize' }}>{profile.verification_status}</dd></div>
+            <div className={styles.headerIdentity}>
+              <div className={styles.nameLine}><h1>{profile.full_name}</h1>{profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}</div>
+              <p>{profile.chapter_name ? `${profile.chapter_name} member` : profile.role_label}</p>
+            </div>
+          </div>
+        </header>
+        <main className={styles.publicDetails}>
+          <Card>
+            <div className={styles.cardHeader}><h2>Account details</h2></div>
+            <dl className={styles.detailsGrid}>
+              <div><dt>Email</dt><dd><a href={`mailto:${profile.email}`}>{profile.email}</a></dd></div>
+              <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
+              <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
+              <div><dt>Role</dt><dd>{profile.role_label}</dd></div>
+              <div><dt>Member since</dt><dd>{formatDate(profile.member_since)}</dd></div>
+              <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
             </dl>
           </Card>
-        </div>
+        </main>
       </div>
     )
   }
 
-  if (!form) {
-    return (
-      <Card padding="lg" style={{ textAlign: 'center', marginTop: 'var(--space-8)' }}>
-        <LoadingSpinner text="Loading profileâ€¦" />
-      </Card>
-    )
-  }
+  if (!form) return <Card padding="lg" className={styles.loadingCard}><LoadingSpinner text="Loading profile…" /></Card>
 
   const nationalIdDocuments = (profile.documents || [])
     .filter((document) => document.doc_type === 'national_id')
     .sort((a, b) => b.id - a.id)
+  const availabilityBlocked = Boolean(profile.availability_window?.blocked)
+  const availabilityLabel = profile.availability === 'available' ? 'Set unavailable' : 'Set available'
+  const availabilityStatus = availabilityBlocked
+    ? `${titleCase(profile.availability_window.which)} until ${formatDate(profile.availability_window.ends_at_utc)}`
+    : profile.donor_enrolled
+      ? (profile.availability === 'available' ? 'Available to donate' : 'Unavailable for donor matches')
+      : 'Not enrolled as a donor'
 
   return (
     <div className={styles.container}>
-      {message && <StatusPill variant="active" style={{ width: '100%' }}>{message}</StatusPill>}
-      {errorAlert && <StatusPill variant="error" style={{ width: '100%' }}>{errorAlert}</StatusPill>}
+      <div className={styles.notices}>
+        {message && <StatusPill variant="active">{message}</StatusPill>}
+        {errorAlert && <StatusPill variant="error">{errorAlert}</StatusPill>}
+      </div>
 
       {profile.verification_status === 'rejected' && (
         <div className={`${styles.alertBox} ${styles.alertDanger}`}>
-          <p className={styles.alertDangerTitle}>Verification Needs Attention</p>
-          <p className={styles.alertDangerText}>
-            Your National ID could not be approved. Upload a clearer or valid National ID to request another review.
-          </p>
-          <Button variant="primary" onClick={() => setActiveTab('verification')}>
-            Upload another National ID
-          </Button>
+          <div><strong>Verification needs attention</strong><p>Upload a clearer or valid National ID to request another review.</p></div>
+          <Button variant="primary" onClick={() => document.getElementById('verification-section')?.scrollIntoView({ behavior: 'smooth' })}>Upload another ID</Button>
         </div>
       )}
 
-      <div className={styles.profileHeader}>
-        <div className={styles.profileHeaderContent} style={{ maxWidth: '100%' }}>
+      <header className={styles.profileHeader}>
+        <div className={styles.headerInner}>
           <div className={styles.avatarWrapper}>
             {profile.profile_picture_url && !pictureFailed ? (
-              <img
-                className={styles.avatarLarge}
-                src={profile.profile_picture_url}
-                alt={`${profile.full_name}'s profile picture`}
-                onError={() => setPictureFailed(true)}
-                onClick={() => document.getElementById('hidden_profile_picture_file').click()}
-              />
+              <img className={styles.avatarLarge} src={profile.profile_picture_url} alt={`${profile.full_name}'s profile picture`} onError={() => setPictureFailed(true)} />
             ) : (
-              <span 
-                className={styles.avatarLarge} 
-                role="img" 
-                aria-label="No profile picture uploaded"
-                onClick={() => document.getElementById('hidden_profile_picture_file').click()}
-              >
-                <User size={80} weight="regular" aria-hidden="true" />
-              </span>
+              <span className={styles.avatarLarge} role="img" aria-label="No profile picture"><User size={64} aria-hidden="true" /></span>
             )}
-            
-            <div 
-              className={styles.avatarCameraOverlay} 
-              title="Update profile picture"
-              onClick={() => document.getElementById('hidden_profile_picture_file').click()}
-            >
-              <Camera size={20} weight="fill" />
-            </div>
-
-            <input
-              id="hidden_profile_picture_file"
-              type="file"
-              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-              style={{ display: 'none' }}
-              onChange={(e) => {
-                const f = e.target.files[0]
-                if (f) {
-                  setPictureFile(f)
-                  onPictureUpload(f)
-                }
-              }}
-            />
+            <label className={styles.avatarCameraOverlay} htmlFor="profile-picture" title="Update profile picture">
+              {pictureUploading ? <span className="spinner" aria-hidden="true" /> : <Camera size={19} weight="fill" aria-hidden="true" />}
+            </label>
+            <input key={pictureInputKey} id="profile-picture" className={styles.visuallyHidden} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => onPictureUpload(event.target.files?.[0])} />
           </div>
 
-          <div className={styles.profileHeaderInfo}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-              <div>
-                <h1 className={styles.profileNameLarge}>
-                  {profile.full_name}
-                  {profile.verification_status === 'verified' && (
-                    <span className={styles.verifiedCheck} title="Verified Account">
-                      <CheckCircle weight="fill" size={24} />
-                    </span>
-                  )}
-                </h1>
-                <p className={styles.profileSubtitle}>
-                  {profile.role === 'member' && profile.chapter_name
-                    ? `${profile.chapter_name} member`
-                    : (profile.chapter_name
-                      ? `${profile.chapter_name} • ${profile.role.charAt(0).toUpperCase() + profile.role.slice(1)}`
-                      : profile.role.charAt(0).toUpperCase() + profile.role.slice(1))}
-                </p>
-
-                {profile.role === 'member' && (
-                  <p className={styles.profileBio}>
-                    <Drop size={16} weight="fill" color="var(--color-brand-red)" />
-                    {profile.availability_window?.blocked
-                      ? `Resting until ${profile.availability_window.ends_at_utc.split(' ')[0]}`
-                      : (profile.availability === 'available' ? 'Available to donate' : 'Donor Enrollment Inactive')}
-                    {reports.some(r => r.status === 'CONFIRMED') && ' • Experienced Donor'}
-                  </p>
-                )}
-
-                <div className={styles.profileTags}>
-                  {profile.account_status !== 'active' && (
-                    <Badge variant="neutral">{profile.account_status}</Badge>
-                  )}
-                  {profile.blood_type && (
-                    <Badge variant="urgent">Blood Type: {profile.blood_type}</Badge>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ marginLeft: 'auto' }}>
-                <Button onClick={() => navigate('/requests/new')} variant="primary">
-                  Request Blood
-                </Button>
-              </div>
+          <div className={styles.headerIdentity}>
+            <div className={styles.nameLine}>
+              <h1>{profile.full_name}</h1>
+              {profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}
             </div>
+            <p>{profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
+            {profile.role === 'member' && <span className={styles.availabilityText}><Drop size={16} weight="fill" aria-hidden="true" /> {availabilityStatus}</span>}
+          </div>
+
+          <div className={styles.headerActions}>
+            {profile.role === 'member' && profile.verification_status !== 'verified' && <Button variant="secondary" disabled>Verification required</Button>}
+            {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && <Button variant="secondary" onClick={enrollAsDonor} isLoading={enrolling}>Enroll as donor</Button>}
+            {profile.role === 'member' && profile.donor_enrolled && <Button variant="secondary" disabled={availabilityBlocked} onClick={setAvailability} isLoading={availabilityUpdating}>{availabilityBlocked ? 'Availability locked' : availabilityLabel}</Button>}
+            <Button onClick={() => navigate('/requests/new')}>Request blood</Button>
           </div>
         </div>
+      </header>
 
-        <div className={styles.headerNav}>
-          <div 
-            className={`${styles.navTab} ${activeTab === 'overview' ? styles.navTabActive : ''}`}
-            onClick={() => setActiveTab('overview')}
-          >
-            Overview
-          </div>
-          <div 
-            className={`${styles.navTab} ${activeTab === 'verification' ? styles.navTabActive : ''}`}
-            onClick={() => setActiveTab('verification')}
-          >
-            Verification
-          </div>
-          {profile.role === 'member' && (
-            <div 
-              className={`${styles.navTab} ${activeTab === 'history' ? styles.navTabActive : ''}`}
-              onClick={() => setActiveTab('history')}
-            >
-              History
+      <main className={styles.overview}>
+        <Card>
+          <div className={styles.cardHeader}><div><h2>Personal and location</h2><p>Keep your matching details accurate.</p></div></div>
+          <form onSubmit={onSave} noValidate className={styles.formStack}>
+            <Input label="Full name" id="full_name" value={form.full_name} onChange={setField('full_name')} required maxLength={150} error={errors.full_name?.join(' ')} />
+            <div className={styles.twoColumns}>
+              <Input label="Phone number" id="phone" type="tel" value={form.phone} onChange={setField('phone')} placeholder="0917-123-4567" error={errors.phone?.join(' ')} />
+              <Input label="Date of birth" id="date_of_birth" type="date" value={form.date_of_birth} onChange={setField('date_of_birth')} error={errors.date_of_birth?.join(' ')} />
             </div>
-          )}
-        </div>
-      </div>
+            <div className={styles.fieldGroup}>
+              <label htmlFor="blood_type">Blood type</label>
+              <select id="blood_type" value={form.blood_type} onChange={setField('blood_type')}>
+                <option value="">Unknown / Not sure</option>
+                {BLOOD_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+              </select>
+              {errors.blood_type && <span className={styles.fieldError}>{errors.blood_type.join(' ')}</span>}
+            </div>
+            <div className={styles.fieldGroup}>
+              <span>Location in Bataan</span>
+              <LocationSelector municipalityId="profile-municipality" municipalityCode={location.municipality_code} barangayCode={location.barangay_code} onChange={setLocation} errors={errors} />
+            </div>
+            <Button type="submit" isLoading={submitting} className={styles.saveButton}>Save changes</Button>
+          </form>
+        </Card>
 
-      <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)', padding: '0 var(--space-4)' }}>
-        
-        {activeTab === 'overview' && (
-          <Card>
+        {profile.role === 'member' && (
+          <Card id="verification-section" className={styles.verificationCard}>
             <div className={styles.cardHeader}>
-              <h3 className={styles.cardTitle}>Personal & Location</h3>
+              <div><h2>Verification</h2><p>Your account status and submitted identification.</p></div>
+              <Badge variant={profile.verification_status === 'verified' ? 'success' : profile.verification_status === 'rejected' ? 'critical' : 'neutral'}>{titleCase(profile.verification_status)}</Badge>
             </div>
-
-            <form onSubmit={onSave} noValidate style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-              <Input 
-                label="Full Name"
-                id="full_name" 
-                value={form.full_name} 
-                onChange={setField('full_name')} 
-                required 
-                maxLength={150} 
-                error={errors.full_name?.join(' ')}
-              />
-
-              <div className={styles.grid2}>
-                <Input 
-                  label="Phone Number"
-                  id="phone" 
-                  type="tel" 
-                  value={form.phone} 
-                  onChange={setField('phone')} 
-                  placeholder="0917-123-4567" 
-                  error={errors.phone?.join(' ')}
-                />
-
-                <Input 
-                  label="Date of Birth"
-                  id="dob" 
-                  type="date" 
-                  value={form.date_of_birth} 
-                  onChange={setField('date_of_birth')} 
-                  error={errors.date_of_birth?.join(' ')}
-                />
-              </div>
-
-              <div>
-                <label htmlFor="blood_type" style={{ fontSize: 'var(--text-sm)', fontWeight: '500', color: 'var(--color-text-secondary)', display: 'block', marginBottom: 'var(--space-2)' }}>Blood Type</label>
-                <select id="blood_type" value={form.blood_type} onChange={setField('blood_type')} style={{ width: '100%', height: '44px', padding: '0 var(--space-4)', borderRadius: 'var(--radius-control)', border: '1px solid var(--color-border-strong)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', fontFamily: 'var(--font-sans)', outline: 'none' }}>
-                  <option value="">Unknown / Not sure</option>
-                  {BLOOD_TYPES.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-                {errors.blood_type && <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-critical-red)' }}>{errors.blood_type.join(' ')}</span>}
-              </div>
-
-              <div role="group" aria-labelledby="profile-location-heading">
-                <span id="profile-location-heading" className={styles.metricLabel}>Location in Bataan</span>
-                <LocationSelector
-                  municipalityId="profile-municipality"
-                  municipalityCode={location.municipality_code}
-                  barangayCode={location.barangay_code}
-                  onChange={setLocation}
-                  errors={errors}
-                />
-              </div>
-
-              <Button type="submit" isLoading={submitting} style={{ alignSelf: 'flex-start' }}>
-                Save Changes
-              </Button>
-            </form>
-          </Card>
-        )}
-
-        {activeTab === 'verification' && (
-          <Card className={styles.verificationCard} padding="none">
-            {profile.role === 'member' && (nationalIdDocuments.length === 0 || profile.verification_status === 'rejected') ? (
-              <form onSubmit={onUpload} className={styles.verificationBox}>
-                <div className={styles.verificationDocumentIcon} aria-hidden="true">
-                  <FileText size={30} weight="duotone" />
-                </div>
-                <h3>{profile.verification_status === 'rejected' ? 'Choose a new National ID' : 'Upload your National ID'}</h3>
-                <p>
-                  {profile.verification_status === 'rejected'
-                    ? 'Use a clear replacement image or PDF to request another review.'
-                    : 'Use a clear image or PDF so the admin team can verify your account.'}
-                </p>
-
-                <input
-                  key={documentInputKey}
-                  id="profile-national-id"
-                  type="file"
-                  className={styles.fileInput}
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  onChange={(event) => setFile(event.target.files?.[0] || null)}
-                />
-                <label htmlFor="profile-national-id" className={`${styles.filePicker} ${file ? styles.filePickerSecondary : ''}`}>
-                  <UploadSimple size={20} aria-hidden="true" />
-                  <span>{file ? 'Choose a different file' : 'Choose image or PDF'}</span>
-                </label>
-
-                <div className={styles.fileDetails} aria-live="polite">
-                  <strong>{file ? file.name : 'JPG, PNG, WEBP, or PDF'}</strong>
-                  <span>{file ? 'Ready to upload' : 'Maximum file size: 5 MB'}</span>
-                </div>
-
-                {file && (
-                  <Button type="submit" isLoading={documentUploading} className={styles.uploadButton}>
-                    <UploadSimple size={18} aria-hidden="true" />
-                    {profile.verification_status === 'rejected' ? 'Request another review' : 'Upload National ID'}
-                  </Button>
-                )}
-
-                <div className={styles.privacyAcknowledged}>
-                  <input
-                    id="profile-id-privacy"
-                    type="checkbox"
-                    checked
-                    readOnly
-                    tabIndex={-1}
-                    aria-label="Privacy notice acknowledged during registration"
-                  />
-                  <span>Privacy notice acknowledged during registration.</span>
-                  <button type="button" onClick={() => setIdPrivacyModalOpen(true)}>Review</button>
-                </div>
+            {nationalIdDocuments.length === 0 || profile.verification_status === 'rejected' ? (
+              <form onSubmit={onUpload} className={styles.verificationUpload}>
+                <FileText size={30} weight="duotone" aria-hidden="true" />
+                <div><h3>{profile.verification_status === 'rejected' ? 'Choose a replacement ID' : 'Upload your National ID'}</h3><p>Use a clear JPG, PNG, WEBP, or PDF up to 5 MB.</p></div>
+                <input key={documentInputKey} id="profile-national-id" className={styles.visuallyHidden} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+                <label htmlFor="profile-national-id" className={styles.filePicker}><UploadSimple size={18} /> {file ? 'Choose another file' : 'Choose a file'}</label>
+                {file && <span className={styles.fileName}>{file.name}</span>}
+                {file && <Button type="submit" isLoading={documentUploading}>{profile.verification_status === 'rejected' ? 'Request another review' : 'Submit for review'}</Button>}
+                <button type="button" className={styles.privacyLink} onClick={() => setIdPrivacyModalOpen(true)}>Review the privacy notice</button>
               </form>
             ) : (
-              <div className={styles.verificationBox}>
-                <div className={styles.verificationDocumentIcon} aria-hidden="true">
-                  <CheckCircle size={30} weight="duotone" />
-                </div>
-                <h3>{profile.verification_status === 'verified' ? 'National ID verified' : 'National ID submitted'}</h3>
-                <p>
-                  {profile.verification_status === 'verified'
-                    ? 'Your account verification is complete.'
-                    : 'Your account is being reviewed. You will receive a notification and email when a decision is made.'}
-                </p>
-                {nationalIdDocuments[0] && (
-                  <Button to={`/api/profile/documents/${nationalIdDocuments[0].id}/file`} target="_blank" rel="noreferrer" variant="secondary" size="sm">
-                    <FileText size={18} aria-hidden="true" /> View uploaded ID
-                  </Button>
-                )}
+              <div className={styles.verificationComplete}>
+                <CheckCircle size={30} weight="duotone" aria-hidden="true" />
+                <div><h3>{profile.verification_status === 'verified' ? 'National ID verified' : 'Review in progress'}</h3><p>{profile.verification_status === 'verified' ? 'Your account verification is complete.' : 'You will receive a notification when the review is complete.'}</p></div>
+                {nationalIdDocuments[0] && <Button to={`/api/profile/documents/${nationalIdDocuments[0].id}/file`} target="_blank" rel="noreferrer" variant="secondary" size="sm">View uploaded ID</Button>}
               </div>
             )}
           </Card>
         )}
 
-        {activeTab === 'history' && profile.role === 'member' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
-            <div className={styles.historySwitch} role="group" aria-label="Choose history type">
-              <button type="button" className={historyView === 'donations' ? styles.historySwitchActive : ''} onClick={() => setHistoryView('donations')}>Donation history</button>
-              <button type="button" className={historyView === 'requests' ? styles.historySwitchActive : ''} onClick={() => setHistoryView('requests')}>Request history</button>
-            </div>
+        {profile.role === 'member' && (
+          <section className={styles.historySection} aria-labelledby="history-heading">
+            <div className={styles.sectionHeading}><h2 id="history-heading">History</h2><p>Your donation and blood-request activity are kept separate.</p></div>
 
-            {historyView === 'donations' && (
-            <>
             <Card>
-              <div className={styles.cardHeader}>
-                <h3 className={styles.cardTitle}>Volunteer Enrollment</h3>
-                {profile.donor_enrolled ? (
-                  <Badge variant={profile.availability_window?.blocked ? 'urgent' : (profile.availability === 'available' ? 'success' : 'neutral')}>
-                    {profile.availability_window?.blocked
-                      ? profile.availability_window.which.toUpperCase()
-                      : (profile.availability ? profile.availability.toUpperCase() : 'ENROLLED')}
-                  </Badge>
-                ) : (
-                  <Badge variant="neutral">NOT ENROLLED</Badge>
-                )}
-              </div>
-
-              {profile.verification_status !== 'verified' ? (
-                <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
-                  Donor enrollment requires verified member status. Once verified, you can opt in to receive compatibility match notifications.
-                </p>
-              ) : !profile.donor_enrolled ? (
-                <div>
-                  <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: 'var(--space-4)' }}>
-                    Enroll as a volunteer blood donor. When local patients create blood requests matching your blood type, you will receive automated notifications.
-                  </p>
-                  <Button onClick={enrollAsDonor} isLoading={enrolling}>
-                    Enroll as Volunteer Donor
-                  </Button>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-                    <div>
-                      <span className={styles.metricLabel}>Current Status</span>
-                      <p className={styles.metricValue}>
-                        {profile.availability_window?.blocked
-                          ? `Locked until ${profile.availability_window.ends_at_utc} UTC`
-                          : (profile.availability === 'available' ? 'Available to receive match alerts' : 'Unavailable (Temporarily paused)')}
-                      </p>
-                    </div>
-
-                    {!profile.availability_window?.blocked && (
-                      <div className={styles.buttonGroup}>
-                        <Button
-                          variant={profile.availability === 'available' ? 'primary' : 'secondary'}
-                          disabled={profile.availability === 'available'}
-                          onClick={() => setAvailability('available')}
-                          size="sm"
-                        >
-                          Set Available
-                        </Button>
-                        <Button
-                          variant={profile.availability === 'unavailable' ? 'primary' : 'secondary'}
-                          disabled={profile.availability === 'unavailable'}
-                          onClick={() => setAvailability('unavailable')}
-                          size="sm"
-                        >
-                          Set Unavailable
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {profile.availability_window?.blocked && (
-                    <div className={`${styles.alertBox} ${styles.alertInfo}`} style={{ marginBottom: 0 }}>
-                      <strong>Post-Donation Active:</strong> Changes to availability are locked.
-                    </div>
-                  )}
+              <div className={styles.cardHeader}><div><h2>Donation history</h2><p>Reports submitted for officer confirmation.</p></div></div>
+              {reports.length === 0 ? <p className={styles.emptyText}>No donation reports recorded yet.</p> : (
+                <div className={styles.historyList}>
+                  {reports.map((report) => (
+                    <article key={report.id} className={styles.historyRow}>
+                      <div className={styles.historyBlood}>{report.required_blood_type}</div>
+                      <div><h3>{report.facility_name}</h3><p>{formatDate(report.reported_at)}</p></div>
+                      <Badge variant={report.status === 'CONFIRMED' ? 'success' : report.status === 'REJECTED' ? 'critical' : 'urgent'}>{titleCase(report.status)}</Badge>
+                    </article>
+                  ))}
                 </div>
               )}
             </Card>
 
-
-
-
-      {/* Section 5: Donation History */}
-      <Card>
-        <div className={styles.cardHeader}>
-          <h3 className={styles.cardTitle}>My Donation History</h3>
-        </div>
-
-        {reports.length === 0 ? (
-          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', margin: 0 }}>
-            No completed donation reports recorded yet.
-          </p>
-        ) : (
-          <div className={styles.tableContainer}>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Blood Type</th>
-                  <th>Facility</th>
-                  <th>Status</th>
-                  <th>Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.map((rep) => (
-                  <tr key={rep.id}>
-                    <td><strong>{rep.required_blood_type}</strong></td>
-                    <td>{rep.facility_name}</td>
-                    <td>
-                      <Badge variant={rep.status === 'CONFIRMED' ? 'success' : (rep.status === 'REJECTED' ? 'critical' : 'urgent')}>
-                        {rep.status}
-                      </Badge>
-                    </td>
-                    <td>{new Date(rep.reported_at.replace(' ', 'T') + 'Z').toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-      </>
-      )}
-
-      {historyView === 'requests' && (
-        <Card>
-          <div className={styles.cardHeader}>
-            <h3 className={styles.cardTitle}>My request history</h3>
-            <Button to="/requests/mine" variant="secondary" size="sm">Manage requests</Button>
-          </div>
-          {requestHistory.length === 0 ? (
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', margin: 0 }}>No blood requests recorded yet.</p>
-          ) : (
-            <div className={styles.tableContainer}>
-              <table className={styles.table}>
-                <thead><tr><th>Blood type</th><th>Facility</th><th>Status</th><th>Needed by</th></tr></thead>
-                <tbody>
+            <Card>
+              <div className={styles.cardHeader}><div><h2>Request history</h2><p>Requests created from this account.</p></div><Button to="/requests/mine" variant="secondary" size="sm">Manage requests</Button></div>
+              {requestHistory.length === 0 ? <p className={styles.emptyText}>No blood requests recorded yet.</p> : (
+                <div className={styles.historyList}>
                   {requestHistory.map((request) => (
-                    <tr key={request.id}>
-                      <td><strong>{request.required_blood_type}</strong> · {request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</td>
-                      <td>{request.facility_name}</td>
-                      <td><Badge variant={request.status === 'FULFILLED' ? 'success' : request.status === 'OPEN' ? 'brand' : 'neutral'}>{request.status}</Badge></td>
-                      <td>{new Date(request.needed_datetime.replace(' ', 'T') + 'Z').toLocaleDateString()}</td>
-                    </tr>
+                    <article key={request.id} className={styles.historyRow}>
+                      <div className={styles.historyBlood}>{request.required_blood_type}</div>
+                      <div><h3>{request.facility_name}</h3><p>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'} · Needed {formatDate(request.needed_datetime)}</p></div>
+                      <Badge variant={request.status === 'FULFILLED' ? 'success' : request.status === 'OPEN' ? 'brand' : 'neutral'}>{titleCase(request.status)}</Badge>
+                    </article>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      )}
-      </div>
-      )}
-      <PrivacyConsentModal 
-        isOpen={idPrivacyModalOpen} 
-        onClose={() => setIdPrivacyModalOpen(false)} 
-        readonly
-      />
-      </div>
+                </div>
+              )}
+            </Card>
+          </section>
+        )}
+      </main>
+
+      <PrivacyConsentModal isOpen={idPrivacyModalOpen} onClose={() => setIdPrivacyModalOpen(false)} readonly />
     </div>
   )
 }

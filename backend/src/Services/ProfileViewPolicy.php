@@ -25,6 +25,13 @@ final class ProfileViewPolicy
             return 'admin';
         }
 
+        // Active members may view the limited public account details of any
+        // other active member. Sensitive fields are excluded by
+        // MemberProfileController's response model.
+        if ((string) $viewer['role'] === 'member') {
+            return 'member';
+        }
+
         if ((string) $viewer['role'] === 'officer'
             && $viewer['chapter_id'] !== null
             && $target['chapter_id'] !== null

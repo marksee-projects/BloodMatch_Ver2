@@ -3,6 +3,7 @@ import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-r
 import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, House, ClipboardText, ShieldCheck, SignOut, MagnifyingGlass, CircleNotch } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
+import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from './context/ThemeContext'
 import { clearCsrf } from './services/apiClient'
 import RegisterPage from './pages/RegisterPage'
@@ -68,12 +69,15 @@ function NavbarAvatar({ src, alt, className }) {
 export default function App() {
   const { theme, toggleTheme } = useTheme()
   const { user, loading, logout, refresh } = useAuth()
+  const queryClient = useQueryClient()
   const [unread, setUnread] = useState(0)
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [availabilityUpdating, setAvailabilityUpdating] = useState(false)
+  const [availabilityError, setAvailabilityError] = useState(null)
   const profileMenuRef = useRef(null)
 
   useEffect(() => {
@@ -167,6 +171,22 @@ export default function App() {
       setIsLoggingOut(false)
       setMobileOpen(false)
       navigate('/', { replace: true })
+    }
+  }
+
+  const handleAvailabilityChange = async () => {
+    const next = user.availability === 'available' ? 'unavailable' : 'available'
+    setAvailabilityError(null)
+    setAvailabilityUpdating(true)
+    try {
+      await api.post('/api/profile/donor-availability', { availability: next })
+      await refresh()
+      await queryClient.invalidateQueries({ queryKey: ['profile'] })
+      setProfileMenuOpen(false)
+    } catch (error) {
+      setAvailabilityError(error.message || 'Availability could not be updated.')
+    } finally {
+      setAvailabilityUpdating(false)
     }
   }
 
@@ -271,19 +291,25 @@ export default function App() {
                           </Link>
                         )}
                         
-                        {user.role === 'member' && (
-                          <button type="button" className="dropdown-menu-item" onClick={() => {
-                            const next = user.availability === 'available' ? 'unavailable' : 'available'
-                            api.post('/api/profile/donor-availability', { availability: next }).then(() => refresh()).catch(() => {})
-                            setProfileMenuOpen(false)
-                          }}>
+                        {user.role === 'member' && user.verification_status === 'verified' && user.donor_enrolled && (
+                          <button type="button" className="dropdown-menu-item" onClick={handleAvailabilityChange} disabled={availabilityUpdating}>
                             <div className="dropdown-icon-wrapper">
                               <Circle size={20} weight="fill" style={{ color: user.availability === 'available' ? 'var(--color-success-green)' : 'var(--color-text-subtle)' }} />
                             </div>
-                            <span className="dropdown-item-text">{user.availability === 'available' ? 'Available to donate' : 'Unavailable to donate'}</span>
+                            <span className="dropdown-item-text">{availabilityUpdating ? 'Updating availability…' : (user.availability === 'available' ? 'Set unavailable' : 'Set available')}</span>
                             <CaretRight size={16} className="dropdown-caret" />
                           </button>
                         )}
+
+                        {user.role === 'member' && (user.verification_status !== 'verified' || !user.donor_enrolled) && (
+                          <Link to="/profile" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
+                            <div className="dropdown-icon-wrapper"><Circle size={20} weight="fill" style={{ color: 'var(--color-text-subtle)' }} /></div>
+                            <span className="dropdown-item-text">Complete donor setup</span>
+                            <CaretRight size={16} className="dropdown-caret" />
+                          </Link>
+                        )}
+
+                        {availabilityError && <p role="alert" style={{ margin: 'var(--space-2) var(--space-4)', color: 'var(--color-critical-red)', fontSize: 'var(--text-xs)' }}>{availabilityError}</p>}
                         
                         <button type="button" className="dropdown-menu-item" onClick={() => { toggleTheme(); setProfileMenuOpen(false); }}>
                           <div className="dropdown-icon-wrapper">
