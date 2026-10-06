@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowsClockwise, MapPin, Warning, Funnel } from '@phosphor-icons/react'
+import { ArrowsClockwise, Check, Funnel, MapPin, Warning } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
 import { Link } from 'react-router-dom'
+import styles from './DemandMapWidget.module.css'
 
 const BLOOD_TYPES = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const URGENCIES = ['All', 'routine', 'urgent', 'critical']
+const MINI_URGENCIES = ['critical', 'urgent', 'routine']
 
 export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
+  const { user } = useAuth()
   const [chapters, setChapters] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -17,6 +21,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
   const [selectedUrgency, setSelectedUrgency] = useState('All')
   const [selectedDays, setSelectedDays] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [selectedMiniUrgencies, setSelectedMiniUrgencies] = useState([])
 
   const isMini = mode === 'mini'
 
@@ -26,13 +31,13 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
     try {
       const params = new URLSearchParams()
       if (selectedBloodType !== 'All') params.set('blood_type', selectedBloodType)
-      if (selectedUrgency !== 'All') params.set('urgency', selectedUrgency)
+      if (!isMini && selectedUrgency !== 'All') params.set('urgency', selectedUrgency)
       if (selectedDays) params.set('days', selectedDays)
 
       const res = await api.get(`/api/demand-map?${params.toString()}`)
       setChapters(res.chapters || [])
     } catch (err) {
-      setError(err.message || 'Failed to load regional demand map.')
+      setError(err.message || 'Failed to load chapter demand map.')
     } finally {
       setLoading(false)
     }
@@ -47,7 +52,26 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
   const totalCritical = chapters.reduce((acc, c) => acc + (c.urgency_counts?.critical || 0), 0)
   const totalUrgent = chapters.reduce((acc, c) => acc + (c.urgency_counts?.urgent || 0), 0)
   const totalRoutine = chapters.reduce((acc, c) => acc + (c.urgency_counts?.routine || 0), 0)
-  const maxRequests = Math.max(...chapters.map(c => c.open_requests_count || 0), 1)
+  const urgencyTotals = {
+    critical: totalCritical,
+    urgent: totalUrgent,
+    routine: totalRoutine
+  }
+  const getMiniChapterValue = (chapter) => {
+    const activeUrgencies = selectedMiniUrgencies.length > 0 ? selectedMiniUrgencies : MINI_URGENCIES
+    return activeUrgencies.reduce((sum, urgency) => sum + (chapter.urgency_counts?.[urgency] || 0), 0)
+  }
+  const miniChapterValues = chapters.map(getMiniChapterValue)
+  const maxMiniValue = Math.max(...miniChapterValues, 0)
+  const miniSelectionHasNoMatches = selectedMiniUrgencies.length > 0 && maxMiniValue === 0
+
+  const toggleMiniUrgency = (urgency) => {
+    setSelectedMiniUrgencies((current) => (
+      current.includes(urgency)
+        ? current.filter((item) => item !== urgency)
+        : [...current, urgency]
+    ))
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -57,7 +81,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--space-4)', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <MapPin size={20} weight="fill" color="var(--color-brand-navy)" />
-              <h2 style={{ fontSize: 'var(--text-h3)', margin: 0, fontWeight: '700' }}>Regional Demand Map</h2>
+              <h2 style={{ fontSize: 'var(--text-h3)', margin: 0, fontWeight: '700' }}>Chapter Demand Map</h2>
             </div>
             
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
@@ -136,7 +160,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
           <Card padding="lg" style={{ textAlign: 'center' }}>
             <p style={{ color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
               <ArrowsClockwise size={16} style={{ animation: 'spin 1s linear infinite' }} /> 
-              Loading regional demand…
+              Loading chapter demand…
             </p>
           </Card>
         )
@@ -155,23 +179,56 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
           {chapters.length > 0 && isMini && (
             <>
-              {/* Mini summary badges */}
-              <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                {totalCritical > 0 && <Badge variant="critical">{totalCritical} critical</Badge>}
-                {totalUrgent > 0 && <Badge variant="urgent">{totalUrgent} urgent</Badge>}
-                {totalRoutine > 0 && <Badge variant="neutral">{totalRoutine} routine</Badge>}
-                {totalDemand === 0 && <Badge variant="neutral">No active requests</Badge>}
+              {/* Mini urgency filters use the unfiltered response totals. */}
+              <div className={styles.miniFilterGroup} role="group" aria-label="Filter chapter demand by urgency">
+                {MINI_URGENCIES.map((urgency) => {
+                  const isSelected = selectedMiniUrgencies.includes(urgency)
+                  return (
+                    <button
+                      key={urgency}
+                      type="button"
+                      className={`${styles.urgencyChip} ${styles[urgency]}`}
+                      aria-pressed={isSelected}
+                      onClick={() => toggleMiniUrgency(urgency)}
+                    >
+                      <span className={styles.checkSlot} aria-hidden="true">
+                        {isSelected && <Check size={16} weight="bold" />}
+                      </span>
+                      <span>{urgency.charAt(0).toUpperCase() + urgency.slice(1)}</span>
+                      <span className={styles.chipCount}>{urgencyTotals[urgency]}</span>
+                    </button>
+                  )
+                })}
+                {selectedMiniUrgencies.length > 0 && (
+                  <button
+                    type="button"
+                    className={styles.clearButton}
+                    onClick={() => setSelectedMiniUrgencies([])}
+                  >
+                    Clear
+                  </button>
+                )}
               </div>
+
+              {totalDemand === 0 && selectedMiniUrgencies.length === 0 && (
+                <p className={styles.miniEmptyState}>No active requests across these chapters.</p>
+              )}
+              {miniSelectionHasNoMatches && (
+                <p className={styles.miniEmptyState} role="status">
+                  No chapter has active requests for the selected urgencies.
+                </p>
+              )}
 
               {/* Compact bar chart rows */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
                 {chapters.slice(0, 4).map((ch) => {
-                  const count = ch.open_requests_count || 0
-                  const pct = maxRequests > 0 ? (count / maxRequests) * 100 : 0
-                  const hasCritical = (ch.urgency_counts?.critical || 0) > 0
+                  const count = getMiniChapterValue(ch)
+                  const pct = maxMiniValue > 0 ? (count / maxMiniValue) * 100 : 0
+                  const visibleUrgencies = selectedMiniUrgencies.length > 0 ? selectedMiniUrgencies : MINI_URGENCIES
+                  const hasCritical = visibleUrgencies.includes('critical') && (ch.urgency_counts?.critical || 0) > 0
                   const barColor = hasCritical
                     ? 'var(--color-critical-red)'
-                    : (ch.urgency_counts?.urgent || 0) > 0
+                    : visibleUrgencies.includes('urgent') && (ch.urgency_counts?.urgent || 0) > 0
                       ? 'var(--color-urgent-amber)'
                       : 'var(--color-brand-navy)'
 
@@ -189,13 +246,16 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                       }}>
                         {ch.chapter_name}
                       </span>
-                      <div style={{ flex: 1, height: '6px', background: 'var(--color-surface-sunken)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div
+                        className={styles.barTrack}
+                        role="img"
+                        aria-label={`${ch.chapter_name}: ${count} matching active ${count === 1 ? 'request' : 'requests'}`}
+                      >
                         <div style={{ 
                           width: `${pct}%`, 
                           height: '100%', 
                           background: barColor, 
-                          borderRadius: '3px',
-                          transition: 'width 0.3s ease-out'
+                          borderRadius: 'inherit'
                         }} />
                       </div>
                       <span style={{ 
@@ -213,20 +273,11 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                 })}
               </div>
 
-              <Link 
-                to="/demand-map" 
-                style={{ 
-                  display: 'block', 
-                  textAlign: 'center', 
-                  fontSize: 'var(--text-sm)', 
-                  color: 'var(--color-brand-navy)', 
-                  textDecoration: 'none', 
-                  fontWeight: '600',
-                  marginTop: 'var(--space-1)'
-                }}
-              >
-                View Full Map &rarr;
-              </Link>
+              {user?.role === 'admin' && (
+                <Link to="/demand-map" className={styles.fullMapLink}>
+                  View Full Map <span aria-hidden="true">&rarr;</span>
+                </Link>
+              )}
             </>
           )}
 
@@ -326,8 +377,8 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                         <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', marginBottom: 'var(--space-2)' }}>Blood Types in Demand:</div>
                         <div style={{ display: 'flex', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
                           {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map((bt) => {
-                            const units = ch.blood_type_demand?.[bt]?.units_needed || 0
-                            if (units === 0) return null
+                            const count = ch.blood_type_counts?.[bt] || 0
+                            if (count === 0) return null
                             return (
                               <span
                                 key={bt}
@@ -340,7 +391,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                                   color: 'var(--color-text-muted)'
                                 }}
                               >
-                                {bt}: {units}u
+                                {bt}: {count}
                               </span>
                             )
                           })}

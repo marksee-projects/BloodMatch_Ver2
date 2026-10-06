@@ -120,22 +120,24 @@ export default function HomeFeedPage() {
           ))}
         </main>
 
-        <aside className={styles.rightColumn}>
-          <Card padding="none">
-            <details className={styles.demandMapDetails} open={false}>
-              <summary className={styles.demandMapSummary}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <MapPin size={20} weight="fill" color="var(--color-brand-navy)" />
-                  <span>Regional Demand Map</span>
+        {(user?.role === 'admin' || user?.role === 'officer') && (
+          <aside className={styles.rightColumn}>
+            <Card padding="none">
+              <details className={styles.demandMapDetails} open={false}>
+                <summary className={styles.demandMapSummary}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                    <MapPin size={20} weight="fill" color="var(--color-brand-navy)" />
+                    <span>Chapter Demand Map</span>
+                  </div>
+                  <CaretDown size={16} className={styles.summaryChevron} color="var(--color-text-subtle)" />
+                </summary>
+                <div style={{ padding: '0 var(--space-4) var(--space-4) var(--space-4)' }}>
+                  <DemandMapWidget mode="mini" />
                 </div>
-                <CaretDown size={16} className={styles.summaryChevron} color="var(--color-text-subtle)" />
-              </summary>
-              <div style={{ padding: '0 var(--space-4) var(--space-4) var(--space-4)' }}>
-                <DemandMapWidget mode="mini" />
-              </div>
-            </details>
-          </Card>
-        </aside>
+              </details>
+            </Card>
+          </aside>
+        )}
       </section>
 
       <EmailVerificationDialog
