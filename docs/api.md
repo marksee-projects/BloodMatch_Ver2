@@ -1,6 +1,6 @@
 # BloodMatch — API Inventory & Contract Reference
 
-> Current as of 2026-10-06 (migrations 001–016). Source: `backend/routes/api.php` (60 method+path registrations) + controllers/services. Historical Phase-17 revision documented 26 endpoints / 001–014 schema (see `docs/test-log-phase17.md`); this file supersedes it. Envelope: `Response::success` → `{success:true,data:{...}}`; `Response::error` → `{success:false,error:{message,details?}}`.
+> Current as of 2026-10-06 (migrations 001–016). Source: `backend/routes/api.php` (61 method+path registrations) + controllers/services. Historical Phase-17 revision documented 26 endpoints / 001–014 schema (see `docs/test-log-phase17.md`); this file supersedes it. Envelope: `Response::success` → `{success:true,data:{...}}`; `Response::error` → `{success:false,error:{message,details?}}`.
 
 This document provides a comprehensive inventory of all API routes implemented in BloodMatch (`backend/routes/api.php` and `backend/src/Controllers/`).
 
@@ -196,6 +196,13 @@ All responses adhere to the standard JSON envelopes:
 ---
 
 ## 4. Blood Requests & Matching Engine
+
+### `GET /api/home-feed`
+- **Purpose:** Return up to 20 OPEN requests for which the authenticated member already has a live persisted match, ordered Critical, Urgent, Routine, then newest.
+- **Auth:** Authenticated. Non-member roles receive an empty feed.
+- **Privacy:** Returns requester display data, chapter, municipality-level location, request details, match status, and `can_view_requester_profile: true`. It excludes phone, birth date, availability, exact coordinates/barangay, documents, and donation history.
+- **Profile access:** Every returned row is backed by the same OPEN-request match relation accepted by `GET /api/profile/{id}`. Own requests and `CLOSED` matches are excluded.
+- **Response (200):** `{ "requests": [{ "id": 12, "requester_id": 42, "can_view_requester_profile": true, ... }] }`
 
 ### `GET /api/my/requests`
 - **Purpose:** List all blood requests created by the authenticated user.

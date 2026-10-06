@@ -211,4 +211,34 @@ final class RequestService
             'created_at' => (string) $row['created_at'],
         ];
     }
+
+    public static function homeFeedView(array $row): array
+    {
+        return [
+            'id' => (int) $row['id'],
+            'requester_id' => (int) $row['requester_id'],
+            'requester_name' => (string) $row['requester_name'],
+            'requester_verification_status' => (string) $row['requester_verification_status'],
+            'requester_chapter_name' => $row['requester_chapter_name'] !== null
+                ? (string) $row['requester_chapter_name']
+                : null,
+            'requester_profile_picture_url' => ProfilePictureStorageService::urlFor(
+                $row['requester_profile_picture'],
+                (int) $row['requester_id']
+            ),
+            'required_blood_type' => (string) $row['required_blood_type'],
+            'quantity_units' => (int) $row['quantity_units'],
+            'facility_name' => (string) $row['facility_name'],
+            'location' => [
+                'municipality_name' => $row['loc_municipality_name'] !== null
+                    ? (string) $row['loc_municipality_name']
+                    : null,
+            ],
+            'urgency' => (string) $row['urgency'],
+            'needed_datetime' => (string) $row['needed_datetime'],
+            'created_at' => (string) $row['created_at'],
+            'match_status' => (string) $row['match_status'],
+            'can_view_requester_profile' => true,
+        ];
+    }
 }

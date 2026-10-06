@@ -92,8 +92,15 @@ export function FeedCard({ request, expandedByDefault = false, hideActions = fal
       <div 
         className={styles.feedCardHeader} 
         onClick={() => setIsExpanded(!isExpanded)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            setIsExpanded(!isExpanded)
+          }
+        }}
         role="button"
         tabIndex={0}
+        aria-expanded={isExpanded}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
           <div style={{ width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', backgroundColor: 'var(--color-neutral-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

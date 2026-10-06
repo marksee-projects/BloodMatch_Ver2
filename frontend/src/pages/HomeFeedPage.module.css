@@ -208,6 +208,23 @@
   color: var(--color-text-muted);
 }
 
+.feedState {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+}
+
+.feedStateTitle {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-h3);
+}
+
+.feedStateText {
+  margin: 0 0 var(--space-4);
+  color: var(--color-text-secondary);
+  font-size: var(--text-body);
+}
+
 /* Collapsible Map */
 .demandMapDetails > summary::-webkit-details-marker {
   display: none;

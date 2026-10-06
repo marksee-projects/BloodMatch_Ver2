@@ -78,6 +78,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/officer/documents/{documentId}/file', [new DocumentController(), 'fileOfficer']);
 
     $router->add('POST', '/api/requests', [new RequestsController(), 'create']);
+    $router->add('GET', '/api/home-feed', [new RequestsController(), 'homeFeed']);
     $router->add('GET', '/api/my/requests', [new RequestsController(), 'mine']);
     $router->add('GET', '/api/requests/{id}', [new RequestsController(), 'show']);
     $router->add('PUT', '/api/requests/{id}', [new RequestsController(), 'update']);

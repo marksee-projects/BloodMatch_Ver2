@@ -102,6 +102,23 @@ final class RequestsController
         )]);
     }
 
+    public function homeFeed(): void
+    {
+        $actor = AuthMiddleware::requireActiveUser('requests.home_feed');
+        if ((string) $actor['role'] !== 'member') {
+            Response::success(['requests' => []]);
+            return;
+        }
+
+        $rows = (new BloodRequestRepository())->listMatchedOpenForDonor((int) $actor['id']);
+        Response::success([
+            'requests' => array_map(
+                static fn (array $row): array => RequestService::homeFeedView($row),
+                $rows
+            ),
+        ]);
+    }
+
     public function show(array $params): void
     {
         $actor = AuthMiddleware::requireActiveUser('requests.show');

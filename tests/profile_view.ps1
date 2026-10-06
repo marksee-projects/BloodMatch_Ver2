@@ -42,9 +42,9 @@ function Login($user) {
     if ([int]$response.StatusCode -ne 200) { throw "Fixture login failed for $($user.email)" }
     return $session
 }
-function Get-Profile($session, $id) {
+function Get-Json($session, $uri) {
     try {
-        $response = Invoke-WebRequest -Uri "$BaseUrl/api/profile/$id" -Method Get -WebSession $session -TimeoutSec 10 -UseBasicParsing
+        $response = Invoke-WebRequest -Uri "$BaseUrl$uri" -Method Get -WebSession $session -TimeoutSec 10 -UseBasicParsing
         return @{ status = [int]$response.StatusCode; raw = $response.Content; body = ($response.Content | ConvertFrom-Json) }
     } catch {
         $response = $_.Exception.Response
@@ -55,6 +55,7 @@ function Get-Profile($session, $id) {
         return @{ status = [int]$response.StatusCode; raw = $raw; body = $body }
     }
 }
+function Get-Profile($session, $id) { return Get-Json $session "/api/profile/$id" }
 
 Write-Host '== Shared Profile View Test Suite =='
 $connectedDb = DbQuery 'SELECT DATABASE();'
@@ -84,6 +85,18 @@ New-Match $openRequest $donor.id 'POTENTIAL'
 $donorSession = Login $donor
 $result = Get-Profile $donorSession $target.id
 Assert-Status 'T05 donor matched to target open request may view target' $result.status 200
+$feedResult = Get-Json $donorSession '/api/home-feed'
+$feedRequest = @($feedResult.body.data.requests | Where-Object { $_.id -eq $openRequest })
+if ($feedResult.status -eq 200 -and $feedRequest.Count -eq 1 -and $feedRequest[0].requester_id -eq $target.id -and $feedRequest[0].can_view_requester_profile -eq $true) {
+    Ok 'T05a Home feed exposes View Profile target only for persisted match relation'
+} else {
+    Bad 'T05a Home feed profile access metadata' "status=$($feedResult.status), matches=$($feedRequest.Count)"
+}
+if ($feedResult.raw -notmatch 'latitude|longitude|phone|date_of_birth|availability') {
+    Ok 'T05b Home feed does not expose private profile or exact-location fields'
+} else {
+    Bad 'T05b Home feed privacy' 'private or exact-location field appeared'
+}
 
 $requester = New-User 'requester'
 $respondedDonor = New-User 'responded_donor'
@@ -101,19 +114,32 @@ Assert-Status 'T07 requester cannot view donor who has not responded' $result.st
 $closedDonor = New-User 'closed_match'
 $closedRequest = New-Request $target.id
 New-Match $closedRequest $closedDonor.id 'CLOSED'
-$result = Get-Profile (Login $closedDonor) $target.id
+$closedDonorSession = Login $closedDonor
+$result = Get-Profile $closedDonorSession $target.id
 Assert-Status 'T08 donor with only a closed match receives 404' $result.status 404
+$closedFeed = Get-Json $closedDonorSession '/api/home-feed'
+if (@($closedFeed.body.data.requests | Where-Object { $_.id -eq $closedRequest }).Count -eq 0) { Ok 'T08a closed match has no Home profile link' } else { Bad 'T08a closed Home match' 'request was returned' }
 
 $cancelledRequester = New-User 'cancelled_requester'
 $cancelledDonor = New-User 'cancelled_donor'
 $cancelledRequest = New-Request $cancelledRequester.id 'CANCELLED'
 New-Match $cancelledRequest $cancelledDonor.id 'RESPONDED'
-$result = Get-Profile (Login $cancelledDonor) $cancelledRequester.id
+$cancelledDonorSession = Login $cancelledDonor
+$result = Get-Profile $cancelledDonorSession $cancelledRequester.id
 Assert-Status 'T09 donor tied only to a cancelled request receives 404' $result.status 404
+$cancelledFeed = Get-Json $cancelledDonorSession '/api/home-feed'
+if (@($cancelledFeed.body.data.requests | Where-Object { $_.id -eq $cancelledRequest }).Count -eq 0) { Ok 'T09a cancelled request has no Home profile link' } else { Bad 'T09a cancelled Home request' 'request was returned' }
 
 $unrelated = New-User 'unrelated'
-$result = Get-Profile (Login $unrelated) $target.id
+$unrelatedSession = Login $unrelated
+$result = Get-Profile $unrelatedSession $target.id
 Assert-Status 'T10 unrelated member receives 404' $result.status 404
+$unrelatedFeed = Get-Json $unrelatedSession '/api/home-feed'
+if ($unrelatedFeed.status -eq 200 -and @($unrelatedFeed.body.data.requests).Count -eq 0) {
+    Ok 'T10a unrelated member receives no Home profile entry point'
+} else {
+    Bad 'T10a unrelated Home feed' "status=$($unrelatedFeed.status)"
+}
 
 $enumViewer = New-User 'enumerator'
 $enumA = New-User 'enum_a'; $enumB = New-User 'enum_b'; $enumC = New-User 'enum_c'

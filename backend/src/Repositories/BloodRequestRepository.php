@@ -62,6 +62,34 @@ final class BloodRequestRepository
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
+    public function listMatchedOpenForDonor(int $donorId, int $limit = 20): array
+    {
+        $safeLimit = max(1, min($limit, 100));
+        $stmt = Database::pdo()->prepare(
+            'SELECT ' . self::SAFE_COLUMNS . ',
+                    m.status AS match_status,
+                    requester.full_name AS requester_name,
+                    requester.verification_status AS requester_verification_status,
+                    requester.profile_picture AS requester_profile_picture,
+                    requester_chapter.name AS requester_chapter_name
+             FROM matches m
+             JOIN blood_requests br ON br.id = m.request_id
+             JOIN users requester ON requester.id = br.requester_id
+             LEFT JOIN chapters requester_chapter ON requester_chapter.id = requester.chapter_id' .
+             self::LOCATION_JOIN . "
+             WHERE m.donor_id = ?
+               AND br.requester_id <> ?
+               AND br.status = 'OPEN'
+               AND requester.role = 'member'
+               AND requester.account_status = 'active'
+               AND m.status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED', 'COMPLETED')
+             ORDER BY FIELD(br.urgency, 'critical', 'urgent', 'routine'), br.created_at DESC
+             LIMIT {$safeLimit}"
+        );
+        $stmt->execute([$donorId, $donorId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
     public function updateFields(int $id, array $fields): void
     {
         static $map = [

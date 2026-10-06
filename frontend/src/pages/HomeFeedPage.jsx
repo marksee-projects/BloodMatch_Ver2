@@ -1,41 +1,44 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { MapPin, CaretDown } from '@phosphor-icons/react';
-import { useAuth } from '../context/AuthContext';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { BloodTypeBlock } from '../components/ui/BloodTypeBlock';
-import DemandMapWidget from '../components/DemandMapWidget';
-import EmailVerificationDialog from '../components/EmailVerificationDialog';
-import styles from './HomeFeedPage.module.css';
+import React from 'react'
+import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
+import { MapPin, CaretDown } from '@phosphor-icons/react'
+import { useAuth } from '../context/AuthContext'
+import { Card } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { FeedCard } from '../components/FeedCard'
+import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import DemandMapWidget from '../components/DemandMapWidget'
+import EmailVerificationDialog from '../components/EmailVerificationDialog'
+import { api } from '../services/apiClient'
+import styles from './HomeFeedPage.module.css'
 
 export default function HomeFeedPage() {
-  const { user, refresh } = useAuth();
-  const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false);
+  const { user, refresh } = useAuth()
+  const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false)
+  const { data: feedData, isLoading: feedLoading, error: feedError, refetch: refetchFeed } = useQuery({
+    queryKey: ['home-feed'],
+    queryFn: () => api.get('/api/home-feed'),
+    enabled: Boolean(user),
+    retry: false
+  })
+  const requests = feedData?.requests || []
 
   return (
     <div className={styles.layout}>
-      
       {user && user.email_verified === false && (
         <div className={styles.unverifiedBanner}>
           <div className={styles.unverifiedContent}>
             <span className={styles.unverifiedText}>
               Please verify your email address to access all features.
             </span>
-            <button 
-              className={styles.unverifiedButton}
-              onClick={() => setVerifyDialogOpen(true)}
-            >
+            <button className={styles.unverifiedButton} onClick={() => setVerifyDialogOpen(true)}>
               Verify Now
             </button>
           </div>
         </div>
       )}
 
-      {/* Feed Layout */}
       <section className={styles.feedLayout}>
-        
-        {/* Left Column: Compact Profile Card */}
         <aside className={styles.leftColumn}>
           <Card>
             <div className={styles.profileRow}>
@@ -54,9 +57,9 @@ export default function HomeFeedPage() {
                 <span className={styles.profileRole}>{user?.role || 'Member'}</span>
               </div>
             </div>
-            
+
             <hr style={{ margin: 'var(--space-3) 0', border: 'none', borderTop: '1px solid var(--color-border-hairline)' }} />
-            
+
             <details className={styles.quickLinksDetails}>
               <summary>Account Details</summary>
               <div style={{ marginTop: 'var(--space-3)' }}>
@@ -82,43 +85,41 @@ export default function HomeFeedPage() {
           </Card>
         </aside>
 
-        {/* Center Column: Feed */}
         <main className={styles.centerColumn}>
-
-          <div className={styles.contextLine}>
-            Recent regional blood requests
+          <div className={styles.contextLine} aria-live="polite">
+            {feedLoading
+              ? 'Loading matched blood requests…'
+              : `${requests.length} matched blood ${requests.length === 1 ? 'request' : 'requests'}`}
           </div>
 
-          {/* Placeholder Feed Cards (compact, not stretched) */}
-          <Card padding="md" className={styles.feedCard}>
-            <div className={styles.feedCardInner}>
-              <BloodTypeBlock bloodType="O+" level="critical" />
-              <div style={{ flex: 1 }}>
-                <h3 className={styles.feedCardTitle}>Patient needs O+ Blood</h3>
-                <p className={styles.feedCardMeta}>{user?.chapter_name || 'Mt. Samat Chapter'} · 15 mins ago</p>
-              </div>
-              <Button variant="secondary" size="sm" to={`/requests/mine`}>
-                View
-              </Button>
-            </div>
-          </Card>
+          {feedLoading && (
+            <Card padding="md" className={styles.feedState}>
+              <LoadingSpinner text="Loading matched requests…" minHeight="12rem" />
+            </Card>
+          )}
 
-          <Card padding="md" className={styles.feedCard}>
-            <div className={styles.feedCardInner}>
-              <BloodTypeBlock bloodType="A-" level="urgent" />
-              <div style={{ flex: 1 }}>
-                <h3 className={styles.feedCardTitle}>Patient needs A- Blood</h3>
-                <p className={styles.feedCardMeta}>{user?.chapter_name || 'Mt. Tarak Chapter'} · 2 hrs ago</p>
-              </div>
-              <Button variant="secondary" size="sm" to={`/requests/mine`}>
-                View
-              </Button>
-            </div>
-          </Card>
+          {feedError && (
+            <Card padding="md" className={styles.feedState}>
+              <h2 className={styles.feedStateTitle}>Requests couldn&apos;t be loaded</h2>
+              <p className={styles.feedStateText}>{feedError.message}</p>
+              <Button variant="secondary" onClick={() => refetchFeed()}>Retry</Button>
+            </Card>
+          )}
 
+          {!feedLoading && !feedError && requests.length === 0 && (
+            <Card padding="md" className={styles.feedState}>
+              <h2 className={styles.feedStateTitle}>No matched requests right now</h2>
+              <p className={styles.feedStateText}>
+                Open requests appear here only after the matching system confirms that you can help.
+              </p>
+            </Card>
+          )}
+
+          {!feedLoading && !feedError && requests.map((request) => (
+            <FeedCard key={request.id} request={request} />
+          ))}
         </main>
 
-        {/* Right Column: Demand Map Mini */}
         <aside className={styles.rightColumn}>
           <Card padding="none">
             <details className={styles.demandMapDetails} open={false}>
@@ -135,18 +136,17 @@ export default function HomeFeedPage() {
             </details>
           </Card>
         </aside>
-
       </section>
-      
-      <EmailVerificationDialog 
+
+      <EmailVerificationDialog
         isOpen={verifyDialogOpen}
         initialEmail={user?.email}
         onClose={() => setVerifyDialogOpen(false)}
         onSuccess={() => {
-          setVerifyDialogOpen(false);
-          refresh();
+          setVerifyDialogOpen(false)
+          refresh()
         }}
       />
     </div>
-  );
+  )
 }
