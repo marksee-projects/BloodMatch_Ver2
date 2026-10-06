@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, Hospital, MapPin, User, X } from '@phosphor-icons/react'
+import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
@@ -106,7 +106,6 @@ export default function MatchesPage() {
   }
   if (!pageData || !request) return <div className={styles.container}><LoadingSpinner text="Loading request…" minHeight="24rem" /></div>
 
-  const statusVariant = request.status === 'OPEN' ? 'brand' : request.status === 'FULFILLED' ? 'success' : 'neutral'
   const urgencyVariant = request.urgency === 'critical' ? 'critical' : request.urgency === 'urgent' ? 'urgent' : 'neutral'
 
   return (
@@ -117,42 +116,35 @@ export default function MatchesPage() {
       {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
 
       <section className={styles.requestSurface} aria-labelledby="request-title">
-        <div className={styles.requestTopline}>
-          <div className={styles.bloodBlock}><Drop size={21} weight="fill" aria-hidden="true" /><strong>{request.required_blood_type}</strong><span>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</span></div>
-          <div className={styles.requestTitle}><h1 id="request-title">Blood request</h1><p>{request.facility_name}</p></div>
-          <div className={styles.badges}><Badge variant={urgencyVariant}>{request.urgency}</Badge><Badge variant={statusVariant}>{request.status}</Badge></div>
+        <div className={styles.requestHeader}>
+          <div className={styles.avatar}>{request.requester_profile_picture_url ? <img src={request.requester_profile_picture_url} alt="" /> : <User size={25} aria-hidden="true" />}</div>
+          <div className={styles.requesterIdentity}>
+            <div className={styles.requesterNameLine}>
+              <h1 id="request-title">{request.requester_name || 'Community member'}</h1>
+              {request.requester_verification_status === 'verified' && <CheckCircle size={18} weight="fill" aria-label="Verified account" />}
+            </div>
+            <p>{request.requester_chapter_name || 'Chapter not assigned'} member <span aria-hidden="true">&bull;</span> {formatDate(request.created_at || request.needed_datetime)}</p>
+          </div>
+          <div className={styles.bloodTypeSquare}>{request.required_blood_type}</div>
         </div>
 
         <dl className={styles.requestFacts}>
-          <div><dt><Hospital size={18} /> Facility</dt><dd>{request.facility_name}</dd></div>
-          <div><dt><MapPin size={18} /> Location</dt><dd>{request.location?.municipality_name || 'Bataan'}</dd></div>
+          <div><dt><Drop size={18} weight="fill" /> Blood needed</dt><dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd></div>
+          <div className={styles.facilityFact}><dt><MapPin size={18} /> Facility</dt><dd>{request.facility_name}, {request.location?.municipality_name || 'Bataan'}</dd></div>
           <div><dt><CalendarBlank size={18} /> Needed by</dt><dd>{formatDate(request.needed_datetime)}</dd></div>
+          <div><dt>Priority</dt><dd><Badge variant={urgencyVariant}>{request.urgency}</Badge></dd></div>
         </dl>
 
-        <div className={styles.requesterRow}>
-          <div className={styles.avatar}>{request.requester_profile_picture_url ? <img src={request.requester_profile_picture_url} alt="" /> : <User size={25} aria-hidden="true" />}</div>
-          <div className={styles.requesterIdentity}><span>Requested by</span><h2>{request.requester_name}</h2><p>{request.requester_chapter_name || 'Chapter not assigned'}</p></div>
-          {request.requester_verification_status === 'verified' && <span className={styles.verified}><CheckCircle size={17} weight="fill" /> Verified</span>}
+        <div className={styles.requestActions}>
           {request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
+          {!isRequesterView && ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
+          {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
+          {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
+          {!isRequesterView && ownMatch && <Badge variant={ownMatch.status === 'COMPLETED' ? 'success' : ownMatch.status === 'RESPONDED' ? 'brand' : 'neutral'}>{ownMatch.status}</Badge>}
+          {!isRequesterView && !ownMatch && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
         </div>
+        {!isRequesterView && !ownMatch && <p className={styles.eligibilityNote}>{eligibilityMessage(user)}</p>}
       </section>
-
-      {!isRequesterView && (
-        <section className={styles.actionSurface} aria-labelledby="response-heading">
-          <div className={styles.actionCopy}>
-            <h2 id="response-heading">{ownMatch?.status === 'RESPONDED' ? 'You offered to help' : ownMatch ? 'You can help with this request' : 'Before you offer to help'}</h2>
-            <p>{ownMatch?.status === 'RESPONDED' ? 'The requester can now see your response. You may cancel it before submitting a donation report.' : ownMatch ? 'Confirm your availability before your response is shared with the requester.' : eligibilityMessage(user)}</p>
-          </div>
-
-          <div className={styles.actionControls}>
-            {ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
-            {ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
-            {ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel offer</Button>}
-            {ownMatch && <Badge variant={ownMatch.status === 'COMPLETED' ? 'success' : ownMatch.status === 'RESPONDED' ? 'brand' : 'neutral'}>{ownMatch.status}</Badge>}
-            {!ownMatch && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
-          </div>
-        </section>
-      )}
 
       {isRequesterView && (
         <section className={styles.matchesSurface} aria-labelledby="matches-heading">

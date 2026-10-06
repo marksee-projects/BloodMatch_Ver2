@@ -45,6 +45,7 @@ export default function ProfilePage() {
   const [pictureInputKey, setPictureInputKey] = useState(0)
   const [pictureUploading, setPictureUploading] = useState(false)
   const [pictureFailed, setPictureFailed] = useState(false)
+  const [activeSection, setActiveSection] = useState('overview')
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
     queryKey: isOtherProfile ? ['member-profile', profileId] : ['profile'],
@@ -260,7 +261,7 @@ export default function ProfilePage() {
       {profile.verification_status === 'rejected' && (
         <div className={`${styles.alertBox} ${styles.alertDanger}`}>
           <div><strong>Verification needs attention</strong><p>Upload a clearer or valid National ID to request another review.</p></div>
-          <Button variant="primary" onClick={() => document.getElementById('verification-section')?.scrollIntoView({ behavior: 'smooth' })}>Upload another ID</Button>
+          <Button variant="primary" onClick={() => setActiveSection('verification')}>Upload another ID</Button>
         </div>
       )}
 
@@ -275,6 +276,12 @@ export default function ProfilePage() {
             <label className={styles.avatarCameraOverlay} htmlFor="profile-picture" title="Update profile picture">
               {pictureUploading ? <span className="spinner" aria-hidden="true" /> : <Camera size={19} weight="fill" aria-hidden="true" />}
             </label>
+            {profile.role === 'member' && profile.donor_enrolled && profile.availability === 'available' && !availabilityBlocked && (
+              <span className={styles.availabilityIndicator} title="Available to donate">
+                <CheckCircle size={20} weight="fill" aria-hidden="true" />
+                <span className={styles.visuallyHidden}>Available to donate</span>
+              </span>
+            )}
             <input key={pictureInputKey} id="profile-picture" className={styles.visuallyHidden} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => onPictureUpload(event.target.files?.[0])} />
           </div>
 
@@ -291,37 +298,60 @@ export default function ProfilePage() {
             {profile.role === 'member' && profile.verification_status !== 'verified' && <Button variant="secondary" disabled>Verification required</Button>}
             {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && <Button variant="secondary" onClick={enrollAsDonor} isLoading={enrolling}>Enroll as donor</Button>}
             {profile.role === 'member' && profile.donor_enrolled && <Button variant="secondary" disabled={availabilityBlocked} onClick={setAvailability} isLoading={availabilityUpdating}>{availabilityBlocked ? 'Availability locked' : availabilityLabel}</Button>}
-            <Button onClick={() => navigate('/requests/new')}>Request blood</Button>
+            <Button onClick={() => navigate('/requests/new')}>Create request</Button>
           </div>
         </div>
       </header>
 
-      <main className={styles.overview}>
-        <Card>
-          <div className={styles.cardHeader}><div><h2>Personal and location</h2><p>Keep your matching details accurate.</p></div></div>
-          <form onSubmit={onSave} noValidate className={styles.formStack}>
-            <Input label="Full name" id="full_name" value={form.full_name} onChange={setField('full_name')} required maxLength={150} error={errors.full_name?.join(' ')} />
-            <div className={styles.twoColumns}>
-              <Input label="Phone number" id="phone" type="tel" value={form.phone} onChange={setField('phone')} placeholder="0917-123-4567" error={errors.phone?.join(' ')} />
-              <Input label="Date of birth" id="date_of_birth" type="date" value={form.date_of_birth} onChange={setField('date_of_birth')} error={errors.date_of_birth?.join(' ')} />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label htmlFor="blood_type">Blood type</label>
-              <select id="blood_type" value={form.blood_type} onChange={setField('blood_type')}>
-                <option value="">Unknown / Not sure</option>
-                {BLOOD_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
-              </select>
-              {errors.blood_type && <span className={styles.fieldError}>{errors.blood_type.join(' ')}</span>}
-            </div>
-            <div className={styles.fieldGroup}>
-              <span>Location in Bataan</span>
-              <LocationSelector municipalityId="profile-municipality" municipalityCode={location.municipality_code} barangayCode={location.barangay_code} onChange={setLocation} errors={errors} />
-            </div>
-            <Button type="submit" isLoading={submitting} className={styles.saveButton}>Save changes</Button>
-          </form>
-        </Card>
+      <main className={styles.profileLayout}>
+        <aside className={styles.sideNav} aria-label="Profile sections">
+          <p>Profile</p>
+          <button type="button" className={activeSection === 'overview' ? styles.sideNavActive : ''} aria-current={activeSection === 'overview' ? 'page' : undefined} onClick={() => setActiveSection('overview')}>Overview</button>
+          {profile.role === 'member' && <button type="button" className={activeSection === 'verification' ? styles.sideNavActive : ''} aria-current={activeSection === 'verification' ? 'page' : undefined} onClick={() => setActiveSection('verification')}>Verification</button>}
+          {profile.role === 'member' && <button type="button" className={activeSection === 'donations' ? styles.sideNavActive : ''} aria-current={activeSection === 'donations' ? 'page' : undefined} onClick={() => setActiveSection('donations')}>Donation history</button>}
+          {profile.role === 'member' && <button type="button" className={activeSection === 'requests' ? styles.sideNavActive : ''} aria-current={activeSection === 'requests' ? 'page' : undefined} onClick={() => setActiveSection('requests')}>Request history</button>}
+        </aside>
 
-        {profile.role === 'member' && (
+        <div className={styles.profileContent}>
+          {activeSection === 'overview' && (
+            <div className={styles.overviewGrid}>
+              <Card className={styles.personalCard}>
+                <div className={styles.cardHeader}><div><h2>Personal and location</h2><p>Keep your matching details accurate.</p></div></div>
+                <form onSubmit={onSave} noValidate className={styles.formStack}>
+                  <Input label="Full name" id="full_name" value={form.full_name} onChange={setField('full_name')} required maxLength={150} error={errors.full_name?.join(' ')} />
+                  <div className={styles.twoColumns}>
+                    <Input label="Phone number" id="phone" type="tel" value={form.phone} onChange={setField('phone')} placeholder="0917-123-4567" error={errors.phone?.join(' ')} />
+                    <Input label="Date of birth" id="date_of_birth" type="date" value={form.date_of_birth} onChange={setField('date_of_birth')} error={errors.date_of_birth?.join(' ')} />
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <label htmlFor="blood_type">Blood type</label>
+                    <select id="blood_type" value={form.blood_type} onChange={setField('blood_type')}>
+                      <option value="">Unknown / Not sure</option>
+                      {BLOOD_TYPES.map((type) => <option key={type} value={type}>{type}</option>)}
+                    </select>
+                    {errors.blood_type && <span className={styles.fieldError}>{errors.blood_type.join(' ')}</span>}
+                  </div>
+                  <div className={styles.fieldGroup}>
+                    <span>Location in Bataan</span>
+                    <LocationSelector municipalityId="profile-municipality" municipalityCode={location.municipality_code} barangayCode={location.barangay_code} onChange={setLocation} errors={errors} />
+                  </div>
+                  <Button type="submit" isLoading={submitting} className={styles.saveButton}>Save changes</Button>
+                </form>
+              </Card>
+
+              <Card className={styles.accountCard}>
+                <div className={styles.cardHeader}><div><h2>Account overview</h2><p>Your membership and donor status.</p></div></div>
+                <dl className={styles.accountSummary}>
+                  <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
+                  <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
+                  <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
+                  <div><dt>Donor status</dt><dd>{availabilityStatus}</dd></div>
+                </dl>
+              </Card>
+            </div>
+          )}
+
+          {profile.role === 'member' && activeSection === 'verification' && (
           <Card id="verification-section" className={styles.verificationCard}>
             <div className={styles.cardHeader}>
               <div><h2>Verification</h2><p>Your account status and submitted identification.</p></div>
@@ -345,14 +375,12 @@ export default function ProfilePage() {
               </div>
             )}
           </Card>
-        )}
+          )}
 
-        {profile.role === 'member' && (
-          <section className={styles.historySection} aria-labelledby="history-heading">
-            <div className={styles.sectionHeading}><h2 id="history-heading">History</h2><p>Your donation and blood-request activity are kept separate.</p></div>
-
+          {profile.role === 'member' && activeSection === 'donations' && (
+          <section className={styles.historySection} aria-labelledby="donation-history-heading">
             <Card>
-              <div className={styles.cardHeader}><div><h2>Donation history</h2><p>Reports submitted for officer confirmation.</p></div></div>
+              <div className={styles.cardHeader}><div><h2 id="donation-history-heading">Donation history</h2><p>Reports submitted for officer confirmation.</p></div></div>
               {reports.length === 0 ? <p className={styles.emptyText}>No donation reports recorded yet.</p> : (
                 <div className={styles.historyList}>
                   {reports.map((report) => (
@@ -365,9 +393,13 @@ export default function ProfilePage() {
                 </div>
               )}
             </Card>
+          </section>
+          )}
 
+          {profile.role === 'member' && activeSection === 'requests' && (
+          <section className={styles.historySection} aria-labelledby="request-history-heading">
             <Card>
-              <div className={styles.cardHeader}><div><h2>Request history</h2><p>Requests created from this account.</p></div><Button to="/requests/mine" variant="secondary" size="sm">Manage requests</Button></div>
+              <div className={styles.cardHeader}><div><h2 id="request-history-heading">Request history</h2><p>Requests created from this account.</p></div><Button to="/requests/mine" variant="secondary" size="sm">Manage requests</Button></div>
               {requestHistory.length === 0 ? <p className={styles.emptyText}>No blood requests recorded yet.</p> : (
                 <div className={styles.historyList}>
                   {requestHistory.map((request) => (
@@ -381,7 +413,8 @@ export default function ProfilePage() {
               )}
             </Card>
           </section>
-        )}
+          )}
+        </div>
       </main>
 
       <PrivacyConsentModal isOpen={idPrivacyModalOpen} onClose={() => setIdPrivacyModalOpen(false)} readonly />

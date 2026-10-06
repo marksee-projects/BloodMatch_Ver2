@@ -6,23 +6,38 @@
 .notices { width: min(960px, calc(100% - (var(--space-4) * 2))); margin: var(--space-4) auto 0; }
 .notices:empty { display: none; }
 
-.profileHeader { margin-bottom: var(--space-6); padding: var(--space-6) var(--space-4); border-bottom: 1px solid var(--color-border-hairline); background: var(--color-surface); }
-.headerInner { width: min(960px, 100%); margin: 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-5); }
+.profileHeader { margin-bottom: var(--space-5); padding: var(--space-4); border-bottom: 1px solid var(--color-border-hairline); background: var(--color-surface); }
+.headerInner { width: min(1180px, 100%); margin: 0 auto; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-5); }
 .avatarWrapper { position: relative; }
 .avatarLarge { width: 104px; height: 104px; display: grid; place-items: center; object-fit: cover; overflow: hidden; border: 1px solid var(--color-border-hairline); border-radius: var(--radius-avatar); background: var(--color-surface-sunken); color: var(--color-text-muted); }
 .avatarCameraOverlay { position: absolute; right: 0; bottom: 0; width: 36px; height: 36px; display: grid; place-items: center; border: 1px solid var(--color-border-hairline); border-radius: var(--radius-avatar); background: var(--color-surface); color: var(--color-text); box-shadow: var(--shadow-sm); cursor: pointer; }
+.availabilityIndicator { position: absolute; left: 8px; bottom: -4px; width: 30px; height: 30px; display: grid; place-items: center; border: 3px solid var(--color-surface); border-radius: var(--radius-avatar); background: var(--color-surface); color: var(--color-success-green); }
 .avatarCameraOverlay:focus-within, .filePicker:focus-within { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
 .headerIdentity { min-width: 0; }
 .nameLine { display: flex; align-items: center; gap: var(--space-2); }
 .nameLine h1 { margin: 0; font-size: var(--text-hero); letter-spacing: -0.02em; }
-.nameLine svg { flex: none; color: var(--color-success-green); }
+.nameLine svg { flex: none; color: var(--color-brand-navy); }
 .headerIdentity > p { margin: var(--space-2) 0; color: var(--color-text-muted); }
 .availabilityText { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--color-text-secondary); font-size: var(--text-sm); font-weight: 600; }
 .availabilityText svg { color: var(--color-brand-navy); }
-.headerActions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); flex-wrap: wrap; }
+.headerActions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); margin-left: auto; flex-wrap: wrap; }
 
-.overview { width: min(800px, calc(100% - (var(--space-4) * 2))); margin: 0 auto var(--space-8); display: flex; flex-direction: column; gap: var(--space-6); }
+.profileLayout { width: min(1180px, calc(100% - (var(--space-4) * 2))); margin: 0 auto var(--space-8); display: grid; grid-template-columns: 208px minmax(0, 1fr); align-items: start; gap: var(--space-6); }
+.sideNav { position: sticky; top: 88px; display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-sm); }
+.sideNav p { margin: var(--space-2) var(--space-3) var(--space-3); color: var(--color-text-muted); font-size: var(--text-xs); font-weight: 700; }
+.sideNav button { width: 100%; min-height: 44px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text-secondary); font: inherit; font-size: var(--text-sm); font-weight: 600; text-align: left; cursor: pointer; }
+.sideNav button:hover { background: var(--color-surface-sunken); color: var(--color-text); }
+.sideNav button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.sideNav .sideNavActive { background: var(--color-surface-sunken); color: var(--color-brand-navy); box-shadow: inset 3px 0 0 var(--color-brand-navy); }
+.profileContent { min-width: 0; }
+.overviewGrid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, .85fr); align-items: start; gap: var(--space-5); }
+.personalCard, .accountCard, .verificationCard, .historySection { min-width: 0; }
+.accountSummary { display: flex; flex-direction: column; margin: 0; }
+.accountSummary div { display: grid; grid-template-columns: minmax(96px, .75fr) minmax(0, 1.25fr); gap: var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--color-border-hairline); }
+.accountSummary div:first-child { padding-top: 0; border-top: 0; }
+.accountSummary dt { color: var(--color-text-muted); font-size: var(--text-sm); }
+.accountSummary dd { margin: 0; overflow-wrap: anywhere; color: var(--color-text); font-size: var(--text-sm); font-weight: 600; }
 .cardHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-5); }
 .cardHeader h2 { margin: 0; font-size: var(--text-h3); }
 .cardHeader p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
@@ -70,6 +85,12 @@
   .headerInner { grid-template-columns: auto 1fr; }
   .headerActions { grid-column: 1 / -1; justify-content: stretch; }
   .headerActions > * { flex: 1 1 180px; }
+  .profileLayout { grid-template-columns: 1fr; }
+  .sideNav { top: 72px; z-index: 10; flex-direction: row; overflow-x: auto; border-radius: var(--radius-control); }
+  .sideNav p { display: none; }
+  .sideNav button { width: auto; flex: 0 0 auto; text-align: center; }
+  .sideNav .sideNavActive { box-shadow: inset 0 -3px 0 var(--color-brand-navy); }
+  .overviewGrid { grid-template-columns: 1fr; }
   .verificationUpload, .verificationComplete { align-items: flex-start; flex-direction: column; }
 }
 

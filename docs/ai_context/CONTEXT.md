@@ -447,7 +447,7 @@ Rationale: BloodMatch is a private community of verified DeMolay members, and me
 
 - Displays **aggregated counts of currently OPEN requests at chapter level, grouped by blood type**.
 - Never displays individual request locations, requestor identities, exact coordinates, or pins.
-- Access: active members may view privacy-safe aggregated demand for their own chapter only; Chapter Officers retain their assigned-chapter view; System Administrators may view all chapters.
+- Access: active members may view privacy-safe aggregated demand across all three Bataan chapters and filter to one chapter; Chapter Officers retain their assigned-chapter view; System Administrators may view all chapters.
 - Trend windows: default **30 days**; optional 7-day, 90-day, custom ranges.
 
 ### 9.10 Audit Logging (FR-18)

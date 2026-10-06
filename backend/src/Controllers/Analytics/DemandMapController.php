@@ -18,16 +18,16 @@ final class DemandMapController
         $actor = AuthMiddleware::requireRoles(['admin', 'officer', 'member'], self::ENDPOINT);
 
         $scopedChapterId = null;
-        if ($actor['role'] === 'officer' || $actor['role'] === 'member') {
+        if ($actor['role'] === 'officer') {
             $ownChapter = $actor['chapter_id'] === null ? null : (int) $actor['chapter_id'];
             if ($ownChapter === null) {
-                Response::error('Assign a chapter to your account to view chapter demand.', 409);
+                Response::error('Assign a chapter to your officer account to view chapter demand.', 409);
                 return;
             }
 
             $requestedChapter = Request::int('chapter_id');
             if ($requestedChapter !== null && $requestedChapter !== $ownChapter) {
-                Response::error('You can only view aggregated demand for your own chapter.', 403);
+                Response::error('Officers can only view aggregated demand for their assigned chapter.', 403);
                 return;
             }
 

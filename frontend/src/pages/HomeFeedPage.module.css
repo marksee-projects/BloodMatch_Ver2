@@ -6,9 +6,10 @@
 
 .feedLayout {
   display: grid;
-  grid-template-columns: 260px 1fr 280px;
+  grid-template-columns: 240px minmax(0, 760px) 300px;
   gap: var(--space-6);
   align-items: start;
+  justify-content: space-between;
 }
 
 @media (max-width: 1024px) {
@@ -42,8 +43,9 @@
 .centerColumn {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
+  align-items: center;
   gap: var(--space-3);
+  min-width: 0;
 }
 
 .rightColumn {
@@ -170,7 +172,7 @@
   color: var(--color-text-subtle);
   font-weight: 500;
   width: 100%;
-  max-width: 680px;
+  max-width: 720px;
 }
 
 /* Feed cards: compact, not stretched */
@@ -212,7 +214,7 @@
 
 .feedState {
   width: 100%;
-  max-width: 680px;
+  max-width: 720px;
   text-align: center;
 }
 

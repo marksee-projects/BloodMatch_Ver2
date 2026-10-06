@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowsClockwise, Check, Funnel, MapPin, Warning } from '@phosphor-icons/react'
+import { ArrowsClockwise, Funnel, MapPin, Warning } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import { Card } from './ui/Card'
@@ -21,7 +21,8 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
   const [selectedUrgency, setSelectedUrgency] = useState('All')
   const [selectedDays, setSelectedDays] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(false)
-  const [selectedMiniUrgencies, setSelectedMiniUrgencies] = useState([])
+  const [selectedMiniChapter, setSelectedMiniChapter] = useState('All')
+  const [selectedMiniUrgency, setSelectedMiniUrgency] = useState('All')
 
   const isMini = mode === 'mini'
 
@@ -58,20 +59,15 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
     routine: totalRoutine
   }
   const getMiniChapterValue = (chapter) => {
-    const activeUrgencies = selectedMiniUrgencies.length > 0 ? selectedMiniUrgencies : MINI_URGENCIES
+    const activeUrgencies = selectedMiniUrgency === 'All' ? MINI_URGENCIES : [selectedMiniUrgency]
     return activeUrgencies.reduce((sum, urgency) => sum + (chapter.urgency_counts?.[urgency] || 0), 0)
   }
-  const miniChapterValues = chapters.map(getMiniChapterValue)
+  const visibleMiniChapters = selectedMiniChapter === 'All'
+    ? chapters
+    : chapters.filter((chapter) => String(chapter.chapter_id) === selectedMiniChapter)
+  const miniChapterValues = visibleMiniChapters.map(getMiniChapterValue)
   const maxMiniValue = Math.max(...miniChapterValues, 0)
-  const miniSelectionHasNoMatches = selectedMiniUrgencies.length > 0 && maxMiniValue === 0
-
-  const toggleMiniUrgency = (urgency) => {
-    setSelectedMiniUrgencies((current) => (
-      current.includes(urgency)
-        ? current.filter((item) => item !== urgency)
-        : [...current, urgency]
-    ))
-  }
+  const miniSelectionHasNoMatches = (selectedMiniUrgency !== 'All' || selectedMiniChapter !== 'All') && maxMiniValue === 0
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -179,38 +175,26 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
           {chapters.length > 0 && isMini && (
             <>
-              {/* Mini urgency filters use the unfiltered response totals. */}
-              <div className={styles.miniFilterGroup} role="group" aria-label="Filter chapter demand by urgency">
-                {MINI_URGENCIES.map((urgency) => {
-                  const isSelected = selectedMiniUrgencies.includes(urgency)
-                  return (
-                    <button
-                      key={urgency}
-                      type="button"
-                      className={`${styles.urgencyChip} ${styles[urgency]}`}
-                      aria-pressed={isSelected}
-                      onClick={() => toggleMiniUrgency(urgency)}
-                    >
-                      <span className={styles.checkSlot} aria-hidden="true">
-                        {isSelected && <Check size={16} weight="bold" />}
-                      </span>
-                      <span>{urgency.charAt(0).toUpperCase() + urgency.slice(1)}</span>
-                      <span className={styles.chipCount}>{urgencyTotals[urgency]}</span>
-                    </button>
-                  )
-                })}
-                {selectedMiniUrgencies.length > 0 && (
-                  <button
-                    type="button"
-                    className={styles.clearButton}
-                    onClick={() => setSelectedMiniUrgencies([])}
-                  >
-                    Clear
-                  </button>
-                )}
+              <div className={styles.miniFilters} aria-label="Chapter demand filters">
+                <label className={styles.miniFilterField} htmlFor="home-demand-chapter">
+                  <span>Chapter</span>
+                  <select id="home-demand-chapter" value={selectedMiniChapter} onChange={(event) => setSelectedMiniChapter(event.target.value)}>
+                    <option value="All">All chapters ({chapters.length})</option>
+                    {chapters.map((chapter) => <option key={chapter.chapter_id} value={chapter.chapter_id}>{chapter.chapter_name}</option>)}
+                  </select>
+                </label>
+                <label className={styles.miniFilterField} htmlFor="home-demand-urgency">
+                  <span>Urgency</span>
+                  <select id="home-demand-urgency" value={selectedMiniUrgency} onChange={(event) => setSelectedMiniUrgency(event.target.value)}>
+                    <option value="All">All urgencies ({totalDemand})</option>
+                    {MINI_URGENCIES.map((urgency) => (
+                      <option key={urgency} value={urgency}>{urgency.charAt(0).toUpperCase() + urgency.slice(1)} ({urgencyTotals[urgency]})</option>
+                    ))}
+                  </select>
+                </label>
               </div>
 
-              {totalDemand === 0 && selectedMiniUrgencies.length === 0 && (
+              {totalDemand === 0 && selectedMiniUrgency === 'All' && (
                 <p className={styles.miniEmptyState}>No active requests across these chapters.</p>
               )}
               {miniSelectionHasNoMatches && (
@@ -220,11 +204,11 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
               )}
 
               {/* Compact bar chart rows */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
-                {chapters.slice(0, 4).map((ch) => {
+              <div className={styles.chapterRows}>
+                {visibleMiniChapters.map((ch) => {
                   const count = getMiniChapterValue(ch)
                   const pct = maxMiniValue > 0 ? (count / maxMiniValue) * 100 : 0
-                  const visibleUrgencies = selectedMiniUrgencies.length > 0 ? selectedMiniUrgencies : MINI_URGENCIES
+                  const visibleUrgencies = selectedMiniUrgency === 'All' ? MINI_URGENCIES : [selectedMiniUrgency]
                   const hasCritical = visibleUrgencies.includes('critical') && (ch.urgency_counts?.critical || 0) > 0
                   const barColor = hasCritical
                     ? 'var(--color-critical-red)'
@@ -233,17 +217,8 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                       : 'var(--color-brand-navy)'
 
                   return (
-                    <div key={ch.chapter_id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                      <span style={{ 
-                        width: '80px', 
-                        fontSize: 'var(--text-xs)', 
-                        fontWeight: '500', 
-                        color: 'var(--color-text-muted)',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0
-                      }}>
+                    <div key={ch.chapter_id} className={styles.chapterRow}>
+                      <span className={styles.chapterName} title={ch.chapter_name}>
                         {ch.chapter_name}
                       </span>
                       <div
@@ -258,14 +233,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                           borderRadius: 'inherit'
                         }} />
                       </div>
-                      <span style={{ 
-                        fontSize: 'var(--text-xs)', 
-                        fontWeight: '600', 
-                        color: 'var(--color-text-muted)',
-                        minWidth: '20px',
-                        textAlign: 'right',
-                        flexShrink: 0
-                      }}>
+                      <span className={styles.chapterCount}>
                         {count}
                       </span>
                     </div>

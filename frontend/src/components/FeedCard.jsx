@@ -1,5 +1,5 @@
-import React from 'react'
-import { CalendarBlank, CheckCircle, Drop, MapPin, User } from '@phosphor-icons/react'
+import React, { useId, useState } from 'react'
+import { CalendarBlank, CaretDown, CheckCircle, Drop, MapPin, User } from '@phosphor-icons/react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
@@ -14,6 +14,8 @@ function formatNeededDate(value) {
 }
 
 export function FeedCard({ request, hideActions = false }) {
+  const [expanded, setExpanded] = useState(false)
+  const detailsId = useId()
   const urgencyVariant = request.urgency === 'critical'
     ? 'critical'
     : request.urgency === 'urgent' ? 'urgent' : 'neutral'
@@ -21,64 +23,78 @@ export function FeedCard({ request, hideActions = false }) {
   return (
     <Card padding="none" className={styles.feedCard}>
       <article className={styles.cardBody}>
-        <header className={styles.identityRow}>
-          <div className={styles.avatar}>
+        <button
+          type="button"
+          className={styles.summaryButton}
+          aria-expanded={expanded}
+          aria-controls={detailsId}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          <span className={styles.avatar}>
             {request.requester_profile_picture_url ? (
               <img src={request.requester_profile_picture_url} alt="" />
             ) : (
               <User size={22} aria-hidden="true" />
             )}
-          </div>
+          </span>
 
-          <div className={styles.identity}>
-            <div className={styles.nameRow}>
-              <h2>{request.requester_name || 'Community member'}</h2>
+          <span className={styles.identity}>
+            <span className={styles.nameRow}>
+              <span className={styles.requesterName}>{request.requester_name || 'Community member'}</span>
               {request.requester_verification_status === 'verified' && (
                 <CheckCircle size={17} weight="fill" aria-label="Verified member" />
               )}
+            </span>
+            <span className={styles.chapter}>{request.requester_chapter_name || 'Chapter not assigned'}</span>
+            <span className={styles.compactFacility}>{request.facility_name}</span>
+          </span>
+
+          <span className={styles.summaryMeta}>
+            <Badge variant={urgencyVariant}>{request.urgency}</Badge>
+            <BloodTypeBlock bloodType={request.required_blood_type} level="normal" />
+            <CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" />
+          </span>
+        </button>
+
+        {expanded && (
+          <div id={detailsId} className={styles.expandedContent}>
+            <div className={styles.requestLine}>
+              <div>
+                <p className={styles.facility}>{request.facility_name}</p>
+                <p className={styles.location}>{request.location?.municipality_name || 'Bataan'}</p>
+              </div>
             </div>
-            <p>{request.requester_chapter_name || 'Chapter not assigned'}</p>
-          </div>
 
-          <BloodTypeBlock bloodType={request.required_blood_type} level="normal" />
-        </header>
+            {request.description && <p className={styles.description}>{request.description}</p>}
 
-        <div className={styles.requestLine}>
-          <div>
-            <p className={styles.facility}>{request.facility_name}</p>
-            <p className={styles.location}>{request.location?.municipality_name || 'Bataan'}</p>
-          </div>
-          <Badge variant={urgencyVariant}>{request.urgency}</Badge>
-        </div>
+            <dl className={styles.metadata}>
+              <div>
+                <dt><Drop size={17} weight="fill" aria-hidden="true" /> Blood needed</dt>
+                <dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd>
+              </div>
+              <div>
+                <dt><CalendarBlank size={17} aria-hidden="true" /> Needed by</dt>
+                <dd>{formatNeededDate(request.needed_datetime)}</dd>
+              </div>
+              <div>
+                <dt><MapPin size={17} aria-hidden="true" /> Municipality</dt>
+                <dd>{request.location?.municipality_name || 'Not provided'}</dd>
+              </div>
+            </dl>
 
-        {request.description && <p className={styles.description}>{request.description}</p>}
-
-        <dl className={styles.metadata}>
-          <div>
-            <dt><Drop size={17} weight="fill" aria-hidden="true" /> Blood needed</dt>
-            <dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd>
-          </div>
-          <div>
-            <dt><CalendarBlank size={17} aria-hidden="true" /> Needed by</dt>
-            <dd>{formatNeededDate(request.needed_datetime)}</dd>
-          </div>
-          <div>
-            <dt><MapPin size={17} aria-hidden="true" /> Municipality</dt>
-            <dd>{request.location?.municipality_name || 'Not provided'}</dd>
-          </div>
-        </dl>
-
-        {!hideActions && (
-          <footer className={styles.actions}>
-            <Button variant="primary" size="sm" to={`/requests/${request.id}/matches`}>
-              View request
-            </Button>
-            {request.can_view_requester_profile && request.requester_id && (
-              <Button variant="secondary" size="sm" to={`/profile/${request.requester_id}`}>
-                View profile
-              </Button>
+            {!hideActions && (
+              <footer className={styles.actions}>
+                <Button variant="primary" size="sm" to={`/requests/${request.id}/matches`}>
+                  View request
+                </Button>
+                {request.can_view_requester_profile && request.requester_id && (
+                  <Button variant="secondary" size="sm" to={`/profile/${request.requester_id}`}>
+                    View profile
+                  </Button>
+                )}
+              </footer>
             )}
-          </footer>
+          </div>
         )}
       </article>
     </Card>

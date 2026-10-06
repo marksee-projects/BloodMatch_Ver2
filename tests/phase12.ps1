@@ -146,9 +146,9 @@ if ($r.status -eq 403) { Ok 'T05 member officer dashboard -> 403' } else { Bad '
 $r = Invoke-Json $mem1Auth.s 'Get' '/api/admin/dashboard' $null $null
 if ($r.status -eq 403) { Ok 'T06 member admin dashboard -> 403' } else { Bad 'T06 member admin dashboard' "got $($r.status)" }
 
-# T07: Member -> GET /api/demand-map -> 403
+# T07: Member -> GET /api/demand-map -> all 3 privacy-safe chapter aggregates
 $r = Invoke-Json $mem1Auth.s 'Get' '/api/demand-map' $null $null
-if ($r.status -eq 403) { Ok 'T07 member demand map -> 403' } else { Bad 'T07 member demand map' "got $($r.status)" }
+if ($r.status -eq 200 -and $r.body.data.chapters.Count -eq 3) { Ok 'T07 member demand map returns all 3 chapter aggregates' } else { Bad 'T07 member demand map' "status=$($r.status), count=$($r.body.data.chapters.Count)" }
 
 # T08: Member -> GET /api/analytics/summary -> 403
 $r = Invoke-Json $mem1Auth.s 'Get' '/api/analytics/summary' $null $null
@@ -281,6 +281,14 @@ if ($r.status -eq 200 -and $r.body.data.chapters.Count -eq 3) {
     Ok 'T17 admin demand map returns all 3 chapters'
 } else {
     Bad 'T17 admin demand map' "count=$($r.body.data.chapters.Count)"
+}
+
+# T17a: Member may narrow the aggregate to one selected chapter
+$r = Invoke-Json $mem1Auth.s 'Get' '/api/demand-map?chapter_id=2' $null $null
+if ($r.status -eq 200 -and $r.body.data.chapters.Count -eq 1 -and $r.body.data.chapters[0].chapter_id -eq 2) {
+    Ok 'T17a member chapter filter returns only the selected aggregate'
+} else {
+    Bad 'T17a member chapter filter' "status=$($r.status), count=$($r.body.data.chapters.Count)"
 }
 
 # T18: Demand map urgency filter works

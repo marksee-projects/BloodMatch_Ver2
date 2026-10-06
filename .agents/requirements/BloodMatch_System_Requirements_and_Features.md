@@ -353,7 +353,7 @@ Required behavior:
 - Display active blood demand by region/location.
 - Provide a real-time or near-real-time representation of active requests as intended by the system.
 - Aggregate information in a way that protects individual user privacy.
-- Allow active members to view privacy-safe aggregated demand for their own chapter.
+- Allow active members to view privacy-safe aggregated demand across all three Bataan chapters and filter the aggregate to a selected chapter.
 - Allow authorized officers/admins to monitor demand across Bataan/chapter regions.
 
 The map is an operational monitoring feature, not a public disclosure of sensitive personal information.
