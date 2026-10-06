@@ -432,15 +432,14 @@ Availability statuses: `Available`, `Unavailable`, `Standby`, `Deactivated`.
 
 **Critical-request outreach:** notify all currently eligible compatible donors within the defined outreach scope (cross-chapter included). No arbitrary small recipient cap; dedup + rate-limiting prevent duplicates from repeated events/runs. Critical notifications may send immediately, including off-hours, respecting user settings and platform delivery limits. Outreach stops when the request is FULFILLED, CANCELLED, or EXPIRED.
 
-### 9.8 Privacy & Data Exposure (cross-cutting)
+### §9.8 AMENDMENT
 
-**Before a donor responds**, the requestor sees only: display name/first name, chapter, verification/availability status, approximate distance.
+ (2026-10-06, per capstone adviser guidance; supersedes the earlier "members cannot see other members' profiles" rule)
+A logged-in member may view another member's profile page, which shows: name, photo, chapter, role label, blood type, email address and verification status.
+Still never shown to other members: phone number, date of birth, uploaded ID documents and OCR data, exact address, barangay or coordinates, donation history, availability, and any credentials or tokens.
+Unchanged: there is no member directory or member search, and donor discovery stays request-scoped. Admin and officer access follows their existing scoped rules.
+Rationale: BloodMatch is a private community of verified DeMolay members, and members consent to this visibility in the Privacy Notice.
 
-Hidden unless explicitly disclosed by the donor: exact address, coordinates, phone number, email address, identification documents, donor-card documents.
-
-- After a response, communication stays in-system; direct contact details remain hidden unless the donor chooses to disclose them.
-- Donor discovery is **request-scoped only** — there is no freely browsable member/donor directory, and members cannot obtain others' blood types, contacts, exact locations, or profiles.
-- Officers/Administrators get broader access only to the extent necessary for authorized duties.
 
 ### 9.9 Regional Blood Demand Map (FR-15)
 
