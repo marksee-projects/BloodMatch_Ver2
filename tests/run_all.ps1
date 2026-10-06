@@ -20,7 +20,8 @@ $suites = @(
     'phase12.ps1',
     'location.ps1',
     'phase16_security.ps1',
-    'email_verification.ps1'
+    'email_verification.ps1',
+    'profile_view.ps1'
 )
 
 $passed = 0

@@ -92,7 +92,7 @@ final class ProfilePictureStorageService
         }
     }
 
-    public static function urlFor(mixed $storedName): ?string
+    public static function urlFor(mixed $storedName, ?int $userId = null): ?string
     {
         if (!is_string($storedName) || $storedName === '') {
             return null;
@@ -103,8 +103,10 @@ final class ProfilePictureStorageService
             return null;
         }
         $version = is_file($path) ? (string) filemtime($path) : null;
-        return $version !== null && $version !== '' && $version !== '0'
-            ? '/api/profile/picture?v=' . $version
-            : '/api/profile/picture';
+        $query = $userId !== null ? 'user_id=' . $userId : '';
+        if ($version !== null && $version !== '' && $version !== '0') {
+            $query .= ($query === '' ? '' : '&') . 'v=' . $version;
+        }
+        return '/api/profile/picture' . ($query === '' ? '' : '?' . $query);
     }
 }

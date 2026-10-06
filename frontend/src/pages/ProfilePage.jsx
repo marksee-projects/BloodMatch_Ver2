@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Link, useNavigate } from 'react-router-dom'
-import { ShieldCheck, User, Camera, CheckCircle, Drop } from '@phosphor-icons/react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { ArrowLeft, ShieldCheck, User, Camera, CheckCircle, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
@@ -12,6 +12,7 @@ import { Input } from '../components/ui/Input'
 import { Badge, StatusPill } from '../components/ui/Badge'
 import styles from './ProfilePage.module.css'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { ProfileBanner } from '../components/ui/ProfileBanner'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const DOC_TYPES = [
@@ -21,6 +22,8 @@ const DOC_TYPES = [
 ]
 
 export default function ProfilePage() {
+  const { id: profileId } = useParams()
+  const isOtherProfile = Boolean(profileId)
   const { refresh } = useAuth()
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({})
@@ -42,24 +45,25 @@ export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('overview')
   const navigate = useNavigate()
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ['profile'],
+  const { data, isLoading, error: profileError, refetch } = useQuery({
+    queryKey: isOtherProfile ? ['member-profile', profileId] : ['profile'],
     queryFn: async () => {
-      const p = await api.get('/api/profile');
+      const p = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile');
       let r = [];
-      if (p.profile.role === 'member') {
+      if (!isOtherProfile && p.profile.role === 'member') {
         const d = await api.get('/api/my/donation-reports');
         r = d.reports || [];
       }
       return { profile: p.profile, reports: r };
-    }
+    },
+    retry: false
   });
 
   const profile = data?.profile;
   const reports = data?.reports || [];
 
   useEffect(() => {
-    if (profile && !form) {
+    if (!isOtherProfile && profile && !form) {
       setForm({
         full_name: profile.full_name,
         phone: profile.phone || '',
@@ -72,7 +76,7 @@ export default function ProfilePage() {
         barangay_code: profile.location?.barangay_code ?? null
       });
     }
-  }, [profile]);
+  }, [isOtherProfile, profile, form]);
 
   const load = () => refetch();
 
@@ -200,10 +204,72 @@ export default function ProfilePage() {
     }
   }
 
-  if ((isLoading && !profile) || !form) {
+  if (isLoading && !profile) {
     return (
       <Card padding="lg" style={{ textAlign: 'center', marginTop: 'var(--space-8)' }}>
         <LoadingSpinner text="Loading profile…" />
+      </Card>
+    )
+  }
+
+  if (isOtherProfile && profileError?.status === 404) {
+    return (
+      <div className={styles.container} style={{ padding: 'var(--space-4)' }}>
+        <Card padding="lg" style={{ textAlign: 'center' }}>
+          <h1>This profile isn&apos;t available</h1>
+          <p className="muted">It may not exist, or you may not have an active request relationship that permits access.</p>
+          <Button variant="secondary" onClick={() => navigate(-1)}>
+            <ArrowLeft size={16} aria-hidden="true" /> Go Back
+          </Button>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isOtherProfile && profileError) {
+    return (
+      <div className={styles.container} style={{ padding: 'var(--space-4)' }}>
+        <Card padding="lg" style={{ textAlign: 'center' }}>
+          <h1>Profile unavailable</h1>
+          <p className="muted">{profileError.message}</p>
+          <Button variant="secondary" onClick={() => navigate(-1)}><ArrowLeft size={16} aria-hidden="true" /> Go Back</Button>
+        </Card>
+      </div>
+    )
+  }
+
+  if (isOtherProfile) {
+    return (
+      <div className={styles.container}>
+        <div style={{ padding: 'var(--space-4) var(--space-4) 0' }}>
+          <Button variant="secondary" size="sm" onClick={() => navigate(-1)}>
+            <ArrowLeft size={16} aria-hidden="true" /> Back
+          </Button>
+        </div>
+        <ProfileBanner profile={profile} navTabs={[{ id: 'overview', label: 'Overview' }]} />
+        <div style={{ maxWidth: '800px', margin: 'var(--space-6) auto 0', padding: '0 var(--space-4)' }}>
+          <Card>
+            <div className={styles.cardHeader}>
+              <h2 className={styles.cardTitle}>Member Profile</h2>
+            </div>
+            <dl className={styles.grid2}>
+              <div><dt className={styles.metricLabel}>Email</dt><dd className={styles.metricValue}><a href={`mailto:${profile.email}`}>{profile.email}</a></dd></div>
+              <div><dt className={styles.metricLabel}>Blood Type</dt><dd className={styles.metricValue}>{profile.blood_type || 'Not provided'}</dd></div>
+              <div><dt className={styles.metricLabel}>Chapter</dt><dd className={styles.metricValue}>{profile.chapter_name || 'Not assigned'}</dd></div>
+              <div><dt className={styles.metricLabel}>Role</dt><dd className={styles.metricValue}>{profile.role_label}</dd></div>
+              <div><dt className={styles.metricLabel}>Member Since</dt><dd className={styles.metricValue}>{new Date(`${profile.member_since}T00:00:00`).toLocaleDateString()}</dd></div>
+              <div><dt className={styles.metricLabel}>Verification</dt><dd className={styles.metricValue} style={{ textTransform: 'capitalize' }}>{profile.verification_status}</dd></div>
+            </dl>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
+  if (!form) {
+    return (
+      <Card padding="lg" style={{ textAlign: 'center', marginTop: 'var(--space-8)' }}>
+        <LoadingSpinner text="Loading profileâ€¦" />
       </Card>
     )
   }

@@ -13,6 +13,7 @@ use BloodMatch\Controllers\DocumentController;
 use BloodMatch\Controllers\DonationReportController;
 use BloodMatch\Controllers\HospitalController;
 use BloodMatch\Controllers\LocationController;
+use BloodMatch\Controllers\MemberProfileController;
 use BloodMatch\Controllers\ProfileController;
 use BloodMatch\Controllers\RequestsController;
 use BloodMatch\Controllers\MatchesController;
@@ -60,6 +61,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/officer/users', [new ChapterUsersController(), 'index']);
 
     $router->add('GET', '/api/profile', [new ProfileController(), 'get']);
+    $router->add('GET', '/api/profile/{id}', [new MemberProfileController(), 'show']);
     $router->add('PUT', '/api/profile', [new ProfileController(), 'update']);
     $router->add('POST', '/api/profile/resubmit', [new ProfileController(), 'resubmit']);
     $router->add('POST', '/api/profile/enroll-donor', [new ProfileController(), 'enrollDonor']);

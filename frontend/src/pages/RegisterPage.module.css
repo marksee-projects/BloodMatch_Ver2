@@ -270,10 +270,3 @@
     grid-template-columns: 1fr;
   }
 }
-
-/* Date Picker Reset */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  position: absolute;
-  right: 12px;
-  cursor: pointer;
-}

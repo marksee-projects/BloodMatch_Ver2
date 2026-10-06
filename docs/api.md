@@ -1,6 +1,6 @@
 # BloodMatch — API Inventory & Contract Reference
 
-> Current as of 2026-09-24 (migrations 001–016). Source: `backend/routes/api.php` (55 method+path registrations) + controllers/services. Historical Phase-17 revision documented 26 endpoints / 001–014 schema (see `docs/test-log-phase17.md`); this file supersedes it. Envelope: `Response::success` → `{success:true,data:{...}}`; `Response::error` → `{success:false,error:{message,details?}}`.
+> Current as of 2026-10-06 (migrations 001–016). Source: `backend/routes/api.php` (60 method+path registrations) + controllers/services. Historical Phase-17 revision documented 26 endpoints / 001–014 schema (see `docs/test-log-phase17.md`); this file supersedes it. Envelope: `Response::success` → `{success:true,data:{...}}`; `Response::error` → `{success:false,error:{message,details?}}`.
 
 This document provides a comprehensive inventory of all API routes implemented in BloodMatch (`backend/routes/api.php` and `backend/src/Controllers/`).
 
@@ -124,6 +124,14 @@ All responses adhere to the standard JSON envelopes:
 - **Auth:** Authenticated.
 - **Response (200):** Contains user details, `capabilities` matrix, `availability_window` status, and list of `documents`.
 
+### `GET /api/profile/{id}`
+- **Purpose:** Retrieve the read-only allow-listed profile of one member by numeric user ID. There is no member directory or member-search endpoint.
+- **Auth:** Authenticated owner; administrator; same-chapter officer; donor matched to one of the target requester's `OPEN` requests (`POTENTIAL`, `NOTIFIED`, `RESPONDED`, or `COMPLETED`); or requester viewing a donor whose match is `RESPONDED` or `COMPLETED` on the requester's `OPEN` request.
+- **Response (200):** `{ "profile": { "full_name": "...", "profile_picture_url": "...", "chapter_name": "...", "role_label": "Member", "member_since": "YYYY-MM-DD", "verification_status": "verified", "blood_type": "O+", "email": "member@example.test" } }`
+- **Privacy:** The response is constructed from this allow-list. It never includes phone, birth date, documents/OCR, exact location, donation history, availability, password/credentials, or tokens.
+- **Errors:** Missing or unauthorized profiles return the same 404 response. The 61st authorized view within one hour returns 429 (60 views/hour).
+- **Audit:** Every successful view of another member records `profile.viewed` with actor ID and target user ID, and no profile field values.
+
 ### `PUT /api/profile`
 - **Purpose:** Update personal profile details (name, phone, birthdate, self-reported blood type, Bataan location).
 - **Auth:** Authenticated.
@@ -180,8 +188,8 @@ All responses adhere to the standard JSON envelopes:
 - **Notes:** Does not affect verification, matching, or eligibility.
 
 ### `GET /api/profile/picture`
-- **Purpose:** Stream own profile picture bytes (owner-only; no cross-user access — other user without picture gets 404).
-- **Auth:** Authenticated (Owner only).
+- **Purpose:** Stream own profile picture bytes, or the picture for an authorized profile when `user_id` is supplied.
+- **Auth:** Authenticated. Without `user_id`, owner only; with `user_id`, the same relationship policy as `GET /api/profile/{id}`. Unauthorized/missing targets return 404.
 - **Response (200):** image bytes (`Content-Type: image/*`, `Content-Disposition: inline`); 404 when none/invalid/missing.
 - **Frontend:** `ProfilePage.jsx` upload section + `NavbarAvatar` in `App.jsx` (fallback `User` icon when null/fails).
 

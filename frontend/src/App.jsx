@@ -403,6 +403,7 @@ export default function App() {
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+            <Route path="/profile/:id" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
             {/* Nested Admin Portal Routes */}
             <Route

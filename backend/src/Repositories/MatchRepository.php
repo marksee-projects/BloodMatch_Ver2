@@ -56,6 +56,35 @@ final class MatchRepository
         return $row === false ? null : $row;
     }
 
+    public function profileViewRelation(int $viewerId, int $targetId): ?string
+    {
+        $donorToRequester = Database::pdo()->prepare(
+            "SELECT 1
+             FROM matches m
+             JOIN blood_requests br ON br.id = m.request_id
+             WHERE m.donor_id = ? AND br.requester_id = ?
+               AND br.status = 'OPEN'
+               AND m.status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED', 'COMPLETED')
+             LIMIT 1"
+        );
+        $donorToRequester->execute([$viewerId, $targetId]);
+        if ($donorToRequester->fetchColumn() !== false) {
+            return 'matched_donor';
+        }
+
+        $requesterToDonor = Database::pdo()->prepare(
+            "SELECT 1
+             FROM matches m
+             JOIN blood_requests br ON br.id = m.request_id
+             WHERE br.requester_id = ? AND m.donor_id = ?
+               AND br.status = 'OPEN'
+               AND m.status IN ('RESPONDED', 'COMPLETED')
+             LIMIT 1"
+        );
+        $requesterToDonor->execute([$viewerId, $targetId]);
+        return $requesterToDonor->fetchColumn() !== false ? 'requester_of_responded_donor' : null;
+    }
+
     public static function countCompleted(int $requestId): int
     {
         $stmt = Database::pdo()->prepare(

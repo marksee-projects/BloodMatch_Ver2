@@ -12,7 +12,8 @@ param(
     [string]$PhpPath = 'C:\xampp\php\php.exe',
     [string]$MysqlPath = 'C:\xampp\mysql\bin\mysql.exe',
     [int]$Port = 8001,
-    [string]$DbPort = '3306'
+    [string]$DbPort = '3306',
+    [string]$Suite = ''
 )
 
 $db = 'bloodmatch_test'
@@ -31,12 +32,13 @@ if (("$check").Trim() -ne $db) {
 }
 Write-Host "=== TEST DB: $db (port $DbPort) ===" -ForegroundColor Cyan
 
-$names = 'DB_HOST', 'DB_PORT', 'DB_NAME', 'TEST_DB_NAME', 'TEST_DB_PORT', 'MAIL_HOST', 'MAIL_PORT'
+$names = 'DB_HOST', 'DB_PORT', 'DB_NAME', 'TEST_DB_NAME', 'TEST_DB_PORT', 'MAIL_HOST', 'MAIL_PORT', 'APP_SECURE_COOKIES'
 $saved = @{}
 foreach ($n in $names) { $saved[$n] = [Environment]::GetEnvironmentVariable($n, 'Process') }
 
 $out = Join-Path $env:TEMP 'bm_isolated_tests.txt'
 $srv = $null
+$testExit = 0
 
 try {
     $env:DB_HOST = '127.0.0.1'
@@ -46,11 +48,23 @@ try {
     $env:TEST_DB_PORT = $DbPort
     $env:MAIL_HOST = '127.0.0.1'
     $env:MAIL_PORT = '1'
+    $env:APP_SECURE_COOKIES = 'false'
 
     $srv = Start-Process $PhpPath -ArgumentList '-d', 'variables_order=EGPCS', '-S', "127.0.0.1:$Port", '-t', 'backend/public' -PassThru -WindowStyle Hidden
     Start-Sleep -Seconds 2
 
-    & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'run_all.ps1') -BaseUrl "http://127.0.0.1:$Port" -MysqlPath $MysqlPath -PhpPath $PhpPath 2>&1 | Tee-Object -FilePath $out | Out-Host
+    if ($Suite) {
+        if ([System.IO.Path]::GetFileName($Suite) -ne $Suite -or $Suite -notmatch '^[A-Za-z0-9_.-]+\.ps1$') {
+            throw 'Suite must be a PowerShell filename from the tests directory.'
+        }
+        $suitePath = Join-Path $PSScriptRoot $Suite
+        if (-not (Test-Path -LiteralPath $suitePath -PathType Leaf)) { throw "Test suite not found: $Suite" }
+        & powershell -ExecutionPolicy Bypass -File $suitePath -BaseUrl "http://127.0.0.1:$Port" -MysqlPath $MysqlPath -PhpPath $PhpPath 2>&1 | Tee-Object -FilePath $out | Out-Host
+        $testExit = $LASTEXITCODE
+    } else {
+        & powershell -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'run_all.ps1') -BaseUrl "http://127.0.0.1:$Port" -MysqlPath $MysqlPath -PhpPath $PhpPath 2>&1 | Tee-Object -FilePath $out | Out-Host
+        $testExit = $LASTEXITCODE
+    }
 
     $lines = @(Get-Content $out | Where-Object { $_ -match '^==.*\d+ passed, \d+ failed' })
     $pass = 0
@@ -72,3 +86,5 @@ finally {
     foreach ($n in $names) { [Environment]::SetEnvironmentVariable($n, $saved[$n], 'Process') }
     Write-Host 'Test server stopped and environment restored.'
 }
+
+if ($testExit -ne 0) { exit $testExit }

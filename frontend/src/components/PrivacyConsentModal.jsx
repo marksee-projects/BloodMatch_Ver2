@@ -151,12 +151,16 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
           </p>
 
           <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
+            <strong>Profile visibility.</strong> BloodMatch does not provide a member directory or member search. When another member is connected to you through an open blood request&mdash;or when an administrator or your chapter officer is acting within their authorized role&mdash;that person may view your name, profile photo, chapter, role label, member-since date, verification status, blood type, and email address. Other members are never shown your phone number, date of birth, identification documents or OCR data, exact address, barangay, coordinates, donation history, availability, password, credentials, or security tokens.
+          </p>
+
+          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
             Under Section 16 of the Data Privacy Act of 2012, you maintain full rights as a data subject. You have the right to be informed of how your data is processed, request access to your records, rectify inaccurate or outdated information, and request the erasure, blocking, or deletion of your profile from our active registry. You also reserve the right to object to data processing or withdraw your consent at any time, subject to account deactivation for active donation matching. For any privacy inquiries, concerns, or requests to exercise your data subject rights, you may contact the BloodMatch Data Privacy Team or your designated Chapter Administrator at <a href="mailto:admin@bloodmatch.org">admin@bloodmatch.org</a>.
           </p>
 
           {!readonly && (
             <p style={{ fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: 0 }}>
-              By clicking &quot;I Agree,&quot; you consent to these terms and unlock registration. If you click &quot;Decline,&quot; you will be safely redirected to the public homepage with zero data processing.
+              By clicking &quot;I Agree,&quot; you acknowledge that an authorized member connected to you through an open blood request may see your name, profile photo, chapter, role label, member-since date, verification status, blood type, and email address, and you consent to the processing described in this notice.
             </p>
           )}
         </div>

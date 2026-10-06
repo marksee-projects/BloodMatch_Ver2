@@ -162,6 +162,14 @@ export default function MatchesPage() {
                     </div>
                   </div>
 
+                  {m.profile_user_id && (
+                    <div style={{ marginTop: 'var(--space-3)' }}>
+                      <Link to={`/profile/${m.profile_user_id}`} className="btn btn-secondary btn-sm">
+                        View Profile
+                      </Link>
+                    </div>
+                  )}
+
                   {/* Actions for the Matched Donor */}
                   {isOwnMatch && (
                     <div style={{ marginTop: 'var(--space-3)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-3)' }}>

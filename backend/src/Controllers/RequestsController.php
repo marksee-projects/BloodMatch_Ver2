@@ -27,11 +27,15 @@ final class RequestsController
             return;
         }
 
+        $throttleRepo = new \BloodMatch\Repositories\AuthThrottleRepository();
         $throttleKey = 'mutation:req_create:' . (int) $actor['id'];
-        if (!(new \BloodMatch\Repositories\AuthThrottleRepository())->hitAndCheckRateLimit($throttleKey, 10, 10, \BloodMatch\Services\AuthService::nowUtc())) {
+        $nowUtc = \BloodMatch\Services\AuthService::nowUtc();
+
+        if ($throttleRepo->isLocked($throttleKey, $nowUtc)) {
             Response::error('Too many requests created. Please wait before creating more blood requests.', 429);
             return;
         }
+
         try {
             RequestService::assertCanCreate($actor);
         } catch (RuntimeException $e) {
@@ -43,6 +47,11 @@ final class RequestsController
             $fields = RequestService::validatePayload(Request::json(), partial: false);
         } catch (ValidationException $e) {
             Response::error($e->getMessage(), 400, $e->errors());
+            return;
+        }
+
+        if (!$throttleRepo->hitAndCheckRateLimit($throttleKey, 10, 10, $nowUtc)) {
+            Response::error('Too many requests created. Please wait before creating more blood requests.', 429);
             return;
         }
 
@@ -179,7 +188,7 @@ final class RequestsController
             && (int) $actor['chapter_id'] === (int) $row['request_chapter_id'];
 
         if ($isOwner || $isAdmin || $isSameChapterOfficer) {
-            Response::success(['matches' => (new \BloodMatch\Services\MatchService())->privacySafeMatches($requestId)]);
+            Response::success(['matches' => (new \BloodMatch\Services\MatchService())->privacySafeMatches($requestId, null, $actor)]);
             return;
         }
 
@@ -190,7 +199,7 @@ final class RequestsController
         if ($ownMatch !== null) {
             Response::success([
                 'matches' => (new \BloodMatch\Services\MatchService())
-                    ->privacySafeMatches($requestId, (int) $actor['id']),
+                    ->privacySafeMatches($requestId, (int) $actor['id'], $actor),
             ]);
             return;
         }

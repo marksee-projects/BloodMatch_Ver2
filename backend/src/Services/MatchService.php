@@ -230,12 +230,13 @@ final class MatchService
         return $refreshed;
     }
 
-    public function privacySafeMatches(int $requestId, ?int $onlyDonorId = null): array
+    public function privacySafeMatches(int $requestId, ?int $onlyDonorId = null, ?array $viewer = null): array
     {
         $sql = 'SELECT m.id AS match_id, m.donor_id, m.generation, m.status, m.distance_km, m.rank_score,
-                    u.full_name, u.chapter_id, c.name AS chapter_name,
+                    br.requester_id, br.status AS request_status, u.full_name, u.chapter_id, c.name AS chapter_name,
                     u.verification_status, u.donor_availability
              FROM matches m
+             JOIN blood_requests br ON br.id = m.request_id
              JOIN users u ON u.id = m.donor_id
              LEFT JOIN chapters c ON c.id = u.chapter_id
              WHERE m.request_id = ? AND m.status <> ?';
@@ -249,17 +250,32 @@ final class MatchService
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);
 
-        return array_map(static fn (array $row): array => [
-            'match_id' => (int) $row['match_id'],
-            'donor_reference' => 'donor-' . (int) $row['donor_id'],
-            'display_name' => (string) $row['full_name'],
-            'chapter_id' => $row['chapter_id'] !== null ? (int) $row['chapter_id'] : null,
-            'chapter_name' => $row['chapter_name'] !== null ? (string) $row['chapter_name'] : null,
-            'verification_status' => (string) $row['verification_status'],
-            'availability' => $row['donor_availability'] !== null ? (string) $row['donor_availability'] : null,
-            'approximate_distance_km' => $row['distance_km'] !== null ? round((float) $row['distance_km'], 1) : null,
-            'generation' => (int) $row['generation'],
-            'status' => (string) $row['status'],
-        ], $stmt->fetchAll(PDO::FETCH_ASSOC));
+        return array_map(static function (array $row) use ($viewer): array {
+            $canViewProfile = $viewer !== null && (
+                (int) $viewer['id'] === (int) $row['donor_id']
+                || (string) $viewer['role'] === 'admin'
+                || ((string) $viewer['role'] === 'officer'
+                    && $viewer['chapter_id'] !== null
+                    && $row['chapter_id'] !== null
+                    && (int) $viewer['chapter_id'] === (int) $row['chapter_id'])
+                || ((int) $viewer['id'] === (int) $row['requester_id']
+                    && (string) $row['request_status'] === 'OPEN'
+                    && in_array((string) $row['status'], ['RESPONDED', 'COMPLETED'], true))
+            );
+
+            return [
+                'match_id' => (int) $row['match_id'],
+                'donor_reference' => 'donor-' . (int) $row['donor_id'],
+                'display_name' => (string) $row['full_name'],
+                'chapter_id' => $row['chapter_id'] !== null ? (int) $row['chapter_id'] : null,
+                'chapter_name' => $row['chapter_name'] !== null ? (string) $row['chapter_name'] : null,
+                'verification_status' => (string) $row['verification_status'],
+                'availability' => $row['donor_availability'] !== null ? (string) $row['donor_availability'] : null,
+                'approximate_distance_km' => $row['distance_km'] !== null ? round((float) $row['distance_km'], 1) : null,
+                'generation' => (int) $row['generation'],
+                'status' => (string) $row['status'],
+                'profile_user_id' => $canViewProfile ? (int) $row['donor_id'] : null,
+            ];
+        }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }
 }

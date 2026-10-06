@@ -10,6 +10,7 @@ use BloodMatch\Repositories\UserRepository;
 use BloodMatch\Services\AuditLogger;
 use BloodMatch\Services\AuthService;
 use BloodMatch\Services\ProfilePictureStorageService;
+use BloodMatch\Services\ProfileViewPolicy;
 use BloodMatch\Utils\Response;
 
 final class ProfilePictureController
@@ -79,9 +80,22 @@ final class ProfilePictureController
     public function show(): void
     {
         $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.file');
+        $target = $actor;
+        if (isset($_GET['user_id'])) {
+            $requestedUserId = $_GET['user_id'];
+            if (!is_string($requestedUserId) || preg_match('/^[1-9]\d*$/', $requestedUserId) !== 1) {
+                Response::error("This profile isn't available.", 404);
+                return;
+            }
+            $target = (new UserRepository())->findProfileDisplayById((int) $requestedUserId);
+            if ($target === null || (new ProfileViewPolicy())->relation($actor, $target) === null) {
+                Response::error("This profile isn't available.", 404);
+                return;
+            }
+        }
 
-        $storedName = isset($actor['profile_picture']) && is_string($actor['profile_picture'])
-            ? $actor['profile_picture']
+        $storedName = isset($target['profile_picture']) && is_string($target['profile_picture'])
+            ? $target['profile_picture']
             : null;
         if ($storedName === null || $storedName === '') {
             Response::error('Profile picture not found.', 404);

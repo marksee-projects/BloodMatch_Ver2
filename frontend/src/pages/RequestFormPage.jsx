@@ -67,11 +67,33 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
 
   const setField = (name) => (e) => {
     setForm((f) => ({ ...f, [name]: e.target.value }))
-    if (stepErrors[name]) setStepErrors((prev) => { const next = { ...prev }; delete next[name]; return next; })
+    if (stepErrors[name] || stepErrors.needed_datetime) {
+      setStepErrors((prev) => {
+        const next = { ...prev }
+        delete next[name]
+        if (name === 'needed_date' || name === 'needed_time') {
+          delete next.needed_datetime
+        }
+        return next
+      })
+    }
+    if (errors[name] || errors.needed_datetime) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[name]
+        if (name === 'needed_date' || name === 'needed_time') {
+          delete next.needed_datetime
+        }
+        return next
+      })
+    }
   }
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
+      return
+    }
     setErrors({})
     setMessage(null)
     setSubmitting(true)
@@ -125,8 +147,15 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
       }
     }
     if (currentStep === 3) {
-      if (!form.needed_date) newErrors.needed_datetime = ['Date needed is required.']
-      if (!form.needed_time) newErrors.needed_datetime = ['Time needed is required.']
+      if (!form.urgency) newErrors.urgency = ['Urgency level is required.']
+      if (!form.needed_date) newErrors.needed_date = ['Date needed is required.']
+      if (!form.needed_time) newErrors.needed_time = ['Time needed is required.']
+      if (form.needed_date && form.needed_time) {
+        const selected = new Date(`${form.needed_date}T${form.needed_time}`)
+        if (isNaN(selected.getTime()) || selected.getTime() <= Date.now()) {
+          newErrors.needed_datetime = ['Needed date and time must be in the future.']
+        }
+      }
     }
     setStepErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -144,8 +173,6 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
       </div>
     )
   }
-
-  const stepPercentage = step === 1 ? '0%' : step === 2 ? '50%' : '100%'
 
   const hospitalOptions = hospitalsList.map(h => ({ value: h.name, label: h.name }))
 
@@ -168,7 +195,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
         <div className={styles.stepperContainer}>
           <div className={styles.stepperTrack}>
             <div className={styles.stepperLineBg} />
-            <div className={styles.stepperLineFill} style={{ width: `calc(${stepPercentage} * 0.88)` }} />
+            <div className={styles.stepperLineFill} style={{ width: step === 1 ? '0%' : step === 2 ? '33.333%' : '66.666%' }} />
 
             <button
               type="button"
@@ -284,36 +311,6 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
 
           {step === 3 && (
             <div className="form-step">
-              
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)' }}>
-                <div className="field">
-                  <label htmlFor="needed_date">Date *</label>
-
-                <input
-                  id="needed_date"
-                  type="date"
-                  value={form.needed_date}
-                  onChange={setField('needed_date')}
-                />
-
-                </div>
-                <div className="field">
-                  <label htmlFor="needed_time">Time *</label>
-                  <input
-                    id="needed_time"
-                    type="time"
-                    value={form.needed_time}
-                    onChange={setField('needed_time')}
-                  />
-                </div>
-              </div>
-              {errors.needed_datetime && (
-                <div className="alert alert-error" style={{ marginBottom: 'var(--space-4)' }}>
-                  <WarningCircle size={20} weight="fill" color="var(--color-danger)" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  <span>{errors.needed_datetime.join(' ')}</span>
-                </div>
-              )}
-
               <div className="field">
                 <label htmlFor="urgency">Urgency Level *</label>
                 <select id="urgency" value={form.urgency} onChange={setField('urgency')} required>
@@ -321,8 +318,48 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
                     <option key={u.id} value={u.id}>{u.label}</option>
                   ))}
                 </select>
-                {errors.urgency && <span className="field-error">{errors.urgency.join(' ')}</span>}
+                {(stepErrors.urgency || errors.urgency) && (
+                  <span className="field-error">{(stepErrors.urgency || errors.urgency).join(' ')}</span>
+                )}
               </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-4)' }}>
+                <div className="field">
+                  <label htmlFor="needed_date">Date Needed *</label>
+                  <input
+                    id="needed_date"
+                    type="date"
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={form.needed_date}
+                    onChange={setField('needed_date')}
+                    required
+                  />
+                  {(stepErrors.needed_date || errors.needed_date) && (
+                    <span className="field-error">{(stepErrors.needed_date || errors.needed_date).join(' ')}</span>
+                  )}
+                </div>
+
+                <div className="field">
+                  <label htmlFor="needed_time">Time Needed *</label>
+                  <input
+                    id="needed_time"
+                    type="time"
+                    value={form.needed_time}
+                    onChange={setField('needed_time')}
+                    required
+                  />
+                  {(stepErrors.needed_time || errors.needed_time) && (
+                    <span className="field-error">{(stepErrors.needed_time || errors.needed_time).join(' ')}</span>
+                  )}
+                </div>
+              </div>
+
+              {(stepErrors.needed_datetime || errors.needed_datetime) && (
+                <div className="alert alert-error" style={{ marginTop: 'var(--space-1)' }}>
+                  <WarningCircle size={20} weight="fill" color="var(--color-danger)" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <span>{(stepErrors.needed_datetime || errors.needed_datetime).join(' ')}</span>
+                </div>
+              )}
             </div>
           )}
 

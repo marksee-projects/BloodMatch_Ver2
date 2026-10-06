@@ -102,7 +102,14 @@
 }
 
 
-/* Fix for disappearing date/time picker icons */
+/* Fix for date/time picker inputs and icons */
+.field input[type="date"],
+.field input[type="time"] {
+  position: relative;
+  min-height: 42px;
+  box-sizing: border-box;
+}
+
 .field input[type="date"]::-webkit-calendar-picker-indicator,
 .field input[type="time"]::-webkit-calendar-picker-indicator {
   display: block !important;

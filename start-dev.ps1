@@ -34,9 +34,13 @@ function Test-BackendReady {
 }
 
 if (-not (Test-Path -LiteralPath $PhpPath)) {
-    Write-Output "ERROR: PHP executable not found at '$PhpPath'."
-    Write-Output "Pass your XAMPP path explicitly, e.g.: .\start-dev.ps1 -PhpPath 'E:\xampp\php\php.exe'"
-    exit 1
+    if (Test-Path -LiteralPath "C:\xampp\php\php.exe") {
+        $PhpPath = "C:\xampp\php\php.exe"
+    } else {
+        Write-Output "ERROR: PHP executable not found at '$PhpPath'."
+        Write-Output "Pass your XAMPP path explicitly, e.g.: .\start-dev.ps1 -PhpPath 'E:\xampp\php\php.exe'"
+        exit 1
+    }
 }
 
 $startedByMe = $false

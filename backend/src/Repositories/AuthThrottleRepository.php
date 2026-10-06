@@ -20,14 +20,37 @@ final class AuthThrottleRepository
     public function recordFailure(string $identifier, int $maxAttempts, int $lockMinutes, string $nowUtc): void
     {
         $lockAt = gmdate('Y-m-d H:i:s', strtotime($nowUtc . ' UTC') + $lockMinutes * 60);
+        $windowStart = gmdate('Y-m-d H:i:s', strtotime($nowUtc . ' UTC') - $lockMinutes * 60);
+
+        $row = $this->find($identifier);
+        if ($row === null) {
+            $isLocked = ($maxAttempts <= 1);
+            $stmt = Database::pdo()->prepare(
+                'INSERT INTO auth_throttle (identifier, failed_count, locked_until)
+                 VALUES (?, 1, ?)'
+            );
+            $stmt->execute([$identifier, $isLocked ? $lockAt : null]);
+            return;
+        }
+
+        // If currently locked and lock has not expired, remain locked
+        if (!empty($row['locked_until']) && $row['locked_until'] > $nowUtc) {
+            return;
+        }
+
+        // If previous lock expired OR last attempt was outside the window, reset count to 1
+        $isExpired = (!empty($row['locked_until']) && $row['locked_until'] <= $nowUtc)
+            || (empty($row['locked_until']) && !empty($row['updated_at']) && $row['updated_at'] < $windowStart);
+
+        $newCount = $isExpired ? 1 : ((int) $row['failed_count'] + 1);
+        $newLock = ($newCount >= $maxAttempts) ? $lockAt : null;
+
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO auth_throttle (identifier, failed_count, locked_until)
-             VALUES (?, 1, NULL)
-             ON DUPLICATE KEY UPDATE
-                failed_count = IF(locked_until IS NULL OR locked_until < ?, failed_count + 1, failed_count),
-                locked_until = IF(failed_count + 1 >= ?, ?, NULL)'
+            'UPDATE auth_throttle 
+             SET failed_count = ?, locked_until = ?, updated_at = UTC_TIMESTAMP()
+             WHERE identifier = ?'
         );
-        $stmt->execute([$identifier, $nowUtc, $maxAttempts, $lockAt]);
+        $stmt->execute([$newCount, $newLock, $identifier]);
     }
 
     public function isLocked(string $identifier, string $nowUtc): bool

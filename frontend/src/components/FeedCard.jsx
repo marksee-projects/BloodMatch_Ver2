@@ -76,6 +76,13 @@ export function FeedCard({ request, expandedByDefault = false, hideActions = fal
             {request.urgency}
           </div>
         </div>
+        {request.can_view_requester_profile && request.requester_id && (
+          <div style={{ marginTop: 'var(--space-3)' }}>
+            <Button variant="secondary" size="sm" to={`/profile/${request.requester_id}`}>
+              View Profile
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -165,8 +172,8 @@ export function FeedCard({ request, expandedByDefault = false, hideActions = fal
               <Button variant="primary" size="sm" to={`/requests/${request.id}/matches`}>
                 View Details & Respond
               </Button>
-              {request.requester_id && (
-                <Button variant="secondary" size="sm" to={`/user/${request.requester_id}`} style={{ marginLeft: 'auto' }}>
+              {request.can_view_requester_profile && request.requester_id && (
+                <Button variant="secondary" size="sm" to={`/profile/${request.requester_id}`} style={{ marginLeft: 'auto' }}>
                   View Profile
                 </Button>
               )}

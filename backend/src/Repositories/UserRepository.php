@@ -10,6 +10,21 @@ use Throwable;
 
 final class UserRepository
 {
+    public function findProfileDisplayById(int $id): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT u.id, u.email, u.full_name, u.role, u.chapter_id,
+                    u.verification_status, u.account_status, u.blood_type,
+                    u.profile_picture, u.created_at, c.name AS chapter_name
+             FROM users u
+             LEFT JOIN chapters c ON c.id = u.chapter_id
+             WHERE u.id = ? LIMIT 1'
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
     public function findById(int $id): ?array
     {
         $stmt = Database::pdo()->prepare(

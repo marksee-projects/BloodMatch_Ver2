@@ -65,11 +65,11 @@ export function ProfileBanner({
               <p className={styles.profileSubtitle}>
                 {[
                   profile.chapter_name ? profile.chapter_name : (profile.chapter_id ? `Chapter #${profile.chapter_id}` : null),
-                  profile.verification_status === 'verified' ? (profile.role || 'Member').charAt(0).toUpperCase() + (profile.role || 'Member').slice(1) : null
+                  profile.role_label || ((profile.role || 'member').charAt(0).toUpperCase() + (profile.role || 'member').slice(1))
                 ].filter(Boolean).join(' • ')}
               </p>
 
-              {(profile.role === 'member' || profile.donor_availability) && (
+              {isOwnProfile && (profile.role === 'member' || profile.donor_availability) && (
                 <p className={styles.profileBio}>
                   <Drop size={16} weight="fill" color="var(--color-brand-red)" />
                   {profile.availability_window?.blocked
