@@ -196,17 +196,24 @@ $standby = Login $standbyEmail
 $r = Invoke-Json $standby.s 'Put' '/api/profile' @{ location_id = $balangaLocId } $standby.csrf
 if ((Match-Count $compatibleRequest $cooldownId) -eq 0 -and (Match-Count $compatibleRequest $standbyId) -eq 0) { Ok 'R17 cooldown and standby donors excluded' } else { Bad 'R17 enforced windows' 'blocked donor matched' }
 
+$emailPendingEmail = "refresh-email-pending-$suffix@example.test"
+$emailPendingId = New-User $emailPendingEmail 'EmailPending' 'member' 'verified' 'O+' $true 'available' $null
+DbQuery "UPDATE users SET email_verified_at=NULL WHERE id=$emailPendingId;" | Out-Null
+$emailPending = Login $emailPendingEmail
+$r = Invoke-Json $emailPending.s 'Put' '/api/profile' @{ location_id = $balangaLocId } $emailPending.csrf
+if ($r.status -eq 200 -and (Match-Count $compatibleRequest $emailPendingId) -eq 0) { Ok 'R18 email-unverified donor excluded' } else { Bad 'R18 email verification eligibility' "status=$($r.status)" }
+
 # RESPONDED is protected even when eligibility is lost.
 $respondedEmail = "refresh-responded-$suffix@example.test"
 $respondedId = New-User $respondedEmail 'Responded' 'member' 'verified' 'O+' $true 'available' $balangaLocId
 DbQuery "INSERT INTO matches (request_id,donor_id,generation,status,rank_score) VALUES ($compatibleRequest,$respondedId,1,'RESPONDED',1);" | Out-Null
 $responded = Login $respondedEmail
 $r = Invoke-Json $responded.s 'Post' '/api/profile/donor-availability' @{ availability = 'unavailable' } $responded.csrf
-if ((Match-Status $compatibleRequest $respondedId) -eq 'RESPONDED') { Ok 'R18 RESPONDED match survives unavailable transition' } else { Bad 'R18 responded preservation' "status=$(Match-Status $compatibleRequest $respondedId)" }
+if ((Match-Status $compatibleRequest $respondedId) -eq 'RESPONDED') { Ok 'R19 RESPONDED match survives unavailable transition' } else { Bad 'R19 responded preservation' "status=$(Match-Status $compatibleRequest $respondedId)" }
 
-$refreshDonorIds = @($enrolleeId,$toggleId,$pendingId,$locationId,$bloodId,$cooldownId,$standbyId) -join ','
+$refreshDonorIds = @($enrolleeId,$toggleId,$pendingId,$locationId,$bloodId,$cooldownId,$standbyId,$emailPendingId) -join ','
 $emailedRefreshes = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id IN ($refreshDonorIds) AND type='match.new' AND emailed_at IS NOT NULL;")
-if ($emailedRefreshes -eq 0) { Ok 'R19 donor refresh notifications have no email marker, including critical' } else { Bad 'R19 refresh email policy' "emailed=$emailedRefreshes" }
+if ($emailedRefreshes -eq 0) { Ok 'R20 donor refresh notifications have no email marker, including critical' } else { Bad 'R20 refresh email policy' "emailed=$emailedRefreshes" }
 
 Write-Host ''
 Write-Host "== RESULT: $($script:pass) passed, $($script:fail) failed =="

@@ -35,13 +35,7 @@ final class MatchService
             (string) $request['required_blood_type']
         );
 
-        $settings = SystemSettingsService::get();
         $nowUtc = AuthService::nowUtc();
-        $cutoffs = DonorEligibilityService::cutoffsUtc(
-            $settings['standby_hours'],
-            $settings['cooldown_days'],
-            $nowUtc
-        );
 
         $pdo = Database::pdo();
         $placeholders = implode(',', array_fill(0, count($compatibleTypes), '?'));
@@ -51,30 +45,13 @@ final class MatchService
         // A stored 'standby' without donation history is never matchable.
         $donorScopeSql = $onlyDonorId !== null ? ' AND id = ?' : '';
         $stmt = $pdo->prepare(
-            "SELECT id, full_name, chapter_id, donor_availability, latitude, longitude
+            "SELECT id, full_name, role, chapter_id, account_status, verification_status,
+                    email_verified_at, donor_enrolled_at, donor_availability,
+                    last_verified_donation_at, blood_type, latitude, longitude
              FROM users
-             WHERE role = 'member'
-               AND account_status = 'active'
-               AND verification_status = 'verified'
-               AND donor_enrolled_at IS NOT NULL
-               AND (
-                     donor_availability = 'available'
-                     OR (donor_availability = 'standby'
-                         AND last_verified_donation_at IS NOT NULL
-                         AND last_verified_donation_at <= ?
-                         AND last_verified_donation_at <= ?)
-                   )
-               AND (last_verified_donation_at IS NULL
-                    OR (last_verified_donation_at <= ? AND last_verified_donation_at <= ?))
-               AND blood_type IN ($placeholders)
-               AND id <> ?{$donorScopeSql}"
+             WHERE blood_type IN ($placeholders){$donorScopeSql}"
         );
-        $poolParams = array_merge(
-            [$cutoffs['standby'], $cutoffs['cooldown']],
-            [$cutoffs['standby'], $cutoffs['cooldown']],
-            $compatibleTypes,
-            [(int) $request['requester_id']]
-        );
+        $poolParams = $compatibleTypes;
         if ($onlyDonorId !== null) {
             $poolParams[] = $onlyDonorId;
         }
@@ -85,6 +62,11 @@ final class MatchService
 
         $scored = [];
         foreach ($pool as $donor) {
+            $eligibility = DonorEligibilityService::evaluateForRequest($donor, $request, $nowUtc);
+            if (!$eligibility['eligible']) {
+                continue;
+            }
+
             $distance = Geo::distanceKm(
                 $request['latitude'],
                 $request['longitude'],
