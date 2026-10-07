@@ -39,7 +39,7 @@ export function FeedCard({ request, hideActions = false }) {
   })
   const responded = request.responded || response.isSuccess
   const canRespond = request.can_respond === true && !responded
-  const responseReason = responded ? 'Your response has been sent to the requester.' : request.reason_text
+  const responseReason = responded ? 'Your response has been sent to the requester.' : request.reason_code === 'staff_account' ? null : request.reason_text
   const urgencyVariant = ['emergency', 'critical'].includes(request.urgency)
     ? 'emergency'
     : request.urgency === 'urgent' ? 'urgent' : 'neutral'
@@ -83,7 +83,7 @@ export function FeedCard({ request, hideActions = false }) {
         {expanded && (
           <div id={detailsId} className={styles.expandedContent}>
             <dl className={styles.metadata}>
-              <div>
+              <div className={styles.hospital}>
                 <dt>Hospital</dt>
                 <dd>{request.facility_name || 'Not provided'}</dd>
               </div>
@@ -100,8 +100,6 @@ export function FeedCard({ request, hideActions = false }) {
                 <dd>{formatNeededDate(request.needed_datetime)}</dd>
               </div>
             </dl>
-
-            {request.description && <p className={styles.description}>{request.description}</p>}
 
             {!hideActions && (
               <div>

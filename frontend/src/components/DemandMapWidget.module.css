@@ -36,6 +36,7 @@
 }
 
 .miniFilterField {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -48,9 +49,10 @@
 }
 
 .miniFilterField select {
+  appearance: none;
   width: 100%;
   min-height: 44px;
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-6) 0 var(--space-3);
   border: 1px solid var(--color-border-hairline);
   border-radius: var(--radius-control);
   background: var(--color-surface);
@@ -58,6 +60,11 @@
   font: inherit;
   font-size: var(--text-sm);
 }
+
+.selectCaret { position: absolute; bottom: 14px; right: var(--space-3); pointer-events: none; color: var(--color-text-muted); }
+.resetFilters { align-self: start; min-height: 32px; padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-brand-navy); font: inherit; font-size: var(--text-sm); }
+.resetFilters:hover:not(:disabled), .resetFilters:active:not(:disabled) { background: transparent; border-color: transparent; transform: none; }
+.resetFilters:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 
 .miniFilterField select:focus-visible,
 .fullMapLink:focus-visible {

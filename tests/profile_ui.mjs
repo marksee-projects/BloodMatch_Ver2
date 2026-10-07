@@ -90,6 +90,10 @@ try {
     assert(nav, `${role}: navigation is inside the profile header`)
     assert.deepEqual([...nav.matchAll(/<button\b[^>]*>([^<]*)<\/button>/g)].map(match => match[1]), ['Overview', 'Verification', 'History'], `${role}: exactly three rendered navigation buttons`)
     assert(header.includes('Manage requests'), `${role}: Manage requests is in the header`)
+    if (role === 'admin') {
+      assert(header.includes('<p>Admin</p>'), 'Admin owner is identified as Admin in the profile header')
+      assert(!header.includes('Meridian Heights Chapter member'), 'Admin header does not describe the account as a chapter member')
+    }
     for (const [label, expected] of [['Verification', 'View uploaded ID'], ['History', 'Owner Donation Clinic'], ['Overview', 'Bataan Doctors Hospital']]) {
       const action = renderedActions.find(action => action.type === 'button' && action.children.includes(label))
       assert(action && !action.props.disabled, `${role}: ${label} is reachable`)

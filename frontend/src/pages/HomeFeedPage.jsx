@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { CaretDown, MapPin, X } from '@phosphor-icons/react'
+import { CaretDown, MapPin } from '@phosphor-icons/react'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -15,43 +15,6 @@ const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const URGENCIES = ['routine', 'urgent', 'emergency']
 const titleCase = (value) => value.charAt(0).toUpperCase() + value.slice(1)
 const readList = (params, key) => [...new Set(params.getAll(key).flatMap((value) => value.split(',')).filter(Boolean))]
-
-function MultiFilter({ label, allLabel, options, selected, onChange, format = (value) => value }) {
-  const rootRef = React.useRef(null)
-  React.useEffect(() => {
-    const onPointerDown = (event) => {
-      if (!rootRef.current?.contains(event.target)) rootRef.current?.removeAttribute('open')
-    }
-    document.addEventListener('pointerdown', onPointerDown)
-    return () => document.removeEventListener('pointerdown', onPointerDown)
-  }, [])
-  return (
-    <details ref={rootRef} className={styles.multiFilter} onKeyDown={(event) => {
-      if (event.key === 'Escape') {
-        event.preventDefault()
-        rootRef.current.removeAttribute('open')
-        rootRef.current.querySelector('summary').focus()
-      }
-    }}>
-      <summary>{selected.length ? selected.map(format).join(', ') : allLabel}<CaretDown size={16} aria-hidden="true" /></summary>
-      <fieldset className={styles.filterOptions}>
-        <legend className={styles.visuallyHidden}>{label}</legend>
-        <label className={styles.filterOption}>
-          <input type="checkbox" checked={selected.length === 0} onChange={() => onChange([])} />
-          {allLabel}
-        </label>
-        {options.map((value) => (
-          <label key={value} className={styles.filterOption}>
-            <input type="checkbox" checked={selected.includes(value)} onChange={() => onChange(
-              selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]
-            )} />
-            {format(value)}
-          </label>
-        ))}
-      </fieldset>
-    </details>
-  )
-}
 
 export default function HomeFeedPage() {
   const { user, refresh } = useAuth()
@@ -110,17 +73,6 @@ export default function HomeFeedPage() {
     retry: false
   })
   const municipalities = locationData?.municipalities || []
-  const municipalityLabel = municipalities.find((item) => item.psgc_code === municipalityCode)?.name || municipalityCode
-  const activeChips = [
-    ...(municipalityCode ? [{ key: 'municipality_code', value: municipalityCode, label: municipalityLabel }] : []),
-    ...blood.map((value) => ({ key: 'blood', value, label: value })),
-    ...urgency.map((value) => ({ key: 'urgency', value, label: titleCase(value) }))
-  ]
-  const removeChip = (chip) => {
-    updateFilter(chip.key, chip.key === 'municipality_code' ? [] :
-      (chip.key === 'blood' ? blood : urgency).filter((value) => value !== chip.value))
-    municipalityRef.current?.focus()
-  }
   const loadMore = () => {
     const next = new URLSearchParams(filterKey)
     next.set('page', String(visiblePages + 1))
@@ -191,9 +143,12 @@ export default function HomeFeedPage() {
 
         <main className={styles.centerColumn}>
           <Card className={styles.filters}>
-            <h1 className={styles.filterHeading}>Compatible requests</h1>
+            <div className={styles.filterHeader}>
+              <button type="button" className={styles.clearFilters} onClick={clearFilters}>Reset filters</button>
+              <h1 className={styles.filterHeading}>Compatible requests</h1>
+            </div>
             <div className={styles.filterRow}>
-              <label className={styles.municipalityFilter}>
+              <label className={`${styles.selectFilter} ${styles.municipalityFilter}`}>
                 <span className={styles.visuallyHidden}>Municipality</span>
                 <select ref={municipalityRef} value={municipalityCode} onChange={(event) => updateFilter('municipality_code', event.target.value ? [event.target.value] : [])}>
                   <option value="">All municipalities</option>
@@ -202,22 +157,32 @@ export default function HomeFeedPage() {
                   )}
                   {municipalities.map((item) => <option key={item.psgc_code} value={item.psgc_code}>{item.name}</option>)}
                 </select>
+                <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
               </label>
-              <MultiFilter label="Blood type" allLabel="All blood types" options={BLOOD_TYPES} selected={blood} onChange={(values) => updateFilter('blood', values)} />
-              <MultiFilter label="Urgency" allLabel="All urgencies" options={URGENCIES} selected={urgency} format={titleCase} onChange={(values) => updateFilter('urgency', values)} />
-              {!hasFilters && <button type="button" className={styles.clearFilters} onClick={clearFilters}>Reset filters</button>}
+              <label className={styles.selectFilter}>
+                <span className={styles.visuallyHidden}>Blood type</span>
+                <select value={blood.join(',')} onChange={(event) => updateFilter('blood', event.target.value ? [event.target.value] : [])}>
+                  <option value="">All blood types</option>
+                  {blood.length > 1 && <option value={blood.join(',')}>{blood.join(', ')}</option>}
+                  {BLOOD_TYPES.map((value) => <option key={value} value={value}>{value}</option>)}
+                </select>
+                <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
+              </label>
+              <label className={styles.selectFilter}>
+                <span className={styles.visuallyHidden}>Urgency</span>
+                <select value={urgency.join(',')} onChange={(event) => updateFilter('urgency', event.target.value ? [event.target.value] : [])}>
+                  <option value="">All urgencies</option>
+                  {urgency.length > 1 && <option value={urgency.join(',')}>{urgency.map(titleCase).join(', ')}</option>}
+                  {URGENCIES.map((value) => <option key={value} value={value}>{titleCase(value)}</option>)}
+                </select>
+                <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
+              </label>
             </div>
             {locationError && <div className={styles.locationError} role="alert">
               <span>Municipalities could not be loaded.</span>
               <Button variant="secondary" onClick={() => refetchLocations()}>Retry municipalities</Button>
             </div>}
-            {hasFilters && <div className={styles.activeFilters} aria-label="Active filters">
-              {activeChips.map((chip) => <button key={`${chip.key}:${chip.value}`} type="button" className={styles.filterChip}
-                onClick={() => removeChip(chip)} aria-label={`Remove ${chip.label} filter`}>
-                {chip.label}<X size={16} aria-hidden="true" />
-              </button>)}
-              <button type="button" className={styles.clearFilters} onClick={clearFilters}>Reset filters</button>
-            </div>}
+
           </Card>
           <div className={styles.contextLine} aria-live="polite">
             {feedLoading ? 'Loading compatible requests…' : feedError ? 'Requests could not be loaded.' :

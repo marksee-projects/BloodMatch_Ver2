@@ -178,7 +178,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
               <details className={styles.filterDropdown}>
                 <summary>
                   <Funnel size={16} aria-hidden="true" />
-                  <span>Filter demand</span>
+                  <span>Filter</span>
                   <CaretDown size={16} aria-hidden="true" />
                 </summary>
                 <div className={styles.miniFilters} aria-label="Chapter demand filters">
@@ -188,16 +188,22 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                       <option value="All">All chapters ({chapters.length})</option>
                       {chapters.map((chapter) => <option key={chapter.chapter_id} value={chapter.chapter_id}>{chapter.chapter_name}</option>)}
                     </select>
+                    <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
                   </label>
                   <label className={styles.miniFilterField} htmlFor="home-demand-urgency">
-                    <span>Urgency</span>
+                    <span>Urgency level</span>
                     <select id="home-demand-urgency" value={selectedMiniUrgency} onChange={(event) => setSelectedMiniUrgency(event.target.value)}>
                       <option value="All">All urgencies ({totalDemand})</option>
                       {MINI_URGENCIES.map((urgency) => (
                         <option key={urgency} value={urgency}>{urgency.charAt(0).toUpperCase() + urgency.slice(1)} ({urgencyTotals[urgency]})</option>
                       ))}
                     </select>
+                    <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
                   </label>
+                  <button type="button" className={styles.resetFilters} onClick={() => {
+                    setSelectedMiniChapter('All')
+                    setSelectedMiniUrgency('All')
+                  }}>Reset filters</button>
                 </div>
               </details>
 

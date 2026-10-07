@@ -333,7 +333,7 @@ export default function ProfilePage() {
               <h1>{profile.full_name}</h1>
               {profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}
             </div>
-            <p>{profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
+            <p>{profile.role === 'admin' ? 'Admin' : profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
             {profile.role === 'member' && <span className={styles.availabilityText}><Drop size={16} weight="fill" aria-hidden="true" /> {availabilityStatus}</span>}
           </div>
 
