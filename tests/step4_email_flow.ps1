@@ -155,7 +155,7 @@ try {
     $emailedBefore = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
     $incompBefore = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$incompId;")
 
-    # 2. Create a noncritical request: in-app notification only.
+    # 2. Create a nonemergency request: in-app notification only.
     $reqAuth = Login $requesterEmail
     $r = Invoke-Json $reqAuth.s 'Post' '/api/requests' @{
         required_blood_type = 'O-'
@@ -184,37 +184,37 @@ try {
     Check ($emailedAfterUrgent -eq $emailedBefore) 'urgent request sends no email'
     Check ($incompAfter -eq $incompBefore) '0 new notifications for incompatible donor'
 
-    # 3. Critical request: exactly one email remains required at creation.
+    # 3. Emergency request: exactly one email remains required at creation.
     $r = Invoke-Json $reqAuth.s 'Post' '/api/requests' @{
         required_blood_type = 'O-'
         quantity_units = 1
-        urgency = 'critical'
-        facility_name = 'Critical Bataan General Hospital'
+        urgency = 'emergency'
+        facility_name = 'Emergency Bataan General Hospital'
         location_id = [int](DbQuery "SELECT id FROM bataan_locations LIMIT 1;")
         needed_datetime = (Get-Date).ToUniversalTime().AddDays(1).ToString('yyyy-MM-dd HH:mm:ss')
     } $reqAuth.csrf
-    if ($r.status -ne 201) { throw "Failed to create critical request ($($r.status)): $($r.raw)" }
-    $criticalReqId = $r.body.data.request.id
-    $bloodReqIds += $criticalReqId
+    if ($r.status -ne 201) { throw "Failed to create emergency request ($($r.status)): $($r.raw)" }
+    $emergencyReqId = $r.body.data.request.id
+    $bloodReqIds += $emergencyReqId
     Start-Sleep -Seconds 1
 
-    $notifsAfterCritical = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId;")
-    $emailedAfterCritical = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
-    Check ($notifsAfterCritical -eq ($notifsAfterUrgent + 1)) 'critical request creates exactly 1 in-app notification'
-    Check ($emailedAfterCritical -eq ($emailedBefore + 1)) 'critical request creation sends exactly 1 email'
+    $notifsAfterEmergency = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId;")
+    $emailedAfterEmergency = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
+    Check ($notifsAfterEmergency -eq ($notifsAfterUrgent + 1)) 'emergency request creates exactly 1 in-app notification'
+    Check ($emailedAfterEmergency -eq ($emailedBefore + 1)) 'emergency request creation sends exactly 1 email'
 
     # 4. Duplicate-prone paths: neither non-material edits nor manual re-match resend.
     Invoke-Json $reqAuth.s 'Put' "/api/requests/$urgentReqId" @{ facility_name = 'Bataan General Hospital' } $reqAuth.csrf | Out-Null
     $offAuth = Login $officerEmail
     Invoke-Json $offAuth.s 'Post' "/api/officer/requests/$urgentReqId/re-match" @{} $offAuth.csrf | Out-Null
-    Invoke-Json $offAuth.s 'Post' "/api/officer/requests/$criticalReqId/re-match" @{} $offAuth.csrf | Out-Null
+    Invoke-Json $offAuth.s 'Post' "/api/officer/requests/$emergencyReqId/re-match" @{} $offAuth.csrf | Out-Null
 
     $notifsFinal = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId;")
     $emailedFinal = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
     Write-Host "After edit/re-match: notifications=$notifsFinal, emailed=$emailedFinal"
 
-    Check ($notifsFinal -eq $notifsAfterCritical) 'no duplicate notification after edit/re-match'
-    Check ($emailedFinal -eq $emailedAfterCritical) 'no duplicate email after edit/re-match'
+    Check ($notifsFinal -eq $notifsAfterEmergency) 'no duplicate notification after edit/re-match'
+    Check ($emailedFinal -eq $emailedAfterEmergency) 'no duplicate email after edit/re-match'
 }
 catch {
     Write-Host "ERROR: $($_.Exception.Message)"

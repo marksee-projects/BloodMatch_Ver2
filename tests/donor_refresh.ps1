@@ -108,7 +108,7 @@ Write-Host '== Donor reconciliation suite =='
 
 $requesterEmail = "refresh-requester-$suffix@example.test"
 $requesterId = New-User $requesterEmail 'Requester' 'member' 'verified' 'A+' $false $null $balangaLocId
-$compatibleRequest = New-Request $requesterId 'O+' "Refresh Compatible $suffix" $future $balangaLocId 'critical'
+$compatibleRequest = New-Request $requesterId 'O+' "Refresh Compatible $suffix" $future $balangaLocId 'emergency'
 $incompatibleRequest = New-Request $requesterId 'A-' "Refresh Incompatible $suffix" $future $balangaLocId
 $staleRequest = New-Request $requesterId 'O+' "Refresh Stale $suffix" $past $balangaLocId
 
@@ -213,7 +213,7 @@ if ((Match-Status $compatibleRequest $respondedId) -eq 'RESPONDED') { Ok 'R19 RE
 
 $refreshDonorIds = @($enrolleeId,$toggleId,$pendingId,$locationId,$bloodId,$cooldownId,$standbyId,$emailPendingId) -join ','
 $emailedRefreshes = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id IN ($refreshDonorIds) AND type='match.new' AND emailed_at IS NOT NULL;")
-if ($emailedRefreshes -eq 0) { Ok 'R20 donor refresh notifications have no email marker, including critical' } else { Bad 'R20 refresh email policy' "emailed=$emailedRefreshes" }
+if ($emailedRefreshes -eq 0) { Ok 'R20 donor refresh notifications have no email marker, including emergency' } else { Bad 'R20 refresh email policy' "emailed=$emailedRefreshes" }
 
 Write-Host ''
 Write-Host "== RESULT: $($script:pass) passed, $($script:fail) failed =="

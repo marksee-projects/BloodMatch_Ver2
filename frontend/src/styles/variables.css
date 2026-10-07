@@ -18,8 +18,8 @@
   
   --color-brand-navy: #020066;
   --color-brand-navy-hover: #010052;
-  --color-critical-red: #C8102E;
-  --color-critical-bg: #FFF5F5;
+  --color-emergency-red: #C8102E;
+  --color-emergency-bg: #FFF5F5;
   --color-urgent-amber: #9A3412;
   --color-urgent-bg: #FFEDD5;
   --color-success-green: #1F8A4C;
@@ -28,8 +28,8 @@
   --color-accent: var(--color-brand-navy);
   --color-accent-hover: var(--color-brand-navy-hover);
   --color-accent-fg: #FFFFFF;
-  --color-danger: var(--color-critical-red);
-  --color-danger-subtle: var(--color-critical-bg);
+  --color-danger: var(--color-emergency-red);
+  --color-danger-subtle: var(--color-emergency-bg);
   --color-danger-border: #FCA5A5;
   
   --color-focus-ring: var(--color-brand-navy);
@@ -93,8 +93,8 @@
   
   --color-brand-navy: #4338CA;
   --color-brand-navy-hover: #3730A3;
-  --color-critical-red: #EF4444;
-  --color-critical-bg: #450A0A;
+  --color-emergency-red: #EF4444;
+  --color-emergency-bg: #450A0A;
   --color-urgent-amber: #F97316;
   --color-urgent-bg: #431407;
   --color-success-green: #22C55E;
@@ -102,8 +102,8 @@
   --color-accent: var(--color-brand-navy);
   --color-accent-hover: var(--color-brand-navy-hover);
   --color-accent-fg: #FFFFFF;
-  --color-danger: var(--color-critical-red);
-  --color-danger-subtle: var(--color-critical-bg);
+  --color-danger: var(--color-emergency-red);
+  --color-danger-subtle: var(--color-emergency-bg);
   --color-danger-border: #7F1D1D;
   
   --color-focus-ring: #6366F1;

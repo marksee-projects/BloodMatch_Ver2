@@ -20,7 +20,7 @@
 .profileActions, .donorActions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .donorActions { justify-content: flex-end; margin-left: auto; }
 .eligibilityNote { max-width: 700px; margin: var(--space-3) 0 0 auto; color: var(--color-text-muted); font-size: var(--text-sm); text-align: right; }
-.cancelOffer { color: var(--color-critical-red) !important; }
+.cancelOffer { color: var(--color-emergency-red) !important; }
 
 .matchesSurface { padding: var(--space-6); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-sm); }
 .sectionHeading { margin-bottom: var(--space-5); }

@@ -6,6 +6,11 @@ Rules:
 - Never edit an already-applied migration; add a new one
 - No credentials or real personal data in any migration
 
+Prepared U0 migration: `019_canonical_emergency_urgency.sql` migrates the historical
+urgency value to `emergency`, preserving request rows and timestamps. Final domain:
+`routine`, `urgent`, `emergency`. It has not been executed by the coding agent.
+Execution, preflight, and verification: [`docs/urgency-migration-u0.md`](../../docs/urgency-migration-u0.md).
+
 Current migration state: 001–016 applied (verified via `run_migrations.php`; see `docs/erd.md` and `docs/test-log-location.md`).
 
 | Migration | Purpose |

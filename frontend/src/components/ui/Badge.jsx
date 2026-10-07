@@ -30,9 +30,9 @@ export function Badge({ children, variant = 'neutral', className = '' }) {
       backgroundColor: 'var(--color-urgent-bg)',
       color: 'var(--color-urgent-amber)',
     },
-    critical: {
-      backgroundColor: 'var(--color-critical-bg)',
-      color: 'var(--color-critical-red)',
+    emergency: {
+      backgroundColor: 'var(--color-emergency-bg)',
+      color: 'var(--color-emergency-red)',
       border: '1px solid var(--color-danger-border)',
     },
     success: {
@@ -79,9 +79,9 @@ export function StatusPill({ children, variant = 'neutral', className = '' }) {
       color: 'var(--color-success-green)',
     },
     error: {
-      backgroundColor: 'var(--color-critical-bg)',
+      backgroundColor: 'var(--color-emergency-bg)',
       border: `1px solid var(--color-danger-border)`,
-      color: 'var(--color-critical-red)',
+      color: 'var(--color-emergency-red)',
     }
   };
 

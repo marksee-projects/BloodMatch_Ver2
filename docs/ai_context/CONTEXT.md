@@ -379,7 +379,7 @@ Priority order (unchanged): `Compatibility → Availability → Verification →
 - Proximity = distance computed from backend-resolved donor/request reference coordinates (e.g., Haversine via `Geo`), used as a ranking factor among eligible compatible donors. Coordinates come from canonical `bataan_locations` resolution (`location_id`), never from client-supplied raw coordinates (raw keys rejected 400).
 - Same-chapter donors may receive a ranking preference where applicable.
 - Exact coordinates are **never exposed to other users** (match results expose `approximate_distance_km` only; selector APIs expose no coordinates).
-- **Urgency** affects outreach breadth and notification priority only (critical → broader cross-chapter outreach); it never overrides compatibility, verification, or eligibility rules.
+- **Urgency** affects outreach breadth and notification priority only (emergency → broader cross-chapter outreach); it never overrides compatibility, verification, or eligibility rules.
 - Donor profile location change triggers `MatchService::refreshMatchesForDonor()`: affected OPEN matches are recalculated without generation bump (no duplicate notifications; COMPLETED/CLOSED history preserved).
 
 ### 9.5 Requests & Matches (FR-05, FR-14)
@@ -430,9 +430,9 @@ Availability statuses: `Available`, `Unavailable`, `Standby`, `Deactivated`.
 **Channels:**
 
 - **In-app notification center:** dedicated notification records with read/unread status and timestamps.
-- **Email:** separate channel for defined important events — critical matches, verification decisions, request/account-status changes.
+- **Email:** separate channel for defined important events — emergency matches, verification decisions, request/account-status changes.
 
-**Critical-request outreach:** notify all currently eligible compatible donors within the defined outreach scope (cross-chapter included). No arbitrary small recipient cap; dedup + rate-limiting prevent duplicates from repeated events/runs. Critical notifications may send immediately, including off-hours, respecting user settings and platform delivery limits. Outreach stops when the request is FULFILLED, CANCELLED, or EXPIRED.
+**Emergency-request outreach:** notify all currently eligible compatible donors within the defined outreach scope (cross-chapter included). No arbitrary small recipient cap; dedup + rate-limiting prevent duplicates from repeated events/runs. Emergency notifications may send immediately, including off-hours, respecting user settings and platform delivery limits. Outreach stops when the request is FULFILLED, CANCELLED, or EXPIRED.
 
 ### §9.8 AMENDMENT
 
@@ -444,6 +444,10 @@ Rationale: BloodMatch is a private community of verified DeMolay members, and me
 
 
 ### 9.9 Regional Blood Demand Map (FR-15)
+
+- Canonical urgency domain: `routine`, `urgent`, `emergency` (Routine / Urgent / Emergency).
+- Request alert email remains limited to Emergency requests under the existing event policy; Routine and Urgent requests do not trigger request alert emails. Eligibility, compatibility, proximity, deduplication, and delivery rules remain in force.
+- Demand severity colors remain Emergency = red, Urgent = amber, Routine = navy. U0 changes terminology only; aggregation and access rules remain unchanged.
 
 - Displays **aggregated counts of currently OPEN requests at chapter level, grouped by blood type**.
 - Never displays individual request locations, requestor identities, exact coordinates, or pins.
@@ -526,7 +530,7 @@ Full working-tree inspection found (on 2026-08-26):
 | FR-12 — 42-hour post-donation standby (§9.6) | ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (`DonorEligibilityService` windows + `MatchService` pool guard; evidence `docs/test-log-phase9.md`) |
 | Separate ~3-month inter-donation cooldown (§9.6) | ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (same settings-driven mechanism; evidence `docs/test-log-phase9.md`) |
 | FR-16 — In-app notifications (§9.7) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, `NotificationService`, `NotificationRepository`, `NotificationsController`, mark-read, live unread count, type/read filters, React `NotificationsPage` & header bell badge; evidence `docs/test-log-phase10.md`) |
-| FR-17 — Email notifications (§9.7) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`Mailer.php` wrapping PHPMailer with env SMTP config, 5/user/hr rate limiting, critical urgency bypass, synchronous best-effort delivery; evidence `docs/test-log-phase10.md`) |
+| FR-17 — Email notifications (§9.7) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`Mailer.php` wrapping PHPMailer with env SMTP config, 5/user/hr rate limiting, emergency urgency bypass, synchronous best-effort delivery; evidence `docs/test-log-phase10.md`) |
 | FR-15 — Regional Blood Demand Map (§9.9) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`DemandMapController`, `GET /api/demand-map`, chapter centroid aggregation of active OPEN requests, ABO/Rh and urgency breakdowns, zero individual pins/coordinates, officer scoping & admin global, React `DemandMapPage`; evidence `docs/test-log-phase12.md`) |
 | FR-18 — Audit logging (§9.10) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (32/32 mandatory events audited across P3–P10; append-only triggers active; `AuditLogRepository` with resource-target chapter scoping & context sanitization; admin viewer `/admin/audit-logs` & scoped officer viewer `/officer/audit-logs`; evidence `docs/test-log-phase11.md`) |
 | FR-19 — Analytics/reporting (§9.11) | ✅ IMPLEMENTED AND VERIFIED 2026-08-27 (`AnalyticsRepository`, `GET /api/analytics/summary`, single-pass DB aggregation of request volume, resolution rates excluding open, blood type demand, urgency demand, daily trends, live donor eligibility breakdown, verification/donation activity, React `AnalyticsPage`; evidence `docs/test-log-phase12.md`) |
@@ -551,7 +555,7 @@ Full working-tree inspection found (on 2026-08-26):
 | RBAC, backend-enforced (FR-03) — verified 2026-08-26: role gates + chapter scoping + fresh account-status checks on privileged endpoints; admin user/role/chapter/deactivate endpoints; denial+action auditing (`authz.denied`, `admin.user.*`); evidence `docs/test-log-phase4.md`. Officer verification decisions remain P5 | ✅ IMPLEMENTED AND VERIFIED (Phase 4 scope) |
 | Soft-deactivation — verified 2026-08-26 (P4 admin deactivate/reactivate endpoints w/ CHECK-paired `deactivated_at`, immediate live-session denial, verification_status untouched; audited) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-16 In-App Notifications — verified 2026-08-27, UI extended post-17 (migration 013 `notifications` table, `UNIQUE(dedup_key, generation)` deduplication, event wiring for matches/verification/account/request/donation/expiry, live unread counter `GET /api/notifications/unread-count`, type/read filters, React `NotificationsPage` retained as View-all + in-navbar `NotificationFlyout` as current primary UI; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| FR-17 Email Alerts — verified 2026-08-27 (synchronous best-effort SMTP delivery via PHPMailer, 5/hr rate limiting with critical urgency bypass, graceful degradation when unconfigured; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| FR-17 Email Alerts — verified 2026-08-27 (synchronous best-effort SMTP delivery via PHPMailer, 5/hr rate limiting with emergency urgency bypass, graceful degradation when unconfigured; evidence `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-18 Audit Logging — verified 2026-08-27 (32/32 mandatory events verified; append-only DB triggers active; `AuditLogRepository`, `AuditLogAdminController`, `AuditLogOfficerController`, scoped viewer pages; evidence `docs/test-log-phase11.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-15 Regional Blood Demand Map — verified 2026-08-27 (`DemandMapController`, `GET /api/demand-map`, chapter centroid aggregation, privacy-safe, officer-scoped & admin global; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-19 Analytics & Reporting — verified 2026-08-27 (`AnalyticsRepository`, `GET /api/analytics/summary`, DB aggregations, resolution rates, donor pool availability, React AnalyticsPage; evidence `docs/test-log-phase12.md`) | ✅ IMPLEMENTED AND VERIFIED |

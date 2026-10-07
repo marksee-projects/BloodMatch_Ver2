@@ -80,7 +80,7 @@ final class MatchResponseService
                 );
             }
 
-            if ((string) $request['urgency'] === 'critical' && $notificationId !== null) {
+            if ((string) $request['urgency'] === 'emergency' && $notificationId !== null) {
                 $email = [
                     'user_id' => (int) $request['requester_id'],
                     'notification_id' => $notificationId,
@@ -111,7 +111,7 @@ final class MatchResponseService
                 $email['notification_id'],
                 $email['subject'],
                 $email['body'],
-                NotificationService::EMAIL_CRITICAL
+                NotificationService::EMAIL_EMERGENCY
             );
         }
 

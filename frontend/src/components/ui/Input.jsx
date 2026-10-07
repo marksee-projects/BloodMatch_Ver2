@@ -18,7 +18,7 @@ export const Input = forwardRef(({ className = '', error, label, ...props }, ref
     height: '44px',
     padding: '0 var(--space-4)',
     borderRadius: 'var(--radius-control)',
-    border: `1px solid ${error ? 'var(--color-critical-red)' : 'var(--color-border-strong)'}`,
+    border: `1px solid ${error ? 'var(--color-emergency-red)' : 'var(--color-border-strong)'}`,
     backgroundColor: 'var(--color-surface)',
     color: 'var(--color-text)',
     fontSize: 'var(--text-body)',
@@ -29,7 +29,7 @@ export const Input = forwardRef(({ className = '', error, label, ...props }, ref
 
   const errorStyle = {
     fontSize: 'var(--text-xs)',
-    color: 'var(--color-critical-red)',
+    color: 'var(--color-emergency-red)',
     marginTop: 'var(--space-1)',
   };
 

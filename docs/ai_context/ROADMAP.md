@@ -174,7 +174,7 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 2. **Requirements covered:** FR-05, FR-14; §9.5 statuses/transitions; capability matrix (Pending may create, marked *pending review* — §9.2).
 3. **Dependencies:** Phases 4–5 (auth, statuses, chapters).
 4. **Database work:**
-   - `blood_requests`: requester_id, required blood type, quantity/units, facility location fields (+ lat/lng), urgency enum(routine/urgent/critical), needed datetime, status enum(OPEN/FULFILLED/CANCELLED/EXPIRED), created/updated/expired_at.
+   - `blood_requests`: requester_id, required blood type, quantity/units, facility location fields (+ lat/lng), urgency enum(routine/urgent/emergency), needed datetime, status enum(OPEN/FULFILLED/CANCELLED/EXPIRED), created/updated/expired_at.
    - Indexes for expiry sweep and map aggregation (chapter, status, needed date).
 5. **Backend/API work:**
    - CRUD: create (status OPEN; pending-user requests flagged for review), edit (detect changes to blood type/location/urgency/needed-date/quantity → emit "material change" event for P7/P10 reconciliation), cancel (requestor own OPEN only), officer administrative intervention (own chapter, authorized cases).
@@ -252,19 +252,19 @@ P1 Foundation ──► P2 Database ──► P3 Auth/Registration ──► P4 
 
 ## PHASE 10 — Notifications & Email
 
-1. **Objective:** Implement FR-16 in-app center and FR-17 email alerts with the §9.7 deduplication contract and critical-outreach breadth controls.
-2. **Requirements covered:** FR-16, FR-17; §9.7 (generation-based dedup, channels, critical outreach, stop conditions).
+1. **Objective:** Implement FR-16 in-app center and FR-17 email alerts with the §9.7 deduplication contract and emergency-outreach breadth controls.
+2. **Requirements covered:** FR-16, FR-17; §9.7 (generation-based dedup, channels, emergency outreach, stop conditions).
 3. **Dependencies:** Phases 6 (requests), 7 (match generations), 8 (respond events), 5 (verification/account events); email transport from XAMPP.
 4. **Database work:** `notifications` (user_id, type, title, body, related_type/related_id, channel_in_app, emailed_at nullable, read_at nullable, dedup_key varchar unique where applicable, generation int, created_at) — unique index on (dedup_key, generation) implements §9.7 mechanically.
 5. **Backend/API work:**
-   - Notification service: `notify(user, event)` writing in-app record always; queuing email for defined important events (critical matches, verification decisions, request/account status changes — §9.7).
+   - Notification service: `notify(user, event)` writing in-app record always; queuing email for defined important events (emergency matches, verification decisions, request/account status changes — §9.7).
    - Dedup guard: insert-or-ignore on dedup key = f(request, donor, generation); newly-eligible donor ⇒ new generation ⇒ allowed (§9.7).
    - Mailer: PHPMailer-class transport via XAMPP sendmail/SMTP config from environment (credentials never in code); retry/backoff log; rate limiter per donor (batching) honoring "no arbitrary small cap but prevent duplicate storms" (§9.7).
    - Stop conditions: fulfillment/cancel/expire events suppress queued outreach (§9.7).
-   - APIs: list/read/unread-count/mark-read; user notification preferences (respect off-hours preferences for non-critical).
+   - APIs: list/read/unread-count/mark-read; user notification preferences (respect off-hours preferences for non-emergency).
 6. **Frontend work:** Notification bell + center screen (read/unread, timestamps), preference settings page.
 7. **Security considerations:** Recipient list built server-side from eligibility (never client-supplied); email addresses never exposed cross-user; SMTP creds from env only (AGENTS.md #16); anti-enumeration on mail errors; audit: notification batch summaries (not per-PII content).
-8. **Tests required:** Same-generation rerun yields zero new rows (unique-index proof); material change creates exactly one new notification per matched donor; critical outreach reaches all eligible across chapters; stop-condition cancels pending sends; unread counts correct; mail failure retries logged not fatal.
+8. **Tests required:** Same-generation rerun yields zero new rows (unique-index proof); material change creates exactly one new notification per matched donor; emergency outreach reaches all eligible across chapters; stop-condition cancels pending sends; unread counts correct; mail failure retries logged not fatal.
 9. **Definition of Done:** §9.7 contract demonstrated by integration test replaying a request lifecycle; in-app center functional; evidence recorded in `docs/test-log-phase10.md`.
 
 **Internal order:** (1) schema+dedup index → (2) notify service in-app → (3) wire match/request/verification/account events → (4) mailer transport+templates → (5) rate limiting/batching → (6) stop conditions → (7) preferences + center UI → (8) tests.

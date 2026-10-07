@@ -8,7 +8,7 @@ export const tokens = {
     hairline: 'rgba(15,23,42,0.12)',
     brandNavy: '#020066',
     brandNavyHover: '#010052',
-    criticalRed: '#C8102E',
+    emergencyRed: '#C8102E',
     urgentAmber: '#9A3412',
     urgentAmberBg: '#FFEDD5',
     successGreen: '#1F8A4C',

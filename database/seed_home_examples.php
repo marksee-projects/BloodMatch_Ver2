@@ -68,7 +68,7 @@ $people = [
     ['Rafael', 'Garcia', 1],
     ['Nico', 'Villanueva', 2],
 ];
-$urgencies = ['critical', 'urgent', 'routine', 'urgent', 'routine'];
+$urgencies = ['emergency', 'urgent', 'routine', 'urgent', 'routine'];
 $quantities = [2, 1, 3, 2, 1];
 $dayOffsets = [1, 2, 4, 3, 6];
 $passwordHash = password_hash('BloodMatchDemo123!', PASSWORD_BCRYPT);

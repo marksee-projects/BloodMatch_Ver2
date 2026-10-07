@@ -48,7 +48,7 @@ export function Button({
       boxShadow: 'inset 0 0 0 1px var(--color-border-hairline)',
     },
     destructive: {
-      backgroundColor: 'var(--color-critical-red)',
+      backgroundColor: 'var(--color-emergency-red)',
       color: '#FFFFFF',
     }
   };

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, House, ClipboardText, ShieldCheck, SignOut, MagnifyingGlass, CircleNotch } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, House, ClipboardText, ShieldCheck, SignOut, CircleNotch } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
@@ -200,12 +200,6 @@ export default function App() {
               <img src="/favicon-demolay.png?v=2" alt="BloodMatch" className="brand-mark" style={{ width: '28px', height: '28px', borderRadius: '50%' }} />
             </Link>
 
-            {user && (
-              <div className="nav-search-container">
-                <MagnifyingGlass size={18} className="nav-search-icon" weight="bold" />
-                <input type="text" placeholder="Search BloodMatch" className="nav-search-input" aria-label="Search BloodMatch" />
-              </div>
-            )}
           </div>
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
@@ -312,7 +306,7 @@ export default function App() {
                           </Link>
                         )}
 
-                        {availabilityError && <p role="alert" style={{ margin: 'var(--space-2) var(--space-4)', color: 'var(--color-critical-red)', fontSize: 'var(--text-xs)' }}>{availabilityError}</p>}
+                        {availabilityError && <p role="alert" style={{ margin: 'var(--space-2) var(--space-4)', color: 'var(--color-emergency-red)', fontSize: 'var(--text-xs)' }}>{availabilityError}</p>}
                         
                         <button type="button" className="dropdown-menu-item" onClick={() => { toggleTheme(); setProfileMenuOpen(false); }}>
                           <div className="dropdown-icon-wrapper">

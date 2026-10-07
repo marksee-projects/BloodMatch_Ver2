@@ -128,7 +128,7 @@ try {
     $r = Respond $eligibleAuth $routineRequest
     if ($r.status -eq 200 -and $r.body.data.already_responded -eq $true -and (Match-Count $routineRequest $eligible.id) -eq 1 -and (Notification-Count $routineRequest $requester.id) -eq 1) { Ok 'R04 repeated response is idempotent' } else { Bad 'R04 idempotency' "status=$($r.status) rows=$(Match-Count $routineRequest $eligible.id) notifications=$(Notification-Count $routineRequest $requester.id)" }
     $emailMarkers = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$($requester.id) AND type='match.responded' AND related_id=$routineRequest AND emailed_at IS NOT NULL;")
-    if ($emailMarkers -eq 0) { Ok 'R05 non-critical response does not send email' } else { Bad 'R05 non-critical email policy' "emailed=$emailMarkers" }
+    if ($emailMarkers -eq 0) { Ok 'R05 non-emergency response does not send email' } else { Bad 'R05 non-emergency email policy' "emailed=$emailMarkers" }
     $auditContext = "$(DbQuery "SELECT context FROM audit_log WHERE actor_id=$($eligible.id) AND action='match.responded' AND target_type='blood_request' AND target_id='$routineRequest' ORDER BY id DESC LIMIT 1;")"
     if ($auditContext -match 'match_id' -and $auditContext -notmatch '@|email|phone|full_name') { Ok 'R06 response audit contains no personal data' } else { Bad 'R06 audit privacy' $auditContext }
 
@@ -224,13 +224,13 @@ try {
     $jobs = @()
     if (@($parallelStatuses | Where-Object { $_ -eq 200 }).Count -eq 2 -and (Match-Count $parallelRequest $parallelDonor.id) -eq 1 -and (Notification-Count $parallelRequest $requester.id) -eq 1) { Ok 'R23 parallel responses create one row and one notification' } else { Bad 'R23 parallel idempotency' "statuses=$($parallelStatuses -join ',') rows=$(Match-Count $parallelRequest $parallelDonor.id) notifications=$(Notification-Count $parallelRequest $requester.id)" }
 
-    # Critical mail is attempted after commit; reserved address/unreachable SMTP cannot fail the response.
-    $criticalDonor = New-User 'critical'
-    $criticalAuth = Login $criticalDonor
-    $criticalRequest = New-Request $requester.id 'critical' 'O+' 'critical'
-    $r = Respond $criticalAuth $criticalRequest
-    $criticalEmailMarkers = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$($requester.id) AND type='match.responded' AND related_id=$criticalRequest AND emailed_at IS NOT NULL;")
-    if ($r.status -eq 200 -and (Match-Count $criticalRequest $criticalDonor.id) -eq 1 -and (Notification-Count $criticalRequest $requester.id) -eq 1 -and $criticalEmailMarkers -eq 0) { Ok 'R24 critical response succeeds when email cannot be delivered' } else { Bad 'R24 critical best-effort email' "status=$($r.status) emailed=$criticalEmailMarkers" }
+    # Emergency mail is attempted after commit; reserved address/unreachable SMTP cannot fail the response.
+    $emergencyDonor = New-User 'emergency'
+    $emergencyAuth = Login $emergencyDonor
+    $emergencyRequest = New-Request $requester.id 'emergency' 'O+' 'emergency'
+    $r = Respond $emergencyAuth $emergencyRequest
+    $emergencyEmailMarkers = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$($requester.id) AND type='match.responded' AND related_id=$emergencyRequest AND emailed_at IS NOT NULL;")
+    if ($r.status -eq 200 -and (Match-Count $emergencyRequest $emergencyDonor.id) -eq 1 -and (Notification-Count $emergencyRequest $requester.id) -eq 1 -and $emergencyEmailMarkers -eq 0) { Ok 'R24 emergency response succeeds when email cannot be delivered' } else { Bad 'R24 emergency best-effort email' "status=$($r.status) emailed=$emergencyEmailMarkers" }
 
     # Legacy route delegates to the same eligibility-checked service.
     $legacyDonor = New-User 'legacy'

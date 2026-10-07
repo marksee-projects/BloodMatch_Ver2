@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * Signature 44px rounded square block for blood types.
- * Level: 'normal' | 'urgent' | 'critical'
+ * Level: 'normal' | 'urgent' | 'emergency'
  */
 export function BloodTypeBlock({ bloodType, level = 'normal', className = '' }) {
   const baseStyle = {
@@ -29,8 +29,8 @@ export function BloodTypeBlock({ bloodType, level = 'normal', className = '' }) 
       color: 'var(--color-urgent-amber)',
       border: '1px solid rgba(154, 52, 18, 0.2)',
     },
-    critical: {
-      backgroundColor: 'var(--color-critical-red)',
+    emergency: {
+      backgroundColor: 'var(--color-emergency-red)',
       color: '#FFFFFF',
       border: 'none',
     }

@@ -67,7 +67,7 @@ try {
             'location_id' => null,
             'latitude' => null,
             'longitude' => null,
-            'urgency' => 'critical',
+            'urgency' => 'emergency',
             'needed_datetime' => gmdate('Y-m-d H:i:s', time() + 300 + ($index * 60)),
             'review_status' => 'not_required',
         ]);

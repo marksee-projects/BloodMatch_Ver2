@@ -34,7 +34,7 @@
   color: var(--color-text-muted);
   border-style: dashed;
 }
-.badge-critical {
+.badge-emergency {
   background: var(--color-danger);
   color: var(--color-accent-fg);
   border-color: var(--color-danger);

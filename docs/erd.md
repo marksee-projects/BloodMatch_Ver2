@@ -6,6 +6,12 @@
 
 ## Short ERD Explanation
 
+U0 prepared schema change (not yet applied or live-verified): migration
+`019_canonical_emergency_urgency.sql` sets `blood_requests.urgency` to
+`ENUM('routine', 'urgent', 'emergency') NOT NULL DEFAULT 'routine'`.
+The urgency domain is **Routine / Urgent / Emergency**. Relationships are unchanged.
+See [U0 execution and verification](urgency-migration-u0.md).
+
 The Entity Relationship Diagram of BloodMatch shows the main entities and how they are connected in the system. It includes users, chapters, blood requests, matches, donation reports, notifications, verification documents, audit logs and supporting reference data. Information is linked through primary keys, foreign keys with defined actions, unique constraints, CHECK constraints and append-only triggers, reflecting the actual implemented database.
 
 ---

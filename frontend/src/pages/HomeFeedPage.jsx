@@ -1,33 +1,127 @@
 import React from 'react'
-import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { CaretDown, MapPin } from '@phosphor-icons/react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { CaretDown, MapPin, X } from '@phosphor-icons/react'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { FeedCard } from '../components/FeedCard'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import DemandMapWidget from '../components/DemandMapWidget'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import { api } from '../services/apiClient'
 import styles from './HomeFeedPage.module.css'
 
+const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+const URGENCIES = ['routine', 'urgent', 'emergency']
+const titleCase = (value) => value.charAt(0).toUpperCase() + value.slice(1)
+const readList = (params, key) => [...new Set(params.getAll(key).flatMap((value) => value.split(',')).filter(Boolean))]
+
+function MultiFilter({ label, options, selected, onChange, format = (value) => value }) {
+  const rootRef = React.useRef(null)
+  React.useEffect(() => {
+    const onPointerDown = (event) => {
+      if (!rootRef.current?.contains(event.target)) rootRef.current?.removeAttribute('open')
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => document.removeEventListener('pointerdown', onPointerDown)
+  }, [])
+  return (
+    <details ref={rootRef} className={styles.multiFilter} onKeyDown={(event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        rootRef.current.removeAttribute('open')
+        rootRef.current.querySelector('summary').focus()
+      }
+    }}>
+      <summary>{label}{selected.length > 0 && ` (${selected.length})`}<CaretDown size={16} aria-hidden="true" /></summary>
+      <fieldset className={styles.filterOptions}>
+        <legend className={styles.visuallyHidden}>{label}</legend>
+        {options.map((value) => (
+          <label key={value} className={styles.filterOption}>
+            <input type="checkbox" checked={selected.includes(value)} onChange={() => onChange(
+              selected.includes(value) ? selected.filter((item) => item !== value) : [...selected, value]
+            )} />
+            {format(value)}
+          </label>
+        ))}
+      </fieldset>
+    </details>
+  )
+}
+
 export default function HomeFeedPage() {
   const { user, refresh } = useAuth()
+  const municipalityRef = React.useRef(null)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const municipalityCode = searchParams.get('municipality_code') || ''
+  const blood = readList(searchParams, 'blood')
+  const urgency = readList(searchParams, 'urgency')
+  const rawPage = searchParams.get('page') || '1'
+  const visiblePages = /^[1-9]\d*$/.test(rawPage) && Number(rawPage) <= 2147483647 ? Number(rawPage) : 1
+  const filterParams = new URLSearchParams()
+  if (municipalityCode) filterParams.set('municipality_code', municipalityCode)
+  if (blood.length) filterParams.set('blood', blood.join(','))
+  if (urgency.length) filterParams.set('urgency', urgency.join(','))
+  const filterKey = filterParams.toString()
+  const hasFilters = Boolean(filterKey)
+  const updateFilter = (key, values) => {
+    const next = new URLSearchParams(filterKey)
+    if (values.length) next.set(key, values.join(','))
+    else next.delete(key)
+    setSearchParams(next)
+  }
+  const clearFilters = () => {
+    setSearchParams(new URLSearchParams())
+    municipalityRef.current?.focus()
+  }
   const [verifyDialogOpen, setVerifyDialogOpen] = React.useState(false)
   const [demandExpanded, setDemandExpanded] = React.useState(false)
-  const { data: feedData, isLoading: feedLoading, error: feedError, refetch: refetchFeed } = useQuery({
-    queryKey: ['home-feed'],
-    queryFn: () => api.get('/api/home-feed'),
+  const { data, isPending: feedLoading, error: feedError, refetch: refetchFeed,
+    fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+    queryKey: ['home-feed', user?.id, user?.blood_type, user?.availability, user?.donor_enrolled,
+      user?.verification_status, user?.email_verified, filterKey],
+    initialPageParam: 1,
+    queryFn: ({ pageParam, signal }) => {
+      const params = new URLSearchParams(filterKey)
+      params.set('page', String(pageParam))
+      return api.get(`/api/home-feed?${params}`, { signal })
+    },
+    getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.page + 1 : undefined,
     enabled: Boolean(user),
     retry: false
   })
-  const requests = feedData?.requests || []
-  const donorBloodType = feedData?.blood_type || user?.blood_type || null
-  const isStaff = user?.role === 'admin' || user?.role === 'officer'
-  const isUnenrolledMember = user?.role === 'member' && !user?.donor_enrolled
-  const staffPortalPath = user?.role === 'admin' ? '/admin/dashboard' : '/officer/dashboard'
-  const staffPortalLabel = user?.role === 'admin' ? 'Open Admin Portal' : 'Open Officer Portal'
+  const loadedPageCount = data?.pages.length || 0
+  // Restore a shared Load more URL sequentially; Back hides cached later pages.
+  React.useEffect(() => {
+    if (loadedPageCount < visiblePages && hasNextPage && !isFetchingNextPage && !feedError) fetchNextPage()
+  }, [loadedPageCount, visiblePages, hasNextPage, isFetchingNextPage, feedError, fetchNextPage])
+  const shownPages = data?.pages.slice(0, visiblePages) || []
+  const feedData = shownPages[0]
+  const requests = [...new Map(shownPages.flatMap((page) => page.requests).map((request) => [request.id, request])).values()]
+  const lastShownPage = shownPages.at(-1)
+  const { data: locationData, error: locationError, refetch: refetchLocations } = useQuery({
+    queryKey: ['home-municipalities'],
+    queryFn: ({ signal }) => api.get('/api/locations/municipalities', { signal }),
+    enabled: Boolean(user),
+    retry: false
+  })
+  const municipalities = locationData?.municipalities || []
+  const municipalityLabel = municipalities.find((item) => item.psgc_code === municipalityCode)?.name || municipalityCode
+  const activeChips = [
+    ...(municipalityCode ? [{ key: 'municipality_code', value: municipalityCode, label: municipalityLabel }] : []),
+    ...blood.map((value) => ({ key: 'blood', value, label: `Needs ${value}` })),
+    ...urgency.map((value) => ({ key: 'urgency', value, label: titleCase(value) }))
+  ]
+  const removeChip = (chip) => {
+    updateFilter(chip.key, chip.key === 'municipality_code' ? [] :
+      (chip.key === 'blood' ? blood : urgency).filter((value) => value !== chip.value))
+    municipalityRef.current?.focus()
+  }
+  const loadMore = () => {
+    const next = new URLSearchParams(filterKey)
+    next.set('page', String(visiblePages + 1))
+    setSearchParams(next)
+  }
 
   return (
     <div className={styles.layout}>
@@ -92,14 +186,46 @@ export default function HomeFeedPage() {
         </aside>
 
         <main className={styles.centerColumn}>
+          <Card className={styles.filters}>
+            <h1 className={styles.filterHeading}>Compatible requests</h1>
+            <div className={styles.filterRow}>
+              <label className={styles.municipalityFilter}>
+                <span className={styles.visuallyHidden}>Municipality</span>
+                <select ref={municipalityRef} value={municipalityCode} onChange={(event) => updateFilter('municipality_code', event.target.value ? [event.target.value] : [])}>
+                  <option value="">All municipalities</option>
+                  {municipalityCode && !municipalities.some((item) => item.psgc_code === municipalityCode) && (
+                    <option value={municipalityCode}>{municipalityCode}</option>
+                  )}
+                  {municipalities.map((item) => <option key={item.psgc_code} value={item.psgc_code}>{item.name}</option>)}
+                </select>
+              </label>
+              <MultiFilter label="Blood type" options={BLOOD_TYPES} selected={blood} onChange={(values) => updateFilter('blood', values)} />
+              <MultiFilter label="Urgency" options={URGENCIES} selected={urgency} format={titleCase} onChange={(values) => updateFilter('urgency', values)} />
+            </div>
+            {locationError && <div className={styles.locationError} role="alert">
+              <span>Municipalities could not be loaded.</span>
+              <Button variant="secondary" onClick={() => refetchLocations()}>Retry municipalities</Button>
+            </div>}
+            {hasFilters && <div className={styles.activeFilters} aria-label="Active filters">
+              {activeChips.map((chip) => <button key={`${chip.key}:${chip.value}`} type="button" className={styles.filterChip}
+                onClick={() => removeChip(chip)} aria-label={`Remove ${chip.label} filter`}>
+                {chip.label}<X size={16} aria-hidden="true" />
+              </button>)}
+              <button type="button" className={styles.clearFilters} onClick={clearFilters}>Clear all filters</button>
+            </div>}
+          </Card>
           <div className={styles.contextLine} aria-live="polite">
-            {feedLoading ? 'Checking compatibility…' : `${requests.length} compatible ${requests.length === 1 ? 'request' : 'requests'}`}
+            {feedLoading ? 'Loading compatible requests…' : feedError ? 'Requests could not be loaded.' :
+              `${feedData?.total_matching || 0} compatible ${(feedData?.total_matching || 0) === 1 ? 'request' : 'requests'}${hasFilters && !feedData?.reason_code ? ` of ${feedData?.total_unfiltered || 0}` : ''}`}
           </div>
 
           {feedLoading && (
-            <Card padding="md" className={styles.feedState}>
-              <LoadingSpinner text="Loading matched requests…" minHeight="12rem" />
-            </Card>
+            <div className={styles.skeletonList} role="status" aria-label="Loading compatible requests">
+              {[1, 2, 3].map((item) => <Card key={item} className={styles.skeletonCard}>
+                <div className={styles.skeletonLine} aria-hidden="true" />
+                <div className={styles.skeletonLineShort} aria-hidden="true" />
+              </Card>)}
+            </div>
           )}
 
           {feedError && (
@@ -107,36 +233,35 @@ export default function HomeFeedPage() {
               <h2 className={styles.feedStateTitle}>Requests couldn&apos;t be loaded</h2>
               <p className={styles.feedStateText}>{feedError.message}</p>
               <Button variant="secondary" onClick={() => refetchFeed()}>Retry</Button>
+              {hasFilters && <Button variant="secondary" onClick={clearFilters}>Clear all filters</Button>}
             </Card>
           )}
 
           {!feedLoading && !feedError && requests.length === 0 && (
             <Card padding="md" className={styles.feedState}>
               <h2 className={styles.feedStateTitle}>
-                {isStaff
-                  ? "Staff accounts don't receive donor matches"
-                  : isUnenrolledMember
-                    ? 'Donor enrollment needed'
-                    : 'No matched requests right now'}
+                {feedData?.reason_code ? 'Compatible requests unavailable' :
+                  hasFilters && feedData?.total_unfiltered > 0 ? 'No compatible requests fit these filters' :
+                    'No compatible requests right now'}
               </h2>
               <p className={styles.feedStateText}>
-                {isStaff
-                  ? 'Use your staff portal to review authorized requests and operational activity.'
-                  : isUnenrolledMember
-                    ? 'Complete donor enrollment in your profile before the match engine can include you.'
-                    : donorBloodType
-                      ? 'You do not have any persisted OPEN donor matches right now.'
-                      : 'Add your blood type in your profile so the match engine can evaluate future requests.'}
+                {feedData?.reason_text || (hasFilters && feedData?.total_unfiltered > 0
+                  ? 'Remove a filter or clear them all to see more compatible requests.'
+                  : 'There are no current open requests compatible with your blood type. Check again later.')}
               </p>
-              {isStaff && <Button variant="primary" to={staffPortalPath}>{staffPortalLabel}</Button>}
-              {!isStaff && isUnenrolledMember && <Button variant="primary" to="/profile">Open profile</Button>}
-              {!isStaff && !isUnenrolledMember && !donorBloodType && <Button variant="primary" to="/profile">Update profile</Button>}
+              {hasFilters && <Button variant="secondary" onClick={clearFilters}>Clear all filters</Button>}
+              {['blood_type_missing', 'staff_no_blood_type'].includes(feedData?.reason_code) && <Button to="/profile">Update profile</Button>}
             </Card>
           )}
 
           {!feedLoading && !feedError && requests.map((request) => (
             <FeedCard key={request.id} request={request} />
           ))}
+          {!feedLoading && !feedError && lastShownPage?.has_more && (
+            <Button variant="secondary" onClick={loadMore} disabled={isFetchingNextPage || loadedPageCount < visiblePages}>
+              {isFetchingNextPage || loadedPageCount < visiblePages ? 'Loading more…' : 'Load more'}
+            </Button>
+          )}
         </main>
 
         <aside className={styles.rightColumn}>

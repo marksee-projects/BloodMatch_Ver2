@@ -198,10 +198,10 @@ All responses adhere to the standard JSON envelopes:
 ## 4. Blood Requests & Matching Engine
 
 ### `GET /api/home-feed`
-- **Purpose:** Suggest blood-compatible requests independently of the match table: OPEN, not past needed-by, not the viewer's own request, and compatible with the viewer's donor blood type. Results are ordered Critical, Urgent, Routine, then newest.
+- **Purpose:** Suggest blood-compatible requests independently of the match table: OPEN, not past needed-by, not the viewer's own request, and compatible with the viewer's donor blood type. Results are ordered Emergency, Urgent, Routine, then newest.
 - **Auth:** Authenticated. Only active, verified accounts receive suggestions. Ineligible viewers receive `200` with an empty `requests` array plus `reason_code`/`reason_text`; staff with a blood type receive the same cards read-only, while staff without one receive `staff_no_blood_type` and no rows.
 - **Paging:** Fixed at 20 rows per page. Query `page` is a positive integer. Response metadata is `page`, `page_size`, `has_more`, `total_matching` (after filters), and `total_unfiltered` (before filters).
-- **Filters:** `q` (trimmed, max 80; facility or municipality only; case-insensitive and literal `%`, `_`, `\`), `municipality_code` (one active Bataan municipality), `blood` (comma-separated needed blood types), and `urgency` (comma-separated `routine`, `urgent`, `critical`). Invalid values return `422`. Filters only narrow the compatible base set; selecting a municipality excludes requests without a location.
+- **Filters:** `q` (trimmed, max 80; facility or municipality only; case-insensitive and literal `%`, `_`, `\`), `municipality_code` (one active Bataan municipality), `blood` (comma-separated needed blood types), and `urgency` (comma-separated `routine`, `urgent`, `emergency`). Invalid values return `422`. Filters only narrow the compatible base set; selecting a municipality excludes requests without a location.
 - **Live donor state:** Each card contains `can_respond`, `reason_code`, `reason_text`, `eligible_again_at` (UTC), and `responded`. State is evaluated live by `DonorEligibilityService`; a persisted match is not required for inclusion.
 - **Privacy:** Returns requester display data, chapter, municipality-level location, request details, optional match status, and `can_view_requester_profile: true`. It excludes requester email/blood type, patient name, notes, contact details, birth date, availability, exact coordinates/barangay, documents, and donation history.
 - **Response (200):** `{ "requests": [{ "id": 12, "requester_id": 42, "can_respond": true, "reason_code": null, "eligible_again_at": null, "responded": false, ... }], "page": 1, "page_size": 20, "has_more": false, "total_matching": 1, "total_unfiltered": 1 }`
@@ -289,7 +289,7 @@ All responses adhere to the standard JSON envelopes:
 - **Purpose:** Canonical Home-card response endpoint. It locks the request and the caller's existing match in one transaction, re-evaluates every live donor/request rule through `DonorEligibilityService`, creates or reuses the unique `(request_id, donor_id)` match, and records `RESPONDED`.
 - **Auth:** Authenticated member; CSRF required. Staff, inactive/unverified accounts, ineligible donors, self-response, non-OPEN/past-due requests, and incompatible blood types are rejected by the shared evaluator.
 - **Idempotency:** Repeating an eligible response returns `200` without another match, notification, or audit transition. An eligible `CLOSED` match may return to `RESPONDED`; `COMPLETED` is never altered.
-- **Notifications:** The requester receives one deduplicated in-app `match.responded` notification. Critical requests additionally attempt best-effort email after commit; SMTP failure never rolls back or fails the response.
+- **Notifications:** The requester receives one deduplicated in-app `match.responded` notification. Emergency requests additionally attempt best-effort email after commit; SMTP failure never rolls back or fails the response.
 - **Response (200):** `{ "success": true, "data": { "message": "Response recorded.", "match_id": 501, "status": "RESPONDED", "created": true, "already_responded": false } }`
 - **Ineligible response (403):** `{ "success": false, "error": { "code": "cooldown", "message": "...", "eligible_again_at": "2026-12-01 10:00:00" } }`
 
@@ -412,7 +412,7 @@ All responses adhere to the standard JSON envelopes:
         "longitude": 120.5361,
         "open_requests_count": 5,
         "total_units_needed": 8,
-        "urgency_counts": { "routine": 2, "urgent": 2, "critical": 1 },
+        "urgency_counts": { "routine": 2, "urgent": 2, "emergency": 1 },
         "blood_type_demand": { "A+": { "requests_count": 2, "units_needed": 3 } }
       }
     ]

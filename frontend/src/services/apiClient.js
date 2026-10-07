@@ -108,7 +108,7 @@ async function request(path, options = {}, isRetry = false) {
 }
 
 export const api = {
-  get: (path) => request(path),
+  get: (path, options = {}) => request(path, { ...options, method: 'GET' }),
   post: (path, data) =>
     request(path, { method: 'POST', body: JSON.stringify(data ?? {}) }),
   postForm: (path, formData) =>

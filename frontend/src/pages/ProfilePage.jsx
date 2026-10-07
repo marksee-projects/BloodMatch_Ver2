@@ -364,7 +364,7 @@ export default function ProfilePage() {
           <Card id="verification-section" className={styles.verificationCard}>
             <div className={styles.cardHeader}>
               <div><h2>Verification</h2><p>Your account status and submitted identification.</p></div>
-              <Badge variant={profile.verification_status === 'verified' ? 'success' : profile.verification_status === 'rejected' ? 'critical' : 'neutral'}>{titleCase(profile.verification_status)}</Badge>
+              <Badge variant={profile.verification_status === 'verified' ? 'success' : profile.verification_status === 'rejected' ? 'emergency' : 'neutral'}>{titleCase(profile.verification_status)}</Badge>
             </div>
             {nationalIdDocuments.length === 0 || profile.verification_status === 'rejected' ? (
               <form onSubmit={onUpload} className={styles.verificationUpload}>
@@ -396,7 +396,7 @@ export default function ProfilePage() {
                     <article key={report.id} className={styles.historyRow}>
                       <div className={styles.historyBlood}>{report.required_blood_type}</div>
                       <div><h3>{report.facility_name}</h3><p>{formatDate(report.reported_at)}</p></div>
-                      <Badge variant={report.status === 'CONFIRMED' ? 'success' : report.status === 'REJECTED' ? 'critical' : 'urgent'}>{titleCase(report.status)}</Badge>
+                      <Badge variant={report.status === 'CONFIRMED' ? 'success' : report.status === 'REJECTED' ? 'emergency' : 'urgent'}>{titleCase(report.status)}</Badge>
                     </article>
                   ))}
                 </div>

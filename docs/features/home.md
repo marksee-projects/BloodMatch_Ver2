@@ -24,7 +24,7 @@ Home is where a logged-in DeMolay Bataan member sees blood requests that matter 
 - **[DECIDE]** Your old design showed several members' requests, including your own, under "Recent regional blood requests". Choose one: (a) compatible only (recommended), (b) all open requests with a "Compatible with you" label, (c) compatible by default plus a "Show all open requests" toggle. ANSWER:
 - **[PROPOSED]** Only OPEN requests. Fulfilled, cancelled and expired ones live in My Requests.
 - **[DECIDE]** Your own requests in the feed? Recommended: no, they live in My Requests. ANSWER:
-- **[PROPOSED]** Sort: Critical, then Urgent, then Routine, then newest. 20 per page with "Load more".
+- **[PROPOSED]** Sort: Emergency, then Urgent, then Routine, then newest. 20 per page with "Load more".
 - **[PROPOSED]** Compatibility is decided only by the backend (`BloodCompatibilityService` / `MatchService`), never in the browser.
 - **[PROPOSED]** Members who aren't enrolled as donors, or are on standby or cooldown, see an explanation instead of a blank page.
 
@@ -49,7 +49,7 @@ Home is where a logged-in DeMolay Bataan member sees blood requests that matter 
 
 ## 7. Filters
 - **[DECIDED]** Municipality filter (the 12 Bataan municipalities, from the existing locations list).
-- **[PROPOSED]** Urgency filter (Critical / Urgent / Routine).
+- **[PROPOSED]** Urgency filter (Emergency / Urgent / Routine).
 - **[DECIDE]** Chapter filter? ANSWER:
 - **[PROPOSED]** "Clear filters", filters kept in the URL, honest empty states.
 
@@ -62,7 +62,7 @@ Home is where a logged-in DeMolay Bataan member sees blood requests that matter 
 ## 9. Notifications (bell)
 - **[DECIDED]** In-app notices for new matches, responses, and fulfilled, cancelled or expired requests.
 - **[DECIDED]** Request alert emails only for emergency requests. System emails stay (verification code, password reset, verification result, account status).
-- **[DECIDE]** "Emergency" means the Critical urgency level? ANSWER:
+- **[DECIDED]** Emergency uses the canonical `emergency` urgency value.
 
 ## 10. Create request ("+")
 - **[DESIGN]** Fields: blood type needed, units, hospital/clinic and municipality, needed by, urgency, situation details.
@@ -93,7 +93,7 @@ Loading skeleton, empty (with a reason), error with retry, no search results (wi
 | 5 | Search | Global header search. Used on another page, it navigates to Home with `?q=` |
 | 6 | Chapter filter | Not now. Municipality and urgency only |
 | 7 | Demand-map chapter click | Not interactive for now |
-| 8 | "Emergency" | Means the existing `critical` urgency |
+| 8 | "Emergency" | Means the existing `emergency` urgency |
 | 9 | Demand-map card for members | Omitted for members (they get 403 under 9.9). Kept for officers and admins |
 
 ## 15. Profile visibility (CONTEXT.md 9.8 amendment applies)

@@ -16,8 +16,8 @@ function formatNeededDate(value) {
 export function FeedCard({ request, hideActions = false }) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
-  const urgencyVariant = request.urgency === 'critical'
-    ? 'critical'
+  const urgencyVariant = request.urgency === 'emergency'
+    ? 'emergency'
     : request.urgency === 'urgent' ? 'urgent' : 'neutral'
 
   return (

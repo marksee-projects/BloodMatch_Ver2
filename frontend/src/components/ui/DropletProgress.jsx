@@ -4,7 +4,7 @@ import { Drop } from '@phosphor-icons/react'; // Ensure phosphor-icons is availa
 /**
  * Visual indicator showing units needed vs. collected.
  */
-export function DropletProgress({ totalUnits, collectedUnits = 0, isCritical = false, className = '' }) {
+export function DropletProgress({ totalUnits, collectedUnits = 0, isEmergency = false, className = '' }) {
   const droplets = [];
   
   for (let i = 0; i < totalUnits; i++) {
@@ -14,7 +14,7 @@ export function DropletProgress({ totalUnits, collectedUnits = 0, isCritical = f
         key={i} 
         style={{
           color: isFilled 
-            ? (isCritical ? 'var(--color-critical-red)' : 'var(--color-brand-navy)') 
+            ? (isEmergency ? 'var(--color-emergency-red)' : 'var(--color-brand-navy)')
             : 'var(--color-border-strong)',
           transition: 'color 0.3s ease',
           display: 'inline-flex',

@@ -11,7 +11,7 @@ use RuntimeException;
 final class RequestService
 {
     public const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-    public const URGENCIES = ['routine', 'urgent', 'critical'];
+    public const URGENCIES = ['routine', 'urgent', 'emergency'];
 
     public static function nowUtc(): string
     {
@@ -131,7 +131,7 @@ final class RequestService
         if ($has('urgency')) {
             $u = \BloodMatch\Utils\Request::str('urgency', $body) ?? 'routine';
             if (!in_array($u, self::URGENCIES, true)) {
-                $v->addError('urgency', 'Urgency must be routine, urgent, or critical.');
+                $v->addError('urgency', 'Urgency must be routine, urgent, or emergency.');
             }
             $fields['urgency'] = $u;
         }

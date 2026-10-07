@@ -28,7 +28,7 @@ if (empty($dummyUsers)) {
 }
 
 $bloodTypes = ['A+', 'B+', 'O+', 'AB-', 'O-'];
-$urgencies = ['routine', 'urgent', 'critical'];
+$urgencies = ['routine', 'urgent', 'emergency'];
 $facilities = ['Bataan General Hospital', 'Balanga Medical Center', 'Orani District Hospital', 'Mariveles District Hospital'];
 
 $repo = new BloodRequestRepository();

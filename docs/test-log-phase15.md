@@ -16,7 +16,7 @@ Design Identity: Monochrome Black & White, high-contrast, minimalist, accessible
   - Buttons (`.btn`, `.btn-secondary`, `.btn-danger`, `.btn-sm`) with clear `:focus-visible` rings.
   - Form controls with floating hints, required asterisks, and structured error containers (`.field-error`).
   - Metric cards (`.metric-card`), tabular containers (`.table-container`), and empty state containers (`.empty-state`).
-  - Status chips/badges for request statuses (`OPEN`, `FULFILLED`, `CANCELLED`, `EXPIRED`), verification (`verified`, `pending`, `rejected`), urgencies (`routine`, `urgent`, `critical`), and donor availability (`available`, `standby`, `cooldown`).
+  - Status chips/badges for request statuses (`OPEN`, `FULFILLED`, `CANCELLED`, `EXPIRED`), verification (`verified`, `pending`, `rejected`), urgencies (`routine`, `urgent`, `emergency`), and donor availability (`available`, `standby`, `cooldown`).
   - Prominent styled Medical Disclaimer callout blocks (`.medical-disclaimer`).
 
 ---

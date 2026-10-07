@@ -118,7 +118,8 @@ $cases = @(
     @{ n='raw coordinates rejected'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future; latitude=14.5; longitude=120.5 }; f='location_id' },
     @{ n='bad location_id'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future; location_id=999999 }; f='location_id' },
     @{ n='short facility'; b=@{ required_blood_type='O+'; facility_name='F'; needed_datetime=$future }; f='facility_name' },
-    @{ n='bad urgency'; b=@{ required_blood_type='O+'; facility_name='Fac'; needed_datetime=$future; urgency='whenever' }; f='urgency' }
+    @{ n='bad urgency'; b=@{ required_blood_type='O+'; facility_name='Fac'; needed_datetime=$future; urgency='whenever' }; f='urgency' },
+    @{ n='retired critical urgency'; b=@{ required_blood_type='O+'; facility_name='Fac'; needed_datetime=$future; urgency='critical' }; f='urgency' }
 )
 $i = 0
 foreach ($c in $cases) {
@@ -128,6 +129,9 @@ foreach ($c in $cases) {
 }
 
 # --- T06 chapter snapshot immutable ---
+$r = Invoke-Json $ver.s 'Put' "/api/requests/$reqVId" @{ urgency='critical' } $ver.csrf
+if ($r.status -eq 400 -and $r.body.error.details.urgency) { Ok 'U0 retired critical urgency rejected on edit' } else { Bad 'U0 retired urgency edit' "got $($r.status)" }
+
 $dbChap = DbQuery "SELECT request_chapter_id FROM blood_requests WHERE id=$reqVId;"
 if ($dbChap -eq '1') { Ok 'T06 request_chapter_id derived from requestor' } else { Bad 'T06' "db=$dbChap" }
 

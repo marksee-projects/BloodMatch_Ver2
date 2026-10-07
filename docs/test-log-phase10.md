@@ -42,7 +42,7 @@ Runtime: PHP 8.2.12 dev server → MariaDB @ 3307, DB `bloodmatch_dev`; zero PHP
 
 - Synchronous best-effort delivery via `Mailer.php` wrapping PHPMailer.
 - Reads SMTP configuration from environment: `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM`.
-- Rate limiting: max 5 emails/user/hour for normal priority; critical urgency bypasses rate limiting.
+- Rate limiting: max 5 emails/user/hour for normal priority; emergency urgency bypasses rate limiting.
 - Graceful degradation: if `MAIL_HOST` is unset, email transport is skipped without error and in-app notification persists.
 - Plaintext password-reset tokens sent via email when configured; database stores only SHA-256 hashes.
 

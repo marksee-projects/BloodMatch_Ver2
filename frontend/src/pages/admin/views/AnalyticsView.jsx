@@ -246,8 +246,8 @@ export default function AnalyticsView() {
                   <strong>{donorPool.total_enrolled || 0}</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
-                  <span className="muted">Critical Urgency Demand:</span>
-                  <strong>{demandByUrg.critical?.requests_count || 0} req ({demandByUrg.critical?.units_needed || 0}u)</strong>
+                  <span className="muted">Emergency Urgency Demand:</span>
+                  <strong>{demandByUrg.emergency?.requests || 0} req ({demandByUrg.emergency?.units || 0}u)</strong>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
                   <span className="muted">Urgent Category Demand:</span>

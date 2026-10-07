@@ -9,8 +9,8 @@ import { Link } from 'react-router-dom'
 import styles from './DemandMapWidget.module.css'
 
 const BLOOD_TYPES = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-const URGENCIES = ['All', 'routine', 'urgent', 'critical']
-const MINI_URGENCIES = ['critical', 'urgent', 'routine']
+const URGENCIES = ['All', 'routine', 'urgent', 'emergency']
+const MINI_URGENCIES = ['emergency', 'urgent', 'routine']
 
 export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
   const { user } = useAuth()
@@ -50,11 +50,11 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
   const totalDemand = chapters.reduce((acc, c) => acc + (c.open_requests_count || 0), 0)
   const totalUnits = chapters.reduce((acc, c) => acc + (c.total_units_needed || 0), 0)
-  const totalCritical = chapters.reduce((acc, c) => acc + (c.urgency_counts?.critical || 0), 0)
+  const totalEmergency = chapters.reduce((acc, c) => acc + (c.urgency_counts?.emergency || 0), 0)
   const totalUrgent = chapters.reduce((acc, c) => acc + (c.urgency_counts?.urgent || 0), 0)
   const totalRoutine = chapters.reduce((acc, c) => acc + (c.urgency_counts?.routine || 0), 0)
   const urgencyTotals = {
-    critical: totalCritical,
+    emergency: totalEmergency,
     urgent: totalUrgent,
     routine: totalRoutine
   }
@@ -138,7 +138,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
       {/* Mini Mode Header removed; rendered by parent */}
 
       {/* Error state */}
-      {error && <Badge variant="critical" style={{ alignSelf: 'flex-start' }}>{error}</Badge>}
+      {error && <Badge variant="emergency" style={{ alignSelf: 'flex-start' }}>{error}</Badge>}
 
       {/* Loading state: skeleton bars */}
       {loading && (
@@ -216,9 +216,9 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                   const count = getMiniChapterValue(ch)
                   const pct = maxMiniValue > 0 ? (count / maxMiniValue) * 100 : 0
                   const visibleUrgencies = selectedMiniUrgency === 'All' ? MINI_URGENCIES : [selectedMiniUrgency]
-                  const hasCritical = visibleUrgencies.includes('critical') && (ch.urgency_counts?.critical || 0) > 0
-                  const barColor = hasCritical
-                    ? 'var(--color-critical-red)'
+                  const hasEmergency = visibleUrgencies.includes('emergency') && (ch.urgency_counts?.emergency || 0) > 0
+                  const barColor = hasEmergency
+                    ? 'var(--color-emergency-red)'
                     : visibleUrgencies.includes('urgent') && (ch.urgency_counts?.urgent || 0) > 0
                       ? 'var(--color-urgent-amber)'
                       : 'var(--color-brand-navy)'
@@ -281,11 +281,11 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                 gap: 'var(--space-4)' 
               }}>
                 {chapters.map((ch) => {
-                  const criticalCount = ch.urgency_counts?.critical || 0
+                  const emergencyCount = ch.urgency_counts?.emergency || 0
                   const urgentCount = ch.urgency_counts?.urgent || 0
                   const routineCount = ch.urgency_counts?.routine || 0
-                  const total = criticalCount + urgentCount + routineCount
-                  const isHighAlert = criticalCount > 0
+                  const total = emergencyCount + urgentCount + routineCount
+                  const isHighAlert = emergencyCount > 0
 
                   return (
                     <Card
@@ -297,7 +297,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                           <strong style={{ fontSize: 'var(--text-body)', fontWeight: '600' }}>{ch.chapter_name}</strong>
                           <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)' }}>{ch.municipality}</div>
                         </div>
-                        <Badge variant={ch.open_requests_count > 0 ? (isHighAlert ? 'critical' : 'urgent') : 'neutral'}>
+                        <Badge variant={ch.open_requests_count > 0 ? (isHighAlert ? 'emergency' : 'urgent') : 'neutral'}>
                           {ch.open_requests_count} req ({ch.total_units_needed}u)
                         </Badge>
                       </div>
@@ -312,8 +312,8 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                           display: 'flex',
                           marginBottom: 'var(--space-3)'
                         }}>
-                          {criticalCount > 0 && (
-                            <div style={{ width: `${(criticalCount / total) * 100}%`, height: '100%', background: 'var(--color-critical-red)' }} />
+                          {emergencyCount > 0 && (
+                            <div style={{ width: `${(emergencyCount / total) * 100}%`, height: '100%', background: 'var(--color-emergency-red)' }} />
                           )}
                           {urgentCount > 0 && (
                             <div style={{ width: `${(urgentCount / total) * 100}%`, height: '100%', background: 'var(--color-urgent-amber)' }} />
@@ -326,9 +326,9 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
                       {/* Urgency badges */}
                       <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-                        {criticalCount > 0 && (
-                          <Badge variant="critical">
-                            <Warning size={12} weight="fill" style={{ marginRight: '4px' }} /> Critical: {criticalCount}
+                        {emergencyCount > 0 && (
+                          <Badge variant="emergency">
+                            <Warning size={12} weight="fill" style={{ marginRight: '4px' }} /> Emergency: {emergencyCount}
                           </Badge>
                         )}
                         {urgentCount > 0 && (

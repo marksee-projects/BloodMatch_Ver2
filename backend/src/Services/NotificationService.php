@@ -8,7 +8,7 @@ final class NotificationService
 {
     public const EMAIL_NONE = 'none';
     public const EMAIL_NORMAL = 'normal';
-    public const EMAIL_CRITICAL = 'critical';
+    public const EMAIL_EMERGENCY = 'emergency';
 
     private const MAX_EMAILS_PER_USER_PER_HOUR = 5;
     private const MAX_EMAIL_RECIPIENTS_PER_BATCH = 500;
@@ -140,18 +140,18 @@ final class NotificationService
         array $request,
         int $generation,
         array $eligibleDonorIds,
-        bool $sendCriticalEmail = false
+        bool $sendEmergencyEmail = false
     ): array {
         $requestId = (int) $request['id'];
-        $critical = (string) $request['urgency'] === 'critical';
-        $emailPriority = $critical && $sendCriticalEmail
-            ? self::EMAIL_CRITICAL
+        $emergency = (string) $request['urgency'] === 'emergency';
+        $emailPriority = $emergency && $sendEmergencyEmail
+            ? self::EMAIL_EMERGENCY
             : self::EMAIL_NONE;
 
         $title = sprintf('New compatible donation opportunity (#%d)', $requestId);
         $body = sprintf(
-            'An %s request for blood type %s near %s needs donors like you. Open BloodMatch for details.',
-            (string) $request['urgency'],
+            'A blood request (%s) for blood type %s near %s needs donors like you. Open BloodMatch for details.',
+            ucfirst((string) $request['urgency']),
             (string) $request['required_blood_type'],
             (string) $request['facility_name']
         );
@@ -192,7 +192,7 @@ final class NotificationService
 
         $repo = new \BloodMatch\Repositories\NotificationRepository();
 
-        if ($priority !== self::EMAIL_CRITICAL) {
+        if ($priority !== self::EMAIL_EMERGENCY) {
             if ($repo->emailCountInLastHour($userId, AuthService::nowUtc()) >= self::MAX_EMAILS_PER_USER_PER_HOUR) {
                 return;
             }

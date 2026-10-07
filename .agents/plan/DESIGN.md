@@ -11,7 +11,7 @@
 - **Non-Negotiables:**
   - No gradients, glows, colored card top-borders, or decorative shapes.
   - No emoji as UI icons. Use Lucide icons (`lucide-react`, stroke width 1.75).
-  - Red is strictly reserved for critical/emergency states, destructive actions, and errors.
+  - Red is strictly reserved for emergency states, destructive actions, and errors.
   - Navy is the primary brand and action color.
   - Support light and dark mode through unified design tokens.
 
@@ -57,8 +57,8 @@ All text meets or exceeds WCAG AA contrast ratio (>= 4.5:1).
 | `color-border-hairline` | `rgba(15,23,42,.12)` | `rgba(255,255,255,.12)` | 1px clean hairlines on cards/dividers |
 | `color-brand-navy` | `#020066` | `#4338CA` | Primary actions, brand accents, active state |
 | `color-brand-navy-hover` | `#010052` | `#3730A3` | Primary button hover |
-| `color-critical-red` | `#C8102E` | `#EF4444` | Emergency requests, destructive actions, errors |
-| `color-critical-bg` | `#FFF5F5` | `#450A0A` | Critical card background & tints |
+| `color-emergency-red` | `#C8102E` | `#EF4444` | Emergency requests, destructive actions, errors |
+| `color-emergency-bg` | `#FFF5F5` | `#450A0A` | Emergency card background & tints |
 | `color-urgent-amber` | `#9A3412` | `#F97316` | Urgent requests, warning badges |
 | `color-urgent-bg` | `#FFEDD5` | `#431407` | Urgent badges and banners |
 | `color-success-green` | `#1F8A4C` | `#22C55E` | Verified donor status, "You can help" badges |
@@ -90,7 +90,7 @@ All text meets or exceeds WCAG AA contrast ratio (>= 4.5:1).
   - Typography: `15px` / `600` weight.
   - Primary: Solid brand navy (`#020066`) with white text. Exactly one loud action per card or screen.
   - Secondary: White surface with 1px hairline border and `#0F172A` text.
-  - Destructive: `#C8102E` solid or outline, used only for critical cancellations or emergency actions.
+  - Destructive: `#C8102E` solid or outline, used only for emergency cancellations or emergency actions.
 - **Iconography:**
   - Lucide icons (`lucide-react`), stroke width `1.75px`.
   - Icon-only buttons must include `aria-label` and a descriptive tooltip.
@@ -106,10 +106,10 @@ All text meets or exceeds WCAG AA contrast ratio (>= 4.5:1).
   - Tints:
     - Normal: Navy tint background with navy text.
     - Urgent: Amber background (`#FFEDD5`) with amber text (`#9A3412`).
-    - Critical: Solid red (`#C8102E`) background with white text.
+    - Emergency: Solid red (`#C8102E`) background with white text.
 - **`DropletProgress`:**
   - Visual indicator showing units needed vs. collected (one droplet icon per unit).
-  - Filled navy (`#020066`) in normal states; filled critical red (`#C8102E`) on emergency requests.
+  - Filled navy (`#020066`) in normal states; filled emergency red (`#C8102E`) on emergency requests.
   - Animated fill transition on mount/update.
 
 ---

@@ -181,6 +181,52 @@
   max-width: 680px;
 }
 
+/* Structured Home filters use the URL and the existing 20-row feed contract. */
+.filters { width: 100%; max-width: 720px; overflow: visible; }
+.filterHeading { margin: 0 0 var(--space-4); font-size: var(--text-h2); color: var(--color-text); }
+.filterRow { display: flex; align-items: start; flex-wrap: wrap; gap: var(--space-3); }
+.municipalityFilter { flex: 1; min-width: 0; }
+.municipalityFilter select,
+.multiFilter summary {
+  width: 100%; min-height: 44px; margin: 0; padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-border-strong); border-radius: var(--radius-control);
+  background: var(--color-surface); color: var(--color-text); font: inherit; font-size: var(--text-sm);
+}
+.multiFilter { position: relative; min-width: 0; }
+.multiFilter summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); cursor: pointer; list-style: none; }
+.multiFilter summary::-webkit-details-marker { display: none; }
+.filterOptions {
+  position: absolute; right: 0; top: calc(100% + var(--space-2)); z-index: 5;
+  width: max-content; min-width: 100%; max-width: calc(100vw - var(--space-6));
+  max-height: 60vh; overflow-y: auto; margin: 0; padding: var(--space-3);
+  border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control);
+  background: var(--color-surface); box-shadow: var(--shadow-md);
+}
+.filterOption { display: flex; align-items: center; gap: var(--space-3); min-height: 44px; padding: var(--space-3); color: var(--color-text); cursor: pointer; }
+.filterOption input { width: var(--space-4); height: var(--space-4); margin: 0; accent-color: var(--color-brand-navy); }
+.activeFilters { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-4); }
+.filterChip, .clearFilters {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3); min-height: 44px;
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-pill); background: var(--color-surface-sunken); color: var(--color-text);
+  font: inherit; font-size: var(--text-sm); overflow-wrap: anywhere;
+}
+.clearFilters { border-color: transparent; background: transparent; color: var(--color-brand-navy); text-decoration: underline; }
+.locationError { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-4); color: var(--color-text-muted); }
+.visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+.skeletonList { display: grid; gap: var(--space-3); width: 100%; max-width: 720px; }
+.skeletonCard { display: grid; gap: var(--space-4); }
+.skeletonLine, .skeletonLineShort { height: var(--space-5); border-radius: var(--radius-md); background: var(--color-surface-sunken); animation: pulse 1.5s ease-in-out infinite; }
+.skeletonLineShort { width: 60%; height: var(--space-4); }
+@media (max-width: 640px) {
+  .municipalityFilter { flex-basis: 100%; }
+  .multiFilter { flex: 1; }
+  .filterOptions { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeletonLine, .skeletonLineShort { animation: none; }
+}
+
 .feedCardInner {
   display: flex;
   gap: var(--space-3);

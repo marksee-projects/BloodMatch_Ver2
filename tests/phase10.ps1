@@ -162,7 +162,7 @@ $r = Invoke-Json $donorAuth.s 'Get' '/api/notifications?page_size=50' $null $nul
 $matchNotifs = @($r.body.data.notifications | Where-Object { $_.type -eq 'match.new' })
 if ($matchNotifs.Count -ge 1) { Ok 'T08 donor received match.new notification' } else { Bad 'T08 donor received match.new notification' "found $($matchNotifs.Count)" }
 
-# T08a: Noncritical match notifications are in-app only.
+# T08a: Nonemergency match notifications are in-app only.
 $normalMatchEmails = DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND type='match.new' AND related_id=$requestId AND emailed_at IS NOT NULL;"
 if ([int]$normalMatchEmails -eq 0) { Ok 'T08a urgent match notification is in-app only' } else { Bad 'T08a urgent match email policy' "emailed=$normalMatchEmails" }
 

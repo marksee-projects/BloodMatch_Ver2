@@ -13,7 +13,7 @@ const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const URGENCIES = [
   { id: 'routine', label: 'Routine (Scheduled surgeries / standard transfusions)' },
   { id: 'urgent', label: 'Urgent (Required within 24 hours)' },
-  { id: 'critical', label: 'Critical (Immediate emergency / trauma)' }
+  { id: 'emergency', label: 'Emergency (Immediate emergency / trauma)' }
 ]
 
 export default function RequestFormPage({ id, onSuccess, onCancel }) {

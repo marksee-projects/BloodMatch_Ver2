@@ -208,12 +208,12 @@ $rReq4 = Invoke-Json $mem1Auth.s 'Post' '/api/requests' @{
 $req4Id = $rReq4.body.data.request.id
 DbQuery "UPDATE blood_requests SET status = 'EXPIRED', expired_at = UTC_TIMESTAMP() WHERE id=$req4Id;"
 
-# Ch2 Request 5: OPEN (B+, 3 units, critical)
+# Ch2 Request 5: OPEN (B+, 3 units, emergency)
 $rReq5 = Invoke-Json $mem2Auth.s 'Post' '/api/requests' @{
     required_blood_type = 'B+'
     quantity_units = 3
     facility_name = 'Mariveles Emergency Hospital'
-    urgency = 'critical'
+    urgency = 'emergency'
     needed_datetime = $future
     location_id = $marivelesLocId
 } $mem2Auth.csrf
@@ -292,12 +292,12 @@ if ($r.status -eq 200 -and $r.body.data.chapters.Count -eq 1 -and $r.body.data.c
 }
 
 # T18: Demand map urgency filter works
-$r = Invoke-Json $admAuth.s 'Get' '/api/demand-map?urgency=critical' $null $null
-$ch2Critical = $r.body.data.chapters | Where-Object { $_.chapter_id -eq 2 }
-if ($ch2Critical.open_requests_count -ge 1 -and $ch2Critical.urgency_counts.critical -ge 1) {
-    Ok 'T18 demand map urgency=critical filter works'
+$r = Invoke-Json $admAuth.s 'Get' '/api/demand-map?urgency=emergency' $null $null
+$ch2Emergency = $r.body.data.chapters | Where-Object { $_.chapter_id -eq 2 }
+if ($ch2Emergency.open_requests_count -ge 1 -and $ch2Emergency.urgency_counts.emergency -ge 1) {
+    Ok 'T18 demand map urgency=emergency filter works'
 } else {
-    Bad 'T18 demand map urgency filter' "ch2 open=$($ch2Critical.open_requests_count)"
+    Bad 'T18 demand map urgency filter' "ch2 open=$($ch2Emergency.open_requests_count)"
 }
 
 # -------------------------------------------
@@ -366,6 +366,13 @@ if ($r.status -eq 200 -and $r.body.data.request_volume.total_requests -gt $reqVo
 # -------------------------------------------
 # SECTION E -- FR-20 Officer & Admin Dashboards
 # -------------------------------------------
+$urgencyDemand = $r.body.data.demand_by_urgency
+if ($r.status -eq 200 -and $urgencyDemand.emergency.requests -ge 1 -and $null -eq $urgencyDemand.PSObject.Properties['critical']) {
+    Ok 'U0 analytics reports emergency demand without retired critical key'
+} else {
+    Bad 'U0 canonical urgency analytics' 'expected emergency demand and no retired key'
+}
+
 Write-Host "`n--- E: FR-20 Officer & Admin Dashboards ---"
 
 # T27: Officer 1 dashboard contains required sections

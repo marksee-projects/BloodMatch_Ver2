@@ -99,7 +99,7 @@ $past = (Get-Date).ToUniversalTime().AddMinutes(-5).ToString('yyyy-MM-dd HH:mm:s
 $balangaId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030803000' LIMIT 1;")
 $oraniId = [int](DbQuery "SELECT id FROM bataan_locations WHERE psgc_code='030809000' LIMIT 1;")
 $requester = New-User 'requester' 'member' 'verified' 'A+' $false $null
-$stateRequest = New-Request $requester.id 'O+' "State Hub $suffix" 'critical' $future 'OPEN' $balangaId
+$stateRequest = New-Request $requester.id 'O+' "State Hub $suffix" 'emergency' $future 'OPEN' $balangaId
 
 $unverifiedUser = New-User 'unverified' 'member' 'verified' 'O+' $true 'available'
 $unverified = Login $unverifiedUser
@@ -130,11 +130,11 @@ Assert-State 'H08 standby donor includes eligible-again UTC' (Login (New-User 's
 Assert-State 'H09 cooldown donor includes eligible-again UTC' (Login (New-User 'cooldown' 'member' 'verified' 'O+' $true 'available' $true 'DATE_SUB(UTC_TIMESTAMP(), INTERVAL 10 DAY)')) $stateRequest $false 'cooldown' $true
 Assert-State 'H10 email-unverified donor is read-only' (Login (New-User 'email-unverified' 'member' 'verified' 'O+' $true 'available' $false)) $stateRequest $false 'email_unverified'
 
-$ownRequest = New-Request $eligibleUser.id 'O+' "Exclude Own $suffix" 'critical' $future 'OPEN' $balangaId
-$closedRequest = New-Request $requester.id 'O+' "Exclude Closed $suffix" 'critical' $future 'CANCELLED' $balangaId
-$expiredRequest = New-Request $requester.id 'O+' "Exclude Expired $suffix" 'critical' $past 'OPEN' $balangaId
-$incompatibleRequest = New-Request $requester.id 'A-' "Exclude Incompatible $suffix" 'critical' $future 'OPEN' $balangaId
-$includedRequest = New-Request $requester.id 'A+' "Exclude Included $suffix" 'critical' $future 'OPEN' $balangaId
+$ownRequest = New-Request $eligibleUser.id 'O+' "Exclude Own $suffix" 'emergency' $future 'OPEN' $balangaId
+$closedRequest = New-Request $requester.id 'O+' "Exclude Closed $suffix" 'emergency' $future 'CANCELLED' $balangaId
+$expiredRequest = New-Request $requester.id 'O+' "Exclude Expired $suffix" 'emergency' $past 'OPEN' $balangaId
+$incompatibleRequest = New-Request $requester.id 'A-' "Exclude Incompatible $suffix" 'emergency' $future 'OPEN' $balangaId
+$includedRequest = New-Request $requester.id 'A+' "Exclude Included $suffix" 'emergency' $future 'OPEN' $balangaId
 $r = Feed $eligible ("?q=" + (Url "Exclude"))
 $ids = @($r.body.data.requests | ForEach-Object { [int]$_.id })
 if ($ids -contains $includedRequest -and $ids -notcontains $ownRequest -and $ids -notcontains $closedRequest -and $ids -notcontains $expiredRequest -and $ids -notcontains $incompatibleRequest) { Ok 'H11 own, closed, expired, and incompatible requests are excluded' } else { Bad 'H11 base safety scope' ($ids -join ',') }
@@ -155,10 +155,10 @@ $pagingOk = @($page1.body.data.requests).Count -eq 20 -and @($page2.body.data.re
 if ($pagingOk) { Ok 'H12 paging is fixed at 20 with stable matching and unfiltered totals' } else { Bad 'H12 paging metadata' "p1=$(@($page1.body.data.requests).Count) p2=$(@($page2.body.data.requests).Count) matching=$($page1.body.data.total_matching)" }
 
 $filterPrefix = "FilterSet $suffix"
-$alpha = New-Request $requester.id 'O+' "$filterPrefix Alpha" 'critical' $future 'OPEN' $balangaId
+$alpha = New-Request $requester.id 'O+' "$filterPrefix Alpha" 'emergency' $future 'OPEN' $balangaId
 $beta = New-Request $requester.id 'A+' "$filterPrefix Beta" 'urgent' $future 'OPEN' $oraniId
 $gamma = New-Request $requester.id 'B+' "$filterPrefix Gamma" 'routine' $future 'OPEN' $null
-$delta = New-Request $requester.id 'AB+' "$filterPrefix Delta" 'critical' $future 'OPEN' $oraniId
+$delta = New-Request $requester.id 'AB+' "$filterPrefix Delta" 'emergency' $future 'OPEN' $oraniId
 $r = Feed $eligible ("?q=" + (Url ("filterset $suffix alpha")))
 if ([int]$r.body.data.total_matching -eq 1 -and (Card $r $alpha).Count -eq 1) { Ok 'H13 q is case-insensitive and facility-only capable' } else { Bad 'H13 q filter' "total=$($r.body.data.total_matching)" }
 $r = Feed $eligible '?municipality_code=030803000'
@@ -167,13 +167,13 @@ $municipalityOk = $municipalityRows.Count -gt 0 -and @($municipalityRows | Where
 if ($municipalityOk) { Ok 'H14 municipality filter excludes unlocated and other-municipality requests' } else { Bad 'H14 municipality filter' "rows=$($municipalityRows.Count)" }
 $r = Feed $eligible '?blood=O%2B,A%2B'
 if (@($r.body.data.requests).Count -gt 0 -and @($r.body.data.requests | Where-Object { $_.required_blood_type -notin @('O+','A+') }).Count -eq 0) { Ok 'H15 blood filter only narrows compatible results' } else { Bad 'H15 blood filter' 'unexpected blood type returned' }
-$r = Feed $eligible '?urgency=urgent,critical'
-if (@($r.body.data.requests).Count -gt 0 -and @($r.body.data.requests | Where-Object { $_.urgency -notin @('urgent','critical') }).Count -eq 0) { Ok 'H16 urgency filter narrows results' } else { Bad 'H16 urgency filter' 'unexpected urgency returned' }
-$r = Feed $eligible ("?q=" + (Url $filterPrefix) + '&municipality_code=030803000&blood=O%2B&urgency=critical')
+$r = Feed $eligible '?urgency=urgent,emergency'
+if (@($r.body.data.requests).Count -gt 0 -and @($r.body.data.requests | Where-Object { $_.urgency -notin @('urgent','emergency') }).Count -eq 0) { Ok 'H16 urgency filter narrows results' } else { Bad 'H16 urgency filter' 'unexpected urgency returned' }
+$r = Feed $eligible ("?q=" + (Url $filterPrefix) + '&municipality_code=030803000&blood=O%2B&urgency=emergency')
 if ([int]$r.body.data.total_matching -eq 1 -and (Card $r $alpha).Count -eq 1) { Ok 'H17 combined filters intersect without widening' } else { Bad 'H17 combined filters' "total=$($r.body.data.total_matching)" }
 $r = Feed $eligible ("?q=" + (Url $filterPrefix))
 $orderedIds = @($r.body.data.requests | ForEach-Object { [int]$_.id })
-if (($orderedIds -join ',') -eq (@($delta,$alpha,$beta,$gamma) -join ',')) { Ok 'H18 ordering is critical, urgent, routine, then newest' } else { Bad 'H18 feed order' ($orderedIds -join ',') }
+if (($orderedIds -join ',') -eq (@($delta,$alpha,$beta,$gamma) -join ',')) { Ok 'H18 ordering is emergency, urgent, routine, then newest' } else { Bad 'H18 feed order' ($orderedIds -join ',') }
 
 $percentId = New-Request $requester.id 'O+' "Literal % $suffix" 'routine' $future 'OPEN' $balangaId
 $underscoreId = New-Request $requester.id 'O+' "Literal _ $suffix" 'routine' $future 'OPEN' $balangaId
@@ -194,7 +194,7 @@ $invalids = @(
     @{ name = 'H23 over-length q rejected'; uri = "?q=$(Url $tooLong)" },
     @{ name = 'H24 invalid municipality rejected'; uri = '?municipality_code=999999999' },
     @{ name = 'H25 invalid blood type rejected'; uri = '?blood=X' },
-    @{ name = 'H26 invalid urgency rejected'; uri = '?urgency=emergency' }
+    @{ name = 'H26 retired critical urgency rejected'; uri = '?urgency=critical' }
 )
 foreach ($case in $invalids) {
     $r = Feed $eligible $case.uri

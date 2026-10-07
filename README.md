@@ -35,7 +35,7 @@ docs/               api.md, erd.md (+erd.svg), traceability.md, use-case-diagram
 - Centralized matching: `BloodCompatibilityService` (8-type red-cell matrix) + `MatchService` + `Geo::distanceKm` (Haversine); priority Compatibility → Availability → Verification → Proximity; proximity never overrides compatibility; privacy-safe results (`approximate_distance_km` only)
 - Donor-location refresh: `MatchService::refreshMatchesForDonor()` on profile location change recalculates affected OPEN matches without generation bump, no duplicate notifications, COMPLETED/CLOSED history preserved
 - Donation report → officer confirmation transaction, 42-hour standby + ~90-day cooldown, parallel donor engagement
-- Notifications: in-app center + navbar flyout (current primary UI; dedicated `/notifications` page retained as View-all), `GET /api/notifications/unread-count`, dedup `(dedup_key, generation)`; email via PHPMailer (best-effort, rate-limited, critical bypass)
+- Notifications: in-app center + navbar flyout (current primary UI; dedicated `/notifications` page retained as View-all), `GET /api/notifications/unread-count`, dedup `(dedup_key, generation)`; email via PHPMailer (best-effort, rate-limited, emergency bypass)
 - Audit logging (append-only triggers), demand map (chapter centroids only), analytics, officer/admin dashboards
 - Bataan location reference: `bataan_locations` (12 municipalities + 237 barangays, PSGC 030800000), `GET /api/locations/municipalities`, `GET /api/locations/barangays?municipality_code=`
 - Compatibility matrix endpoint `GET /api/compatibility-matrix` (officer/admin), officer re-match `POST /api/officer/requests/{id}/re-match`, CSRF `GET /api/csrf`

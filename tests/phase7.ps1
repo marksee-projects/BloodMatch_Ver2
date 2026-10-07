@@ -173,7 +173,7 @@ $dbE = DbQuery "SELECT CONCAT(IF(donor_enrolled_at IS NULL,'N','Y'),'|',donor_av
 if ($r.status -eq 200 -and $dbE -eq 'Y|available') { Ok 'T8b verified member enrolls via API' } else { Bad 'T8b' "db=$dbE" }
 
 # --- T9 material change bumps generation; manual rematch does not ---
-$r = Invoke-Json $reqSess.s 'Put' "/api/requests/$reqRowId" @{ urgency = 'critical' } $reqSess.csrf
+$r = Invoke-Json $reqSess.s 'Put' "/api/requests/$reqRowId" @{ urgency = 'emergency' } $reqSess.csrf
 $r2 = Invoke-Json $reqSess.s 'Get' "/api/requests/$reqRowId/matches" $null $reqSess.csrf
 $genAfterMaterial = ($r2.body.data.matches | Select-Object -First 1).generation
 if ($genAfterMaterial -ge 2) { Ok "T9 material change bumped generation -> $genAfterMaterial" } else { Bad 'T9' "gen=$genAfterMaterial" }

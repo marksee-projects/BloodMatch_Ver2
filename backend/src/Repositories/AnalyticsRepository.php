@@ -11,7 +11,7 @@ use PDO;
 final class AnalyticsRepository
 {
     private const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-    private const URGENCIES = ['routine', 'urgent', 'critical'];
+    private const URGENCIES = ['routine', 'urgent', 'emergency'];
 
     /**
      * Regional Blood Demand Map: chapter-level aggregated active demand.
@@ -81,7 +81,7 @@ final class AnalyticsRepository
             $urgCounts = [
                 'routine' => 0,
                 'urgent' => 0,
-                'critical' => 0,
+                'emergency' => 0,
             ];
 
             $chapterAggregates[$chId] = [
@@ -163,7 +163,7 @@ final class AnalyticsRepository
         $reqStmt = $pdo->prepare(
             'SELECT COUNT(id) AS open_count,
                     COALESCE(SUM(quantity_units), 0) AS units_needed,
-                    COALESCE(SUM(CASE WHEN urgency IN (\'urgent\', \'critical\') THEN 1 ELSE 0 END), 0) AS urgent_count
+                    COALESCE(SUM(CASE WHEN urgency IN (\'urgent\', \'emergency\') THEN 1 ELSE 0 END), 0) AS urgent_count
              FROM blood_requests
              WHERE request_chapter_id = ? AND status = \'OPEN\''
         );
@@ -481,7 +481,7 @@ final class AnalyticsRepository
         $demandByUrgency = [
             'routine' => ['requests' => 0, 'units' => 0],
             'urgent' => ['requests' => 0, 'units' => 0],
-            'critical' => ['requests' => 0, 'units' => 0],
+            'emergency' => ['requests' => 0, 'units' => 0],
         ];
         foreach ($urgRows as $r) {
             $urg = (string) $r['urgency'];

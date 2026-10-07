@@ -111,7 +111,7 @@ export default function MatchesPage() {
   }
   if (!pageData || !request) return <div className={styles.container}><LoadingSpinner text="Loading request…" minHeight="24rem" /></div>
 
-  const urgencyVariant = request.urgency === 'critical' ? 'critical' : request.urgency === 'urgent' ? 'urgent' : 'neutral'
+  const urgencyVariant = request.urgency === 'emergency' ? 'emergency' : request.urgency === 'urgent' ? 'urgent' : 'neutral'
 
   return (
     <div className={styles.container}>

@@ -170,7 +170,7 @@ final class BloodRequestRepository
              $joins . '
              LEFT JOIN matches m ON m.request_id = br.id AND m.donor_id = ?
              WHERE ' . implode(' AND ', $where) . "
-             ORDER BY FIELD(br.urgency, 'critical', 'urgent', 'routine'), br.created_at DESC, br.id DESC
+             ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'routine'), br.created_at DESC, br.id DESC
              LIMIT {$pageSize} OFFSET {$offset}"
         );
         $stmt->execute(array_merge([$viewerId], $params));
@@ -267,7 +267,7 @@ final class BloodRequestRepository
                AND requester.role = 'member'
                AND requester.account_status = 'active'
                AND m.status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED', 'COMPLETED')
-             ORDER BY FIELD(br.urgency, 'critical', 'urgent', 'routine'), br.created_at DESC
+             ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'routine'), br.created_at DESC
              LIMIT {$safeLimit}"
         );
         $stmt->execute([$donorId, $donorId]);

@@ -52,7 +52,7 @@ Follow the decisions documented in `DESIGN.md`.
 Pay particular attention to:
 * Inter typography
 * Navy as the primary brand/action color
-* Red restricted to critical/emergency/error states
+* Red restricted to emergency/error states
 * Restrained neutral surfaces
 * Consistent 8px spacing rhythm
 * Established card and control radii

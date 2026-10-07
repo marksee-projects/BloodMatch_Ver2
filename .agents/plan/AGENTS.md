@@ -40,7 +40,7 @@ Before editing any existing file:
 - Do not create a competing token system.
 - Reuse existing shared components (`src/components/ui/`) before creating new components.
 - Do not create one-off visual patterns when an existing component or pattern can be reused.
-- **Red (`#C8102E`)** is reserved strictly for critical, emergency, destructive, and error states.
+- **Red (`#C8102E`)** is reserved strictly for emergency, destructive, and error states.
 - **Navy (`#020066`)** is the primary BloodMatch brand and action color.
 - Do not use emoji as UI icons. Use the project's existing icon library (prefer `lucide-react`, stroke width 1.75).
 - Preserve light and dark mode using the established token system.

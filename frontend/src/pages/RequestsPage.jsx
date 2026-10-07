@@ -132,7 +132,7 @@ export default function RequestsPage() {
                     <p><CalendarBlank size={17} aria-hidden="true" /> Needed {formatDate(request.needed_datetime)}</p>
                   </div>
                   <div className={styles.badges}>
-                    <Badge variant={request.urgency === 'critical' ? 'critical' : request.urgency === 'urgent' ? 'urgent' : 'neutral'}>{request.urgency}</Badge>
+                    <Badge variant={request.urgency === 'emergency' ? 'emergency' : request.urgency === 'urgent' ? 'urgent' : 'neutral'}>{request.urgency}</Badge>
                     <Badge variant={request.status === 'FULFILLED' ? 'success' : request.status === 'OPEN' ? 'brand' : 'neutral'}>{request.status}</Badge>
                   </div>
                 </div>
