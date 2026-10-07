@@ -1,9 +1,12 @@
 import React, { useId, useState } from 'react'
-import { CalendarBlank, CaretDown, CheckCircle, Drop, MapPin, User } from '@phosphor-icons/react'
+import { Link } from 'react-router-dom'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { CaretDown, CheckCircle, User } from '@phosphor-icons/react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
 import { BloodTypeBlock } from './ui/BloodTypeBlock'
+import { api } from '../services/apiClient'
 import styles from './FeedCard.module.css'
 
 function formatNeededDate(value) {
@@ -13,10 +16,31 @@ function formatNeededDate(value) {
   })
 }
 
+function formatPostedTime(value) {
+  if (!value) return 'Posted time not provided'
+  const timestamp = new Date(value.replace(' ', 'T') + 'Z').getTime()
+  if (!Number.isFinite(timestamp)) return 'Posted time not provided'
+  const seconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000))
+  if (seconds < 60) return 'Posted just now'
+  const [count, unit] = seconds < 3600 ? [Math.floor(seconds / 60), 'minute']
+    : seconds < 86400 ? [Math.floor(seconds / 3600), 'hour'] : [Math.floor(seconds / 86400), 'day']
+  return `Posted ${count} ${unit}${count === 1 ? '' : 's'} ago`
+}
+
 export function FeedCard({ request, hideActions = false }) {
   const [expanded, setExpanded] = useState(false)
   const detailsId = useId()
-  const urgencyVariant = request.urgency === 'emergency'
+  const reasonId = useId()
+  const queryClient = useQueryClient()
+  const response = useMutation({
+    mutationFn: () => api.post(`/api/requests/${request.id}/respond`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['home-feed'] }),
+    onError: () => queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+  })
+  const responded = request.responded || response.isSuccess
+  const canRespond = request.can_respond === true && !responded
+  const responseReason = responded ? 'Your response has been sent to the requester.' : request.reason_text
+  const urgencyVariant = ['emergency', 'critical'].includes(request.urgency)
     ? 'emergency'
     : request.urgency === 'urgent' ? 'urgent' : 'neutral'
 
@@ -45,12 +69,12 @@ export function FeedCard({ request, hideActions = false }) {
                 <CheckCircle size={17} weight="fill" aria-label="Verified member" />
               )}
             </span>
-            <span className={styles.chapter}>{request.requester_chapter_name || 'Chapter not assigned'}</span>
-            <span className={styles.compactFacility}>{request.facility_name}</span>
+            <span className={styles.chapter}>{request.requester_chapter_name ? `${request.requester_chapter_name} member` : 'Chapter not assigned'}</span>
+            <span className={styles.postedTime}>{formatPostedTime(request.created_at)}</span>
           </span>
 
           <span className={styles.summaryMeta}>
-            <Badge variant={urgencyVariant}>{request.urgency}</Badge>
+            <Badge variant={urgencyVariant}>{request.urgency === 'critical' ? 'EMERGENCY' : request.urgency.toUpperCase()}</Badge>
             <BloodTypeBlock bloodType={request.required_blood_type} level="normal" />
             <CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" />
           </span>
@@ -58,41 +82,40 @@ export function FeedCard({ request, hideActions = false }) {
 
         {expanded && (
           <div id={detailsId} className={styles.expandedContent}>
-            <div className={styles.requestLine}>
-              <div>
-                <p className={styles.facility}>{request.facility_name}</p>
-                <p className={styles.location}>{request.location?.municipality_name || 'Bataan'}</p>
-              </div>
-            </div>
-
-            {request.description && <p className={styles.description}>{request.description}</p>}
-
             <dl className={styles.metadata}>
               <div>
-                <dt><Drop size={17} weight="fill" aria-hidden="true" /> Blood needed</dt>
+                <dt>Hospital</dt>
+                <dd>{request.facility_name || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt>Municipality</dt>
+                <dd>{request.location?.municipality_name || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt>Blood needed</dt>
                 <dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd>
               </div>
               <div>
-                <dt><CalendarBlank size={17} aria-hidden="true" /> Needed by</dt>
+                <dt>Needed by</dt>
                 <dd>{formatNeededDate(request.needed_datetime)}</dd>
-              </div>
-              <div>
-                <dt><MapPin size={17} aria-hidden="true" /> Municipality</dt>
-                <dd>{request.location?.municipality_name || 'Not provided'}</dd>
               </div>
             </dl>
 
+            {request.description && <p className={styles.description}>{request.description}</p>}
+
             {!hideActions && (
-              <footer className={styles.actions}>
-                <Button variant="primary" size="sm" to={`/requests/${request.id}/matches`}>
-                  View request
-                </Button>
-                {request.can_view_requester_profile && request.requester_id && (
-                  <Button className={styles.profileAction} variant="secondary" size="sm" to={`/profile/${request.requester_id}`}>
-                    View profile
+              <div>
+                <footer className={styles.actions}>
+                  <Button type="button" variant="primary" disabled={!canRespond || response.isPending}
+                    isLoading={response.isPending} aria-describedby={responseReason ? reasonId : undefined}
+                    onClick={() => response.mutate()}>
+                    {responded ? 'Responded' : 'Respond'}
                   </Button>
-                )}
-              </footer>
+                  <Link className={styles.viewRequest} to={`/requests/${request.id}/matches`}>View request</Link>
+                </footer>
+                {responseReason && <p id={reasonId} className={styles.responseReason} role="status">{responseReason}</p>}
+                {response.isError && <p className={styles.responseReason} role="alert">{response.error.message}</p>}
+              </div>
             )}
           </div>
         )}

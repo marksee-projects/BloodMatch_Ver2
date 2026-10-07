@@ -147,10 +147,10 @@ DbQuery "INSERT INTO matches (request_id, donor_id, status) VALUES ($bloodReqId,
 $matchId = [int](DbQuery "SELECT id FROM matches WHERE request_id=$bloodReqId AND donor_id=$uid1 LIMIT 1;")
 
 $rRespond = Post $s "/api/matches/$matchId/respond" @{} $csrf
-if ($rRespond.status -eq 403 -and $rRespond.body.error.details.code -eq 'EMAIL_UNVERIFIED') {
-    Ok 'T04 unverified donor blocked from responding to match with code EMAIL_UNVERIFIED'
+if ($rRespond.status -eq 403 -and $rRespond.body.error.code -eq 'email_unverified') {
+    Ok 'T04 unverified donor blocked from responding to match with code email_unverified'
 } else {
-    Bad 'T04 respond match blocked' "status=$($rRespond.status), code=$($rRespond.body.error.details.code)"
+    Bad 'T04 respond match blocked' "status=$($rRespond.status), code=$($rRespond.body.error.code), message=$($rRespond.body.error.message)"
 }
 
 # --- T05: Verification with wrong code returns 400 with constant message ---

@@ -16,7 +16,7 @@ const URGENCIES = ['routine', 'urgent', 'emergency']
 const titleCase = (value) => value.charAt(0).toUpperCase() + value.slice(1)
 const readList = (params, key) => [...new Set(params.getAll(key).flatMap((value) => value.split(',')).filter(Boolean))]
 
-function MultiFilter({ label, options, selected, onChange, format = (value) => value }) {
+function MultiFilter({ label, allLabel, options, selected, onChange, format = (value) => value }) {
   const rootRef = React.useRef(null)
   React.useEffect(() => {
     const onPointerDown = (event) => {
@@ -33,9 +33,13 @@ function MultiFilter({ label, options, selected, onChange, format = (value) => v
         rootRef.current.querySelector('summary').focus()
       }
     }}>
-      <summary>{label}{selected.length > 0 && ` (${selected.length})`}<CaretDown size={16} aria-hidden="true" /></summary>
+      <summary>{selected.length ? selected.map(format).join(', ') : allLabel}<CaretDown size={16} aria-hidden="true" /></summary>
       <fieldset className={styles.filterOptions}>
         <legend className={styles.visuallyHidden}>{label}</legend>
+        <label className={styles.filterOption}>
+          <input type="checkbox" checked={selected.length === 0} onChange={() => onChange([])} />
+          {allLabel}
+        </label>
         {options.map((value) => (
           <label key={value} className={styles.filterOption}>
             <input type="checkbox" checked={selected.includes(value)} onChange={() => onChange(
@@ -109,7 +113,7 @@ export default function HomeFeedPage() {
   const municipalityLabel = municipalities.find((item) => item.psgc_code === municipalityCode)?.name || municipalityCode
   const activeChips = [
     ...(municipalityCode ? [{ key: 'municipality_code', value: municipalityCode, label: municipalityLabel }] : []),
-    ...blood.map((value) => ({ key: 'blood', value, label: `Needs ${value}` })),
+    ...blood.map((value) => ({ key: 'blood', value, label: value })),
     ...urgency.map((value) => ({ key: 'urgency', value, label: titleCase(value) }))
   ]
   const removeChip = (chip) => {
@@ -199,8 +203,9 @@ export default function HomeFeedPage() {
                   {municipalities.map((item) => <option key={item.psgc_code} value={item.psgc_code}>{item.name}</option>)}
                 </select>
               </label>
-              <MultiFilter label="Blood type" options={BLOOD_TYPES} selected={blood} onChange={(values) => updateFilter('blood', values)} />
-              <MultiFilter label="Urgency" options={URGENCIES} selected={urgency} format={titleCase} onChange={(values) => updateFilter('urgency', values)} />
+              <MultiFilter label="Blood type" allLabel="All blood types" options={BLOOD_TYPES} selected={blood} onChange={(values) => updateFilter('blood', values)} />
+              <MultiFilter label="Urgency" allLabel="All urgencies" options={URGENCIES} selected={urgency} format={titleCase} onChange={(values) => updateFilter('urgency', values)} />
+              {!hasFilters && <button type="button" className={styles.clearFilters} onClick={clearFilters}>Reset filters</button>}
             </div>
             {locationError && <div className={styles.locationError} role="alert">
               <span>Municipalities could not be loaded.</span>
@@ -211,7 +216,7 @@ export default function HomeFeedPage() {
                 onClick={() => removeChip(chip)} aria-label={`Remove ${chip.label} filter`}>
                 {chip.label}<X size={16} aria-hidden="true" />
               </button>)}
-              <button type="button" className={styles.clearFilters} onClick={clearFilters}>Clear all filters</button>
+              <button type="button" className={styles.clearFilters} onClick={clearFilters}>Reset filters</button>
             </div>}
           </Card>
           <div className={styles.contextLine} aria-live="polite">
@@ -233,7 +238,7 @@ export default function HomeFeedPage() {
               <h2 className={styles.feedStateTitle}>Requests couldn&apos;t be loaded</h2>
               <p className={styles.feedStateText}>{feedError.message}</p>
               <Button variant="secondary" onClick={() => refetchFeed()}>Retry</Button>
-              {hasFilters && <Button variant="secondary" onClick={clearFilters}>Clear all filters</Button>}
+              {hasFilters && <Button variant="secondary" onClick={clearFilters}>Reset filters</Button>}
             </Card>
           )}
 
@@ -249,7 +254,7 @@ export default function HomeFeedPage() {
                   ? 'Remove a filter or clear them all to see more compatible requests.'
                   : 'There are no current open requests compatible with your blood type. Check again later.')}
               </p>
-              {hasFilters && <Button variant="secondary" onClick={clearFilters}>Clear all filters</Button>}
+              {hasFilters && <Button variant="secondary" onClick={clearFilters}>Reset filters</Button>}
               {['blood_type_missing', 'staff_no_blood_type'].includes(feedData?.reason_code) && <Button to="/profile">Update profile</Button>}
             </Card>
           )}

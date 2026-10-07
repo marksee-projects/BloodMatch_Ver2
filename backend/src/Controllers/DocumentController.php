@@ -25,6 +25,11 @@ final class DocumentController
     {
         $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.upload');
 
+        if ((string) $actor['verification_status'] === 'verified' && ($_POST['doc_type'] ?? null) === 'national_id') {
+            Response::error('National ID uploads are locked after verification.', 403);
+            return;
+        }
+
         $throttleKey = 'mutation:doc_upload:' . (int) $actor['id'];
         if (!(new \BloodMatch\Repositories\AuthThrottleRepository())->hitAndCheckRateLimit($throttleKey, 10, 5, AuthService::nowUtc())) {
             Response::error('Too many document uploads. Please wait a few minutes before trying again.', 429);

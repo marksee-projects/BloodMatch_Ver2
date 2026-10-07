@@ -184,17 +184,20 @@
 /* Structured Home filters use the URL and the existing 20-row feed contract. */
 .filters { width: 100%; max-width: 720px; overflow: visible; }
 .filterHeading { margin: 0 0 var(--space-4); font-size: var(--text-h2); color: var(--color-text); }
-.filterRow { display: flex; align-items: start; flex-wrap: wrap; gap: var(--space-3); }
-.municipalityFilter { flex: 1; min-width: 0; }
+.filterRow { display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.municipalityFilter { flex-basis: 100%; min-width: 0; }
 .municipalityFilter select,
 .multiFilter summary {
   width: 100%; min-height: 44px; margin: 0; padding: var(--space-3) var(--space-4);
   border: 1px solid var(--color-border-strong); border-radius: var(--radius-control);
   background: var(--color-surface); color: var(--color-text); font: inherit; font-size: var(--text-sm);
 }
-.multiFilter { position: relative; min-width: 0; }
+.multiFilter { position: relative; flex: 1; min-width: 0; }
 .multiFilter summary { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); cursor: pointer; list-style: none; }
 .multiFilter summary::-webkit-details-marker { display: none; }
+.multiFilter summary:focus-visible, .municipalityFilter select:focus-visible,
+.filterChip:focus-visible, .clearFilters:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.multiFilter summary svg { flex: none; }
 .filterOptions {
   position: absolute; right: 0; top: calc(100% + var(--space-2)); z-index: 5;
   width: max-content; min-width: 100%; max-width: calc(100vw - var(--space-6));

@@ -1,11 +1,13 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Camera, CheckCircle, Drop, FileText, List, UploadSimple, User } from '@phosphor-icons/react'
+import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import LocationSelector from '../components/LocationSelector'
+import RequestFormModal from '../components/RequestFormModal'
+import { BloodTypeBlock } from '../components/ui/BloodTypeBlock'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -25,6 +27,20 @@ function titleCase(value) {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase()
 }
 
+function formatMemberSince(value) {
+  if (!value) return 'Not provided'
+  return new Date(`${value.slice(0, 10)}T00:00:00Z`).toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+
+function formatPostedTime(value) {
+  if (!value) return 'Posted time not provided'
+  const seconds = Math.max(0, Math.floor((Date.now() - new Date(value.replace(' ', 'T') + 'Z').getTime()) / 1000))
+  if (!Number.isFinite(seconds)) return 'Posted time not provided'
+  if (seconds < 60) return 'Posted just now'
+  const [count, unit] = seconds < 3600 ? [Math.floor(seconds / 60), 'minute'] : seconds < 86400 ? [Math.floor(seconds / 3600), 'hour'] : [Math.floor(seconds / 86400), 'day']
+  return `Posted ${count} ${unit}${count === 1 ? '' : 's'} ago`
+}
+
 export default function ProfilePage() {
   const { id: profileId } = useParams()
   const isOtherProfile = Boolean(profileId)
@@ -41,18 +57,23 @@ export default function ProfilePage() {
   const [file, setFile] = useState(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
   const [documentUploading, setDocumentUploading] = useState(false)
+  const [failedDocumentPreviewId, setFailedDocumentPreviewId] = useState(null)
   const [idPrivacyModalOpen, setIdPrivacyModalOpen] = useState(false)
   const [pictureInputKey, setPictureInputKey] = useState(0)
   const [pictureUploading, setPictureUploading] = useState(false)
   const [pictureFailed, setPictureFailed] = useState(false)
+  const pictureInputRef = useRef(null)
   const [activeSection, setActiveSection] = useState('overview')
-  const [sideNavOpen, setSideNavOpen] = useState(true)
+  const [editingRequestId, setEditingRequestId] = useState(null)
+  const [isCreating, setIsCreating] = useState(false)
+  const [cancelTarget, setCancelTarget] = useState(null)
+  const [cancelling, setCancelling] = useState(false)
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
     queryKey: isOtherProfile ? ['member-profile', profileId] : ['profile'],
     queryFn: async () => {
       const response = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile')
-      if (isOtherProfile || response.profile.role !== 'member') {
+      if (isOtherProfile) {
         return { profile: response.profile, reports: [], requests: [] }
       }
       const [donations, requests] = await Promise.all([
@@ -71,27 +92,21 @@ export default function ProfilePage() {
   const profile = data?.profile
   const reports = data?.reports || []
   const requestHistory = data?.requests || []
-
-  useEffect(() => {
-    if (!isOtherProfile && profile && !form) {
-      setForm({
-        full_name: profile.full_name,
-        phone: profile.phone || '',
-        date_of_birth: profile.date_of_birth || '',
-        blood_type: profile.blood_type || ''
-      })
-      setLocation({
-        location_id: profile.location?.location_id ?? null,
-        municipality_code: profile.location?.municipality_code ?? null,
-        barangay_code: profile.location?.barangay_code ?? null
-      })
-    }
-  }, [form, isOtherProfile, profile])
+  const activeRequests = requestHistory.filter((request) => request.status === 'OPEN')
+  const pastRequests = requestHistory.filter((request) => request.status !== 'OPEN')
 
   useEffect(() => setPictureFailed(false), [profile?.profile_picture_url])
 
   const showError = (error) => setErrorAlert(error?.message || 'The change could not be saved.')
   const clearNotices = () => { setMessage(null); setErrorAlert(null) }
+  const openCreateRequest = () => { clearNotices(); setEditingRequestId(null); setIsCreating(true) }
+  const closeRequestForm = useCallback(() => { setIsCreating(false); setEditingRequestId(null) }, [])
+  const handleRequestSaved = async () => {
+    const wasEditing = Boolean(editingRequestId)
+    closeRequestForm()
+    await refetch()
+    setMessage(wasEditing ? 'Request details updated.' : 'Blood request created and matching started.')
+  }
 
   const setAvailability = async () => {
     const next = profile.availability === 'available' ? 'unavailable' : 'available'
@@ -151,7 +166,9 @@ export default function ProfilePage() {
     setSubmitting(true)
     try {
       await api.put('/api/profile', {
-        full_name: form.full_name,
+        first_name: form.first_name,
+        middle_name: form.middle_name || null,
+        last_name: form.last_name,
         phone: form.phone || null,
         date_of_birth: form.date_of_birth || null,
         blood_type: form.blood_type || null,
@@ -159,6 +176,7 @@ export default function ProfilePage() {
       })
       await Promise.all([refetch(), refresh()])
       setMessage('Profile details saved.')
+      setActiveSection('overview')
     } catch (error) {
       if (error.details && Object.keys(error.details).length) setErrors(error.details)
       else showError(error)
@@ -167,9 +185,33 @@ export default function ProfilePage() {
     }
   }
 
+  const openProfileEditor = () => {
+    setForm({ first_name: profile.first_name || '', middle_name: profile.middle_name || '', last_name: profile.last_name || '', phone: profile.phone || '', date_of_birth: profile.date_of_birth || '', blood_type: profile.blood_type || '' })
+    setLocation({ location_id: profile.location?.location_id ?? null, municipality_code: profile.location?.municipality_code ?? null, barangay_code: profile.location?.barangay_code ?? null })
+    setErrors({})
+    setActiveSection('edit')
+  }
+
+  const cancelRequest = async () => {
+    if (!cancelTarget || cancelling) return
+    clearNotices()
+    setCancelling(true)
+    try {
+      await api.post(`/api/requests/${cancelTarget.id}/cancel`)
+      setCancelTarget(null)
+      await refetch()
+      setMessage('Blood request cancelled.')
+    } catch (error) { showError(error) }
+    finally { setCancelling(false) }
+  }
+
   const onUpload = async (event) => {
     event.preventDefault()
     clearNotices()
+    if (profile.verification_status === 'verified') {
+      setErrorAlert('National ID uploads are locked after verification.')
+      return
+    }
     if (!file) {
       setErrorAlert('Select a National ID file to upload.')
       return
@@ -195,7 +237,7 @@ export default function ProfilePage() {
 
   if (isLoading && !profile) return <Card padding="lg" className={styles.loadingCard}><LoadingSpinner text="Loading profile…" /></Card>
 
-  if (isOtherProfile && profileError) {
+  if (profileError && !profile) {
     return (
       <div className={styles.container}>
         <Card padding="lg" className={styles.errorCard}>
@@ -222,16 +264,16 @@ export default function ProfilePage() {
             </div>
           </div>
         </header>
-        <main className={styles.publicDetails}>
-          <Card>
-            <div className={styles.cardHeader}><h2>Account details</h2></div>
-            <dl className={styles.detailsGrid}>
-              <div><dt>Email</dt><dd><a href={`mailto:${profile.email}`}>{profile.email}</a></dd></div>
+        <main className={styles.profileLayout}>
+          <Card className={styles.aboutCard}>
+            <div className={styles.cardHeader}><h2>About</h2></div>
+            <dl className={styles.aboutDetails}>
               <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
               <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
-              <div><dt>Role</dt><dd>{profile.role_label}</dd></div>
-              <div><dt>Member since</dt><dd>{formatDate(profile.member_since)}</dd></div>
+              <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
               <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
+              {profile.email && <div><dt>Email</dt><dd><a href={`mailto:${profile.email}`}>{profile.email}</a></dd></div>}
+              {profile.role_label && <div><dt>Role</dt><dd>{profile.role_label}</dd></div>}
             </dl>
           </Card>
         </main>
@@ -239,8 +281,9 @@ export default function ProfilePage() {
     )
   }
 
-  if (!form) return <Card padding="lg" className={styles.loadingCard}><LoadingSpinner text="Loading profile…" /></Card>
+  if (!profile) return <Card padding="lg" className={styles.loadingCard}><LoadingSpinner text="Loading profile…" /></Card>
 
+  const canCreateRequest = profile.capabilities?.create_request === true
   const nationalIdDocuments = (profile.documents || [])
     .filter((document) => document.doc_type === 'national_id')
     .sort((a, b) => b.id - a.id)
@@ -274,15 +317,15 @@ export default function ProfilePage() {
             ) : (
               <span className={styles.avatarLarge} role="img" aria-label="No profile picture"><User size={64} aria-hidden="true" /></span>
             )}
-            <label className={styles.avatarCameraOverlay} htmlFor="profile-picture" title="Update profile picture">
+            <button type="button" className={styles.avatarCameraOverlay} aria-label="Update profile picture" title="Update profile picture" disabled={pictureUploading} onClick={() => pictureInputRef.current?.click()}>
               {pictureUploading ? <span className="spinner" aria-hidden="true" /> : <Camera size={19} weight="fill" aria-hidden="true" />}
-            </label>
+            </button>
             {profile.role === 'member' && profile.donor_enrolled && profile.availability === 'available' && !availabilityBlocked && (
               <span className={styles.availabilityIndicator} title="Available to donate">
                 <span className={styles.visuallyHidden}>Available to donate</span>
               </span>
             )}
-            <input key={pictureInputKey} id="profile-picture" className={styles.visuallyHidden} type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => onPictureUpload(event.target.files?.[0])} />
+            <input ref={pictureInputRef} key={pictureInputKey} id="profile-picture" className={styles.visuallyHidden} type="file" disabled={pictureUploading} accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" onChange={(event) => onPictureUpload(event.target.files?.[0])} />
           </div>
 
           <div className={styles.headerIdentity}>
@@ -298,39 +341,46 @@ export default function ProfilePage() {
             {profile.role === 'member' && profile.verification_status !== 'verified' && <Button variant="secondary" disabled>Verification required</Button>}
             {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && <Button variant="secondary" onClick={enrollAsDonor} isLoading={enrolling}>Enroll as donor</Button>}
             {profile.role === 'member' && profile.donor_enrolled && <Button variant="secondary" disabled={availabilityBlocked} onClick={setAvailability} isLoading={availabilityUpdating}>{availabilityBlocked ? 'Availability locked' : availabilityLabel}</Button>}
-            <Button onClick={() => navigate('/requests/new')}>Create request</Button>
+            <Button disabled={!canCreateRequest} onClick={openCreateRequest}>Create request</Button>
+            <Button to="/requests/mine" variant="secondary">Manage requests</Button>
           </div>
         </div>
+        <nav className={styles.headerNav} aria-label="Profile sections">
+          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History']].map(([section, label]) => (
+            <button key={section} type="button" aria-current={activeSection === section || (section === 'overview' && activeSection === 'edit') ? 'page' : undefined}
+              onClick={() => { setActiveSection(section); setEditingRequestId(null); setCancelTarget(null) }}>{label}</button>
+          ))}
+        </nav>
       </header>
 
-      <main className={`${styles.profileLayout} ${sideNavOpen ? '' : styles.profileLayoutCollapsed}`}>
-        <aside className={`${styles.sideNav} ${sideNavOpen ? '' : styles.sideNavCollapsed}`} aria-label="Profile sections">
-          <div className={styles.sideNavHeader}>
-            {sideNavOpen && <span>Profile</span>}
-            <button type="button" className={styles.sideNavToggle} aria-label={sideNavOpen ? 'Collapse profile navigation' : 'Expand profile navigation'} aria-expanded={sideNavOpen} onClick={() => setSideNavOpen((current) => !current)}>
-              <List size={20} aria-hidden="true" />
-            </button>
-          </div>
-          {sideNavOpen && (
-            <nav className={styles.sideNavMenu}>
-              <button type="button" className={activeSection === 'overview' ? styles.sideNavActive : ''} aria-current={activeSection === 'overview' ? 'page' : undefined} onClick={() => setActiveSection('overview')}>Overview</button>
-              {profile.role === 'member' && <button type="button" className={activeSection === 'verification' ? styles.sideNavActive : ''} aria-current={activeSection === 'verification' ? 'page' : undefined} onClick={() => setActiveSection('verification')}>Verification</button>}
-              {profile.role === 'member' && <button type="button" className={activeSection === 'donations' ? styles.sideNavActive : ''} aria-current={activeSection === 'donations' ? 'page' : undefined} onClick={() => setActiveSection('donations')}>Donation history</button>}
-              {profile.role === 'member' && <button type="button" className={activeSection === 'requests' ? styles.sideNavActive : ''} aria-current={activeSection === 'requests' ? 'page' : undefined} onClick={() => setActiveSection('requests')}>Request history</button>}
-            </nav>
-          )}
+      <main className={styles.profileLayout}>
+        <aside className={styles.aboutColumn} aria-label="Member information">
+          <Card className={styles.aboutCard}>
+            <div className={styles.cardHeader}><h2>About</h2></div>
+            <dl className={styles.aboutDetails}>
+              <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
+              <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
+              <div><dt>Municipality</dt><dd>{profile.location?.municipality_name || 'Not provided'}</dd></div>
+              <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
+              <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
+              {profile.role === 'member' && <div><dt>Donor status</dt><dd>{availabilityStatus}</dd></div>}
+            </dl>
+            <Button variant="secondary" fullWidth onClick={openProfileEditor}>Edit profile</Button>
+          </Card>
         </aside>
 
         <div className={styles.profileContent}>
-          {activeSection === 'overview' && (
-            <div className={styles.overviewGrid}>
+          {activeSection === 'edit' && (
+            <div>
               <Card className={styles.personalCard}>
-                <div className={styles.cardHeader}><div><h2>Personal and location</h2><p>Keep your matching details accurate.</p></div></div>
+                <div className={styles.cardHeader}><div><h2>Edit profile</h2><p>Keep your matching details accurate.</p></div></div>
                 <form onSubmit={onSave} noValidate className={styles.formStack}>
-                  <Input label="Full name" id="full_name" value={form.full_name} onChange={setField('full_name')} required maxLength={150} error={errors.full_name?.join(' ')} />
+                  <Input label="First name" aria-label="First name" id="first_name" value={form.first_name} onChange={setField('first_name')} required maxLength={50} error={errors.first_name?.join(' ')} autoFocus />
+                  <Input label="Middle name" aria-label="Middle name" id="middle_name" value={form.middle_name} onChange={setField('middle_name')} maxLength={50} error={errors.middle_name?.join(' ')} />
+                  <Input label="Last name" aria-label="Last name" id="last_name" value={form.last_name} onChange={setField('last_name')} required maxLength={50} error={errors.last_name?.join(' ')} />
                   <div className={styles.twoColumns}>
-                    <Input label="Phone number" id="phone" type="tel" value={form.phone} onChange={setField('phone')} placeholder="0917-123-4567" error={errors.phone?.join(' ')} />
-                    <Input label="Date of birth" id="date_of_birth" type="date" value={form.date_of_birth} onChange={setField('date_of_birth')} error={errors.date_of_birth?.join(' ')} />
+                    <Input label="Phone number" aria-label="Phone number" id="phone" type="tel" value={form.phone} onChange={setField('phone')} placeholder="0917-123-4567" error={errors.phone?.join(' ')} />
+                    <Input label="Date of birth" aria-label="Date of birth" id="date_of_birth" type="date" value={form.date_of_birth} onChange={setField('date_of_birth')} error={errors.date_of_birth?.join(' ')} />
                   </div>
                   <div className={styles.fieldGroup}>
                     <label htmlFor="blood_type">Blood type</label>
@@ -344,88 +394,140 @@ export default function ProfilePage() {
                     <span>Location in Bataan</span>
                     <LocationSelector municipalityId="profile-municipality" municipalityCode={location.municipality_code} barangayCode={location.barangay_code} onChange={setLocation} errors={errors} />
                   </div>
-                  <Button type="submit" isLoading={submitting} className={styles.saveButton}>Save changes</Button>
+                  <div className={styles.postActions}>
+                    <Button type="submit" isLoading={submitting}>Save changes</Button>
+                    <Button type="button" variant="secondary" disabled={submitting} onClick={() => setActiveSection('overview')}>Cancel</Button>
+                  </div>
                 </form>
-              </Card>
-
-              <Card className={styles.accountCard}>
-                <div className={styles.cardHeader}><div><h2>Account overview</h2><p>Your membership and donor status.</p></div></div>
-                <dl className={styles.accountSummary}>
-                  <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
-                  <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
-                  <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
-                  <div><dt>Donor status</dt><dd>{availabilityStatus}</dd></div>
-                </dl>
               </Card>
             </div>
           )}
 
-          {profile.role === 'member' && activeSection === 'verification' && (
+          {activeSection === 'verification' && (
           <Card id="verification-section" className={styles.verificationCard}>
-            <div className={styles.cardHeader}>
-              <div><h2>Verification</h2><p>Your account status and submitted identification.</p></div>
+            {profile.verification_status !== 'verified' && <div className={styles.cardHeader}>
               <Badge variant={profile.verification_status === 'verified' ? 'success' : profile.verification_status === 'rejected' ? 'emergency' : 'neutral'}>{titleCase(profile.verification_status)}</Badge>
-            </div>
-            {nationalIdDocuments.length === 0 || profile.verification_status === 'rejected' ? (
+            </div>}
+            {profile.verification_status !== 'verified' && (nationalIdDocuments.length === 0 || profile.verification_status === 'rejected') ? (
               <form onSubmit={onUpload} className={styles.verificationUpload}>
                 <FileText size={30} weight="duotone" aria-hidden="true" />
                 <div><h3>{profile.verification_status === 'rejected' ? 'Choose a replacement ID' : 'Upload your National ID'}</h3><p>Use a clear JPG, PNG, WEBP, or PDF up to 5 MB.</p></div>
                 <input key={documentInputKey} id="profile-national-id" className={styles.visuallyHidden} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} />
-                <label htmlFor="profile-national-id" className={styles.filePicker}><UploadSimple size={18} /> {file ? 'Choose another file' : 'Choose a file'}</label>
-                {file && <span className={styles.fileName}>{file.name}</span>}
-                {file && <Button type="submit" isLoading={documentUploading}>{profile.verification_status === 'rejected' ? 'Request another review' : 'Submit for review'}</Button>}
-                <button type="button" className={styles.privacyLink} onClick={() => setIdPrivacyModalOpen(true)}>Review the privacy notice</button>
+                <div className={styles.verificationActions}>
+                  <label htmlFor="profile-national-id" className={styles.filePicker}><UploadSimple size={18} /> {file ? 'Choose another file' : 'Choose a file'}</label>
+                  {file && <span className={styles.fileName}>{file.name}</span>}
+                  {file && <Button type="submit" isLoading={documentUploading}>{profile.verification_status === 'rejected' ? 'Request another review' : 'Submit for review'}</Button>}
+                  <button type="button" className={styles.privacyLink} onClick={() => setIdPrivacyModalOpen(true)}>Review the privacy notice</button>
+                </div>
               </form>
             ) : (
               <div className={styles.verificationComplete}>
                 <CheckCircle size={30} weight="duotone" aria-hidden="true" />
-                <div><h3>{profile.verification_status === 'verified' ? 'National ID verified' : 'Review in progress'}</h3><p>{profile.verification_status === 'verified' ? 'Your account verification is complete.' : 'You will receive a notification when the review is complete.'}</p></div>
-                {nationalIdDocuments[0] && <Button to={`/api/profile/documents/${nationalIdDocuments[0].id}/file`} target="_blank" rel="noreferrer" variant="secondary" size="sm">View uploaded ID</Button>}
+                <div><h3>{profile.verification_status === 'verified' ? (nationalIdDocuments.length ? 'National ID verified' : 'Account verified') : 'Review in progress'}</h3><p>{profile.verification_status === 'verified' ? 'National ID uploads are locked after verification.' : 'You will receive a notification when the review is complete.'}</p></div>
+                <div className={styles.verificationActions}>
+                  {nationalIdDocuments[0] && <Button to={`/api/profile/documents/${nationalIdDocuments[0].id}/file`} target="_blank" rel="noreferrer" variant="secondary" size="sm">View uploaded ID</Button>}
+                  <button type="button" className={styles.privacyLink} onClick={() => setIdPrivacyModalOpen(true)}>Review the privacy notice</button>
+                </div>
               </div>
             )}
+            {nationalIdDocuments[0] && ['image/jpeg', 'image/png', 'image/webp'].includes(nationalIdDocuments[0].mime_type) && (
+              failedDocumentPreviewId === nationalIdDocuments[0].id
+                ? <p className={styles.documentPreviewNote} role="status">The image preview could not be loaded. Use View uploaded ID to open the document.</p>
+                : <img className={styles.documentPreview} src={`/api/profile/documents/${nationalIdDocuments[0].id}/file`}
+                    alt="Your uploaded National ID" loading="lazy" onError={() => setFailedDocumentPreviewId(nationalIdDocuments[0].id)} />
+            )}
+            {profile.verification_status === 'verified' && nationalIdDocuments.length === 0 && <p className={styles.documentPreviewNote}>No uploaded National ID is available for this account.</p>}
           </Card>
           )}
 
-          {profile.role === 'member' && activeSection === 'donations' && (
-          <section className={styles.historySection} aria-labelledby="donation-history-heading">
-            <Card>
-              <div className={styles.cardHeader}><div><h2 id="donation-history-heading">Donation history</h2><p>Reports submitted for officer confirmation.</p></div></div>
-              {reports.length === 0 ? <p className={styles.emptyText}>No donation reports recorded yet.</p> : (
+          {activeSection === 'history' && (
+          <div className={styles.historySection}>
+            <section aria-labelledby={reports.length ? 'donation-history-heading' : undefined} aria-label={reports.length ? undefined : 'Donation history'}>
+              {reports.length === 0 ? <p className={styles.emptyText}>No donation history yet.</p> : <>
+              <h3 id="donation-history-heading" className={styles.historySubheading}>Donation history</h3>
+              <Card className={styles.historyCard}>
                 <div className={styles.historyList}>
                   {reports.map((report) => (
                     <article key={report.id} className={styles.historyRow}>
                       <div className={styles.historyBlood}>{report.required_blood_type}</div>
-                      <div><h3>{report.facility_name}</h3><p>{formatDate(report.reported_at)}</p></div>
+                      <div><h4>{report.facility_name}</h4><p>{formatDate(report.reported_at)}</p></div>
                       <Badge variant={report.status === 'CONFIRMED' ? 'success' : report.status === 'REJECTED' ? 'emergency' : 'urgent'}>{titleCase(report.status)}</Badge>
                     </article>
                   ))}
                 </div>
-              )}
-            </Card>
-          </section>
+              </Card>
+              </>}
+            </section>
+            <section aria-labelledby="request-history-heading">
+              <h3 id="request-history-heading" className={styles.historySubheading}>Request history</h3>
+              <Card className={pastRequests.length ? styles.historyCard : styles.compactCard}>
+                {pastRequests.length === 0 ? <p className={styles.emptyText}>No past blood requests yet.</p> : (
+                  <div className={styles.historyList}>
+                    {pastRequests.map((request) => (
+                      <article key={request.id} className={styles.historyRow}>
+                        <div className={styles.historyBlood}>{request.required_blood_type}</div>
+                        <div><h4>{request.facility_name}</h4><p>Posted {formatDate(request.created_at)}</p>
+                          <p>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'} &bull; Needed {formatDate(request.needed_datetime)}</p>
+                          <Button to={`/requests/${request.id}/matches`} variant="secondary" size="sm">View matches</Button>
+                        </div>
+                        <Badge variant={request.status === 'FULFILLED' ? 'success' : 'neutral'}>{titleCase(request.status)}</Badge>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </section>
+          </div>
           )}
 
-          {profile.role === 'member' && activeSection === 'requests' && (
-          <section className={styles.historySection} aria-labelledby="request-history-heading">
-            <Card>
-              <div className={styles.cardHeader}><div><h2 id="request-history-heading">Request history</h2><p>Requests created from this account.</p></div><Button to="/requests/mine" variant="secondary" size="sm">Manage requests</Button></div>
-              {requestHistory.length === 0 ? <p className={styles.emptyText}>No blood requests recorded yet.</p> : (
-                <div className={styles.historyList}>
-                  {requestHistory.map((request) => (
-                    <article key={request.id} className={styles.historyRow}>
-                      <div className={styles.historyBlood}>{request.required_blood_type}</div>
-                      <div><h3>{request.facility_name}</h3><p>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'} · Needed {formatDate(request.needed_datetime)}</p></div>
-                      <Badge variant={request.status === 'FULFILLED' ? 'success' : request.status === 'OPEN' ? 'brand' : 'neutral'}>{titleCase(request.status)}</Badge>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </Card>
-          </section>
+          {activeSection === 'overview' && (
+            <section className={styles.activitySection} aria-labelledby="profile-requests-heading">
+              <div className={styles.cardHeader}>
+                <h2 id="profile-requests-heading">Blood requests</h2>
+              </div>
+              {activeRequests.length === 0 ? (
+                <Card className={styles.compactCard}><p className={styles.emptyText}>No current blood requests. Past requests are in History.</p></Card>
+              ) : activeRequests.map((request) => (
+                <Card key={request.id} className={styles.requestPost}>
+                  <article aria-label={`Blood request at ${request.facility_name}`}>
+                    <div className={styles.postHeading}>
+                      <BloodTypeBlock bloodType={request.required_blood_type} />
+                      <div className={styles.postBadges}>
+                        <Badge variant={request.urgency === 'emergency' ? 'emergency' : request.urgency === 'urgent' ? 'urgent' : 'neutral'}>{request.urgency === 'critical' ? 'Emergency' : request.urgency}</Badge>
+                        {request.status !== 'OPEN' && <Badge variant={request.status === 'FULFILLED' ? 'success' : 'neutral'}>{titleCase(request.status)}</Badge>}
+                      </div>
+                    </div>
+                    <h3>{request.facility_name}</h3>
+                    <p className={styles.postLocation}>{request.location?.municipality_name || 'Municipality not provided'}</p>
+                    <p className={styles.postMeta}>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'} &bull; Needed {formatDate(request.needed_datetime)}</p>
+                    <p className={styles.postMeta}>{formatPostedTime(request.created_at)}</p>
+                    <div className={styles.postCounts}>
+                      {request.match_count != null && <span>{request.match_count} potential {request.match_count === 1 ? 'donor' : 'donors'}</span>}
+                      {request.response_count != null && <span>{request.response_count} {request.response_count === 1 ? 'response' : 'responses'}</span>}
+                    </div>
+                    <div className={styles.postActions}>
+                      <Button to={`/requests/${request.id}/matches`}>View matches</Button>
+                      {request.status === 'OPEN' && <>
+                        <Button variant="secondary" onClick={() => setEditingRequestId(request.id)}>Edit</Button>
+                        <button type="button" className={styles.cancelRequest} onClick={() => setCancelTarget(request)}>Cancel request</button>
+                      </>}
+                    </div>
+                    {cancelTarget?.id === request.id && <div className={styles.cancelConfirmation} role="group" aria-label="Confirm request cancellation">
+                      <p>Cancel this request? It will stop accepting responses.</p>
+                      <div className={styles.postActions}>
+                        <Button variant="secondary" disabled={cancelling} onClick={() => setCancelTarget(null)}>Keep request</Button>
+                        <Button variant="destructive" isLoading={cancelling} onClick={cancelRequest}>Confirm cancellation</Button>
+                      </div>
+                    </div>}
+                  </article>
+                </Card>
+              ))}
+            </section>
           )}
         </div>
       </main>
 
+      <RequestFormModal open={isCreating || Boolean(editingRequestId)} id={editingRequestId} onSuccess={handleRequestSaved} onClose={closeRequestForm} />
       <PrivacyConsentModal isOpen={idPrivacyModalOpen} onClose={() => setIdPrivacyModalOpen(false)} readonly />
     </div>
   )

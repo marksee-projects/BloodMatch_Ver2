@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, CalendarBlank, Drop, Hospital, PencilSimple, Plus, Users, X } from '@phosphor-icons/react'
+import { ArrowRight, CalendarBlank, Drop, Hospital, PencilSimple, Plus, Users } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
-import RequestFormPage from './RequestFormPage'
+import RequestFormModal from '../components/RequestFormModal'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -25,7 +25,6 @@ export default function RequestsPage() {
   const [isCreating, setIsCreating] = useState(Boolean(location.state?.openCreate))
   const [editingId, setEditingId] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
-  const closeButtonRef = useRef(null)
 
   const { data: requests = [], isLoading, refetch } = useQuery({
     queryKey: ['my-requests'],
@@ -37,23 +36,10 @@ export default function RequestsPage() {
 
   const modalOpen = isCreating || Boolean(editingId)
 
-  useEffect(() => {
-    if (!modalOpen) return undefined
-    closeButtonRef.current?.focus()
-    const onKeyDown = (event) => {
-      if (event.key === 'Escape') {
-        setIsCreating(false)
-        setEditingId(null)
-      }
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [modalOpen])
-
-  const closeForm = () => {
+  const closeForm = useCallback(() => {
     setIsCreating(false)
     setEditingId(null)
-  }
+  }, [])
 
   const handleSaved = async () => {
     const wasEditing = Boolean(editingId)
@@ -156,14 +142,7 @@ export default function RequestsPage() {
         </div>
       )}
 
-      {modalOpen && (
-        <div className={styles.modalBackdrop} role="presentation">
-          <section className={styles.modalPanel} role="dialog" aria-modal="true" aria-label={editingId ? 'Edit request details' : 'Create blood request'}>
-            <button ref={closeButtonRef} type="button" className={styles.modalClose} onClick={closeForm} aria-label="Close request form"><X size={20} aria-hidden="true" /></button>
-            <RequestFormPage id={editingId} onSuccess={handleSaved} onCancel={closeForm} />
-          </section>
-        </div>
-      )}
+      <RequestFormModal open={modalOpen} id={editingId} onSuccess={handleSaved} onClose={closeForm} />
 
       {cancelTarget && (
         <div className={styles.modalBackdrop} role="presentation">

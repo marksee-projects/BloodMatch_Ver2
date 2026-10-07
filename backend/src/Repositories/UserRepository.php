@@ -28,7 +28,8 @@ final class UserRepository
     public function findById(int $id): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT u.id, u.email, u.full_name, u.phone, u.role, u.chapter_id, c.name AS chapter_name,
+            'SELECT u.id, u.email, u.full_name, u.first_name, u.middle_name, u.last_name, u.created_at,
+                    u.phone, u.role, u.chapter_id, c.name AS chapter_name,
                     u.verification_status, u.account_status, u.blood_type, u.blood_type_source,
                     u.blood_type_verified, u.date_of_birth, u.password_hash, u.donor_enrolled_at,
                     u.donor_availability, u.last_verified_donation_at, u.profile_picture,
