@@ -137,7 +137,7 @@ export default function LandingPage() {
                 type="submit"
                 fullWidth
                 isLoading={submitting}
-                size="lg"
+                size="md"
                 style={{ marginTop: 'var(--space-2)' }}
               >
                 {submitting ? 'Signing in…' : 'Sign in'}

@@ -19,6 +19,7 @@ export function Button({
   className = '',
   disabled,
   to,
+  style: customStyle,
   ...props
 }) {
   const baseStyles = {
@@ -84,6 +85,7 @@ export function Button({
     ...baseStyles,
     ...variants[variant],
     ...sizes[size],
+    ...customStyle,
   };
 
   const Component = to ? Link : 'button';
