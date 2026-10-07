@@ -11,7 +11,15 @@ use RuntimeException;
 
 final class MatchService
 {
-    public function generateForRequest(int $requestId, bool $bumpGeneration, string $trigger, ?int $actorId = null): array
+    private const DONOR_RECONCILE_LIMIT = 100;
+
+    public function generateForRequest(
+        int $requestId,
+        bool $bumpGeneration,
+        string $trigger,
+        ?int $actorId = null,
+        ?int $onlyDonorId = null
+    ): array
     {
         $repo = new BloodRequestRepository();
         $request = $repo->findById($requestId);
@@ -41,6 +49,7 @@ final class MatchService
         // Persisted availability 'standby' may pass ONLY for genuine post-donation
         // donors (lvd set) whose windows have expired — the read-model path.
         // A stored 'standby' without donation history is never matchable.
+        $donorScopeSql = $onlyDonorId !== null ? ' AND id = ?' : '';
         $stmt = $pdo->prepare(
             "SELECT id, full_name, chapter_id, donor_availability, latitude, longitude
              FROM users
@@ -57,13 +66,19 @@ final class MatchService
                    )
                AND (last_verified_donation_at IS NULL
                     OR (last_verified_donation_at <= ? AND last_verified_donation_at <= ?))
-               AND blood_type IN ($placeholders)"
+               AND blood_type IN ($placeholders)
+               AND id <> ?{$donorScopeSql}"
         );
-        $stmt->execute(array_merge(
+        $poolParams = array_merge(
             [$cutoffs['standby'], $cutoffs['cooldown']],
             [$cutoffs['standby'], $cutoffs['cooldown']],
-            $compatibleTypes
-        ));
+            $compatibleTypes,
+            [(int) $request['requester_id']]
+        );
+        if ($onlyDonorId !== null) {
+            $poolParams[] = $onlyDonorId;
+        }
+        $stmt->execute($poolParams);
         $pool = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         $reqChapter = $request['request_chapter_id'] !== null ? (int) $request['request_chapter_id'] : null;
@@ -97,12 +112,16 @@ final class MatchService
         $maxGenStmt->execute([$requestId]);
         $currentGen = (int) $maxGenStmt->fetchColumn();
 
-        $generation = $bumpGeneration || $currentGen === 0 ? $currentGen + 1 : $currentGen;
+        $generation = $bumpGeneration ? $currentGen + 1 : max(1, $currentGen);
 
-        $existingStmt = $pdo->prepare(
-            'SELECT id, donor_id, status FROM matches WHERE request_id = ?'
-        );
-        $existingStmt->execute([$requestId]);
+        $existingSql = 'SELECT id, donor_id, status FROM matches WHERE request_id = ?';
+        $existingParams = [$requestId];
+        if ($onlyDonorId !== null) {
+            $existingSql .= ' AND donor_id = ?';
+            $existingParams[] = $onlyDonorId;
+        }
+        $existingStmt = $pdo->prepare($existingSql);
+        $existingStmt->execute($existingParams);
         $existingByDonor = [];
         foreach ($existingStmt->fetchAll(PDO::FETCH_ASSOC) as $m) {
             $existingByDonor[(int) $m['donor_id']] = $m;
@@ -110,20 +129,33 @@ final class MatchService
 
         $inserted = 0;
         $updated = 0;
-        $nowUtc = AuthService::nowUtc();
+        $notificationCandidateIds = [];
 
         foreach ($scored as $donorId => $entry) {
             if (isset($existingByDonor[$donorId])) {
                 $existing = $existingByDonor[$donorId];
                 $status = (string) $existing['status'];
-                if ($status === 'CLOSED') {
-                    $status = 'POTENTIAL';
+                if ($onlyDonorId !== null && in_array($status, ['CLOSED', 'RESPONDED', 'COMPLETED'], true)) {
+                    continue;
                 }
-                $upd = $pdo->prepare(
-                    'UPDATE matches SET generation = ?, distance_km = ?, rank_score = ?, status = ? WHERE id = ?'
-                );
-                $upd->execute([$generation, $entry['distance'], $entry['rank_score'], $status, $existing['id']]);
+                if ($onlyDonorId !== null) {
+                    $upd = $pdo->prepare(
+                        'UPDATE matches SET distance_km = ?, rank_score = ? WHERE id = ?'
+                    );
+                    $upd->execute([$entry['distance'], $entry['rank_score'], $existing['id']]);
+                } else {
+                    if ($status === 'CLOSED') {
+                        $status = 'POTENTIAL';
+                    }
+                    $upd = $pdo->prepare(
+                        'UPDATE matches SET generation = ?, distance_km = ?, rank_score = ?, status = ? WHERE id = ?'
+                    );
+                    $upd->execute([$generation, $entry['distance'], $entry['rank_score'], $status, $existing['id']]);
+                }
                 $updated++;
+                if ($onlyDonorId === null) {
+                    $notificationCandidateIds[] = $donorId;
+                }
             } else {
                 $ins = $pdo->prepare(
                     'INSERT INTO matches (request_id, donor_id, generation, status, distance_km, rank_score)
@@ -138,6 +170,7 @@ final class MatchService
                     $entry['rank_score'],
                 ]);
                 $inserted++;
+                $notificationCandidateIds[] = $donorId;
             }
         }
 
@@ -154,7 +187,8 @@ final class MatchService
         $notifiedDonorIds = NotificationService::notifyMatchGeneration(
             $request,
             $generation,
-            array_keys($scored)
+            $notificationCandidateIds,
+            $onlyDonorId === null && $trigger === 'request_created'
         );
 
         if ($notifiedDonorIds !== []) {
@@ -173,7 +207,8 @@ final class MatchService
             [
                 'trigger' => $trigger,
                 'generation' => $generation,
-                'bumped' => $bumpGeneration || $currentGen === 0,
+                'bumped' => $bumpGeneration,
+                'donor_scope' => $onlyDonorId,
                 'pool_size' => count($scored),
                 'inserted' => $inserted,
                 'updated' => $updated,
@@ -192,38 +227,53 @@ final class MatchService
     }
 
     /**
-     * Reconcile persisted matches after a donor's location changed.
-     * Re-runs generation WITHOUT bumping (same generation number), so existing
-     * notification deduplication holds and no new notifications are emitted.
-     * Only OPEN requests where the donor holds a live match are touched;
-     * COMPLETED/CLOSED history is never rewritten.
+     * Reconcile one donor against at most 100 current OPEN requests.
+     * Each request is isolated in its own transaction. Generation is never
+     * bumped, notification email is disabled, and only this donor's unanswered
+     * matches may change. CLOSED, RESPONDED and COMPLETED rows are preserved.
      *
      * @return int[] request IDs that were refreshed
      */
-    public function refreshMatchesForDonor(int $donorId, ?int $actorId = null): array
+    public function refreshMatchesForDonor(
+        int $donorId,
+        string $trigger,
+        ?int $actorId = null
+    ): array
     {
         $pdo = Database::pdo();
+        $nowUtc = AuthService::nowUtc();
         $stmt = $pdo->prepare(
-            "SELECT DISTINCT m.request_id
-              FROM matches m
-              JOIN blood_requests br ON br.id = m.request_id
-              WHERE m.donor_id = ?
-                AND m.status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED')
-                AND br.status = 'OPEN'"
+            "SELECT id
+               FROM blood_requests
+              WHERE status = 'OPEN'
+                AND needed_datetime >= ?
+              ORDER BY id DESC
+              LIMIT " . self::DONOR_RECONCILE_LIMIT
         );
-        $stmt->execute([$donorId]);
+        $stmt->execute([$nowUtc]);
         $requestIds = array_map(
-            static fn ($r): int => (int) $r['request_id'],
+            static fn ($r): int => (int) $r['id'],
             $stmt->fetchAll(PDO::FETCH_ASSOC)
         );
 
         $refreshed = [];
         foreach ($requestIds as $requestId) {
             try {
-                $this->generateForRequest($requestId, false, 'donor_location_change', $actorId ?? $donorId);
+                $pdo->beginTransaction();
+                $this->generateForRequest(
+                    $requestId,
+                    false,
+                    $trigger,
+                    $actorId ?? $donorId,
+                    $donorId
+                );
+                $pdo->commit();
                 $refreshed[] = $requestId;
             } catch (\Throwable $e) {
-                error_log('[matches] donor-location refresh failed for request ' . $requestId . ': ' . $e->getMessage());
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                error_log('[matches] donor reconciliation failed for request ' . $requestId . ': ' . $e->getMessage());
             }
         }
 

@@ -21,6 +21,7 @@ $suites = @(
     'location.ps1',
     'phase16_security.ps1',
     'email_verification.ps1',
+    'donor_refresh.ps1',
     'profile_view.ps1'
 )
 

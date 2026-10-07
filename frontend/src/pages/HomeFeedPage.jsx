@@ -24,6 +24,10 @@ export default function HomeFeedPage() {
   })
   const requests = feedData?.requests || []
   const donorBloodType = feedData?.blood_type || user?.blood_type || null
+  const isStaff = user?.role === 'admin' || user?.role === 'officer'
+  const isUnenrolledMember = user?.role === 'member' && !user?.donor_enrolled
+  const staffPortalPath = user?.role === 'admin' ? '/admin/dashboard' : '/officer/dashboard'
+  const staffPortalLabel = user?.role === 'admin' ? 'Open Admin Portal' : 'Open Officer Portal'
 
   return (
     <div className={styles.layout}>
@@ -108,13 +112,25 @@ export default function HomeFeedPage() {
 
           {!feedLoading && !feedError && requests.length === 0 && (
             <Card padding="md" className={styles.feedState}>
-              <h2 className={styles.feedStateTitle}>{donorBloodType ? 'No compatible requests right now' : 'Blood type needed'}</h2>
+              <h2 className={styles.feedStateTitle}>
+                {isStaff
+                  ? "Staff accounts don't receive donor matches"
+                  : isUnenrolledMember
+                    ? 'Donor enrollment needed'
+                    : 'No matched requests right now'}
+              </h2>
               <p className={styles.feedStateText}>
-                {donorBloodType
-                  ? 'There are no open requests your blood type can support at the moment. Check again when new requests are published.'
-                  : 'Update your profile with your blood type to build your compatibility feed.'}
+                {isStaff
+                  ? 'Use your staff portal to review authorized requests and operational activity.'
+                  : isUnenrolledMember
+                    ? 'Complete donor enrollment in your profile before the match engine can include you.'
+                    : donorBloodType
+                      ? 'You do not have any persisted OPEN donor matches right now.'
+                      : 'Add your blood type in your profile so the match engine can evaluate future requests.'}
               </p>
-              {!donorBloodType && <Button variant="primary" to="/profile">Update profile</Button>}
+              {isStaff && <Button variant="primary" to={staffPortalPath}>{staffPortalLabel}</Button>}
+              {!isStaff && isUnenrolledMember && <Button variant="primary" to="/profile">Open profile</Button>}
+              {!isStaff && !isUnenrolledMember && !donorBloodType && <Button variant="primary" to="/profile">Update profile</Button>}
             </Card>
           )}
 

@@ -136,7 +136,7 @@ $requesterEmail = "req$suffix@bloodmatch.test"          # reserved: Mailer skips
 $officerEmail = "off$suffix@bloodmatch.test"            # reserved: Mailer skips
 
 $createdUserIds = @()
-$bloodReqId = $null
+$bloodReqIds = @()
 
 try {
     # 1. Fixture records (written to the confirmed bloodmatch_test only)
@@ -155,7 +155,7 @@ try {
     $emailedBefore = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
     $incompBefore = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$incompId;")
 
-    # 2. Create the request through the normal API as the requester (needs O-)
+    # 2. Create a noncritical request: in-app notification only.
     $reqAuth = Login $requesterEmail
     $r = Invoke-Json $reqAuth.s 'Post' '/api/requests' @{
         required_blood_type = 'O-'
@@ -166,37 +166,55 @@ try {
         needed_datetime = (Get-Date).ToUniversalTime().AddDays(1).ToString('yyyy-MM-dd HH:mm:ss')
     } $reqAuth.csrf
     if ($r.status -ne 201) { throw "Failed to create request ($($r.status)): $($r.raw)" }
-    $bloodReqId = $r.body.data.id
-    Write-Host "Created Blood Request #$bloodReqId"
+    $urgentReqId = $r.body.data.request.id
+    $bloodReqIds += $urgentReqId
+    Write-Host "Created urgent Blood Request #$urgentReqId"
 
     Start-Sleep -Seconds 1
 
-    # 3. Exactly one alert + one email to the compatible donor, none to the incompatible one
-    $notifsAfter = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId;")
-    $emailedAfter = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
+    $notifsAfterUrgent = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId;")
+    $emailedAfterUrgent = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
     $incompAfter = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$incompId;")
 
-    Write-Host "Donor notifications: Before=$notifsBefore, After=$notifsAfter"
-    Write-Host "Donor emailed:       Before=$emailedBefore, After=$emailedAfter"
+    Write-Host "Urgent notifications: Before=$notifsBefore, After=$notifsAfterUrgent"
+    Write-Host "Urgent emailed:       Before=$emailedBefore, After=$emailedAfterUrgent"
     Write-Host "Incompatible notifs: Before=$incompBefore, After=$incompAfter"
 
-    Check ($notifsAfter -eq ($notifsBefore + 1)) 'exactly 1 new notification for compatible donor'
-    Check ($emailedAfter -eq ($emailedBefore + 1)) 'exactly 1 email marked sent for compatible donor (emailed_at set)'
+    Check ($notifsAfterUrgent -eq ($notifsBefore + 1)) 'urgent request creates exactly 1 in-app notification'
+    Check ($emailedAfterUrgent -eq $emailedBefore) 'urgent request sends no email'
     Check ($incompAfter -eq $incompBefore) '0 new notifications for incompatible donor'
 
-    # 4. Duplicate-prone paths
-    # A: edit without a material change
-    Invoke-Json $reqAuth.s 'Put' "/api/requests/$bloodReqId" @{ facility_name = 'Bataan General Hospital' } $reqAuth.csrf | Out-Null
-    # B: officer manual re-match
+    # 3. Critical request: exactly one email remains required at creation.
+    $r = Invoke-Json $reqAuth.s 'Post' '/api/requests' @{
+        required_blood_type = 'O-'
+        quantity_units = 1
+        urgency = 'critical'
+        facility_name = 'Critical Bataan General Hospital'
+        location_id = [int](DbQuery "SELECT id FROM bataan_locations LIMIT 1;")
+        needed_datetime = (Get-Date).ToUniversalTime().AddDays(1).ToString('yyyy-MM-dd HH:mm:ss')
+    } $reqAuth.csrf
+    if ($r.status -ne 201) { throw "Failed to create critical request ($($r.status)): $($r.raw)" }
+    $criticalReqId = $r.body.data.request.id
+    $bloodReqIds += $criticalReqId
+    Start-Sleep -Seconds 1
+
+    $notifsAfterCritical = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId;")
+    $emailedAfterCritical = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
+    Check ($notifsAfterCritical -eq ($notifsAfterUrgent + 1)) 'critical request creates exactly 1 in-app notification'
+    Check ($emailedAfterCritical -eq ($emailedBefore + 1)) 'critical request creation sends exactly 1 email'
+
+    # 4. Duplicate-prone paths: neither non-material edits nor manual re-match resend.
+    Invoke-Json $reqAuth.s 'Put' "/api/requests/$urgentReqId" @{ facility_name = 'Bataan General Hospital' } $reqAuth.csrf | Out-Null
     $offAuth = Login $officerEmail
-    Invoke-Json $offAuth.s 'Post' "/api/officer/requests/$bloodReqId/re-match" @{} $offAuth.csrf | Out-Null
+    Invoke-Json $offAuth.s 'Post' "/api/officer/requests/$urgentReqId/re-match" @{} $offAuth.csrf | Out-Null
+    Invoke-Json $offAuth.s 'Post' "/api/officer/requests/$criticalReqId/re-match" @{} $offAuth.csrf | Out-Null
 
     $notifsFinal = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId;")
     $emailedFinal = [int](DbQuery "SELECT COUNT(*) FROM notifications WHERE user_id=$donorId AND emailed_at IS NOT NULL;")
     Write-Host "After edit/re-match: notifications=$notifsFinal, emailed=$emailedFinal"
 
-    Check ($notifsFinal -eq $notifsAfter) 'no duplicate notification after edit/re-match'
-    Check ($emailedFinal -eq $emailedAfter) 'no duplicate email after edit/re-match'
+    Check ($notifsFinal -eq $notifsAfterCritical) 'no duplicate notification after edit/re-match'
+    Check ($emailedFinal -eq $emailedAfterCritical) 'no duplicate email after edit/re-match'
 }
 catch {
     Write-Host "ERROR: $($_.Exception.Message)"
@@ -204,7 +222,9 @@ catch {
 }
 finally {
     # 5. Cleanup (bloodmatch_test only; connection already verified above)
-    if ($bloodReqId) { DbQuery "DELETE FROM blood_requests WHERE id=$bloodReqId;" | Out-Null }
+    foreach ($bloodReqId in $bloodReqIds) {
+        if ($bloodReqId) { DbQuery "DELETE FROM blood_requests WHERE id=$bloodReqId;" | Out-Null }
+    }
     $ids = ($createdUserIds | Where-Object { $_ }) -join ','
     if ($ids) {
         DbQuery "DELETE FROM notifications WHERE user_id IN ($ids);" | Out-Null

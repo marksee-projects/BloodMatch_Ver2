@@ -99,6 +99,14 @@ final class VerificationService
                 }
             }
 
+            if ($decision === 'verified') {
+                (new MatchService())->refreshMatchesForDonor(
+                    $targetId,
+                    'donor_verified',
+                    (int) $actor['id']
+                );
+            }
+
             return [
                 'decision' => $decision,
                 'verification_status' => $decision,

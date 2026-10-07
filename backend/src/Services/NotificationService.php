@@ -120,11 +120,14 @@ final class NotificationService
     public static function notifyMatchGeneration(
         array $request,
         int $generation,
-        array $eligibleDonorIds
+        array $eligibleDonorIds,
+        bool $sendCriticalEmail = false
     ): array {
         $requestId = (int) $request['id'];
         $critical = (string) $request['urgency'] === 'critical';
-        $emailPriority = $critical ? self::EMAIL_CRITICAL : self::EMAIL_NORMAL;
+        $emailPriority = $critical && $sendCriticalEmail
+            ? self::EMAIL_CRITICAL
+            : self::EMAIL_NONE;
 
         $title = sprintf('New compatible donation opportunity (#%d)', $requestId);
         $body = sprintf(

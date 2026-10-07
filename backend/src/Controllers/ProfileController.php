@@ -124,18 +124,24 @@ final class ProfileController
             throw new ValidationException($v->errors());
         }
 
+        $matchesRefreshed = [];
         if ($fields !== []) {
             $locationChanged = array_key_exists('location_id', $fields)
                 && ($actor['location_id'] === null || (int) $actor['location_id'] !== (int) $fields['location_id']);
+            $bloodTypeChanged = array_key_exists('blood_type', $fields)
+                && (string) ($actor['blood_type'] ?? '') !== (string) ($fields['blood_type'] ?? '');
             (new UserRepository())->updateProfile((int) $actor['id'], $fields);
             AuditLogger::log((int) $actor['id'], 'profile.updated', 'user', (string) $actor['id'], [
                 'fields' => array_keys($fields),
             ]);
 
-            $matchesRefreshed = [];
-            if ($locationChanged) {
+            if ($locationChanged || $bloodTypeChanged) {
                 $matchesRefreshed = (new \BloodMatch\Services\MatchService())
-                    ->refreshMatchesForDonor((int) $actor['id'], (int) $actor['id']);
+                    ->refreshMatchesForDonor(
+                        (int) $actor['id'],
+                        $bloodTypeChanged ? 'donor_blood_type_change' : 'donor_location_change',
+                        (int) $actor['id']
+                    );
             }
         }
 
@@ -196,8 +202,14 @@ final class ProfileController
 
         (new UserRepository())->setDonorEnrollment((int) $actor['id'], AuthService::nowUtc());
         AuditLogger::log((int) $actor['id'], 'donor.enrolled', 'user', (string) $actor['id']);
+        $matchesRefreshed = (new \BloodMatch\Services\MatchService())
+            ->refreshMatchesForDonor((int) $actor['id'], 'donor_enrolled', (int) $actor['id']);
 
-        Response::success(['message' => 'Enrolled as available donor.', 'enrolled' => true]);
+        Response::success([
+            'message' => 'Enrolled as available donor.',
+            'enrolled' => true,
+            'matches_refreshed' => $matchesRefreshed,
+        ]);
     }
 
     public function setDonorAvailability(): void
@@ -229,8 +241,13 @@ final class ProfileController
         AuditLogger::log((int) $actor['id'], 'donor.availability_changed', 'user', (string) $actor['id'], [
             'to' => $value,
         ]);
+        $matchesRefreshed = (new \BloodMatch\Services\MatchService())
+            ->refreshMatchesForDonor((int) $actor['id'], 'donor_availability_change', (int) $actor['id']);
 
-        Response::success(['availability' => $value]);
+        Response::success([
+            'availability' => $value,
+            'matches_refreshed' => $matchesRefreshed,
+        ]);
     }
 
     public static function compose(array $user): array
