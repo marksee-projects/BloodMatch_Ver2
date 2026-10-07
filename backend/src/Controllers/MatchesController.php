@@ -8,23 +8,24 @@ use BloodMatch\Middleware\AuthMiddleware;
 use BloodMatch\Repositories\MatchRepository;
 use BloodMatch\Repositories\DonationReportRepository;
 use BloodMatch\Services\AuditLogger;
+use BloodMatch\Services\Exceptions\DonorIneligibleException;
+use BloodMatch\Services\MatchResponseService;
 use BloodMatch\Utils\Response;
+use RuntimeException;
 
 final class MatchesController
 {
+    public function respondToRequest(array $params): void
+    {
+        $actor = AuthMiddleware::requireAuthenticatedUser('requests.respond');
+        $this->performResponse($actor, (int) $params['id'], 'request_id');
+    }
+
     public function respond(array $params): void
     {
-        $actor = AuthMiddleware::requireActiveUser('matches.respond');
-
-        if (empty($actor['email_verified_at'])) {
-            Response::error('Please verify your email before responding to matches.', 403, [
-                'code' => 'EMAIL_UNVERIFIED',
-            ]);
-            return;
-        }
+        $actor = AuthMiddleware::requireAuthenticatedUser('matches.respond');
 
         $matchId = (int) $params['matchId'];
-
         $repo = new MatchRepository();
         $match = $repo->findByIdDetailed($matchId);
 
@@ -42,27 +43,34 @@ final class MatchesController
             return;
         }
 
-        if ((string) $match['request_status'] !== 'OPEN') {
-            Response::error('This request is no longer active.', 409);
+        $this->performResponse($actor, (int) $match['request_id'], 'match_id');
+    }
+
+    private function performResponse(array $actor, int $requestId, string $source): void
+    {
+        try {
+            $result = (new MatchResponseService())->respond($actor, $requestId, $source);
+        } catch (DonorIneligibleException $e) {
+            $eligibility = $e->eligibility();
+            Response::json([
+                'success' => false,
+                'error' => [
+                    'code' => (string) $eligibility['code'],
+                    'message' => (string) $eligibility['reason'],
+                    'eligible_again_at' => $eligibility['eligible_again_at'],
+                ],
+            ], 403);
+            return;
+        } catch (RuntimeException $e) {
+            $status = $e->getCode();
+            Response::error(
+                $e->getMessage(),
+                $status >= 400 && $status <= 499 ? $status : 500
+            );
             return;
         }
 
-        $status = (string) $match['status'];
-        if ($status === 'RESPONDED') {
-            Response::success(['message' => 'Already responded.', 'status' => 'RESPONDED']);
-            return;
-        }
-        if (!in_array($status, ['POTENTIAL', 'NOTIFIED'], true)) {
-            Response::error("Cannot respond to a match in state {$status}.", 409);
-            return;
-        }
-
-        $repo->setStatus($matchId, 'RESPONDED');
-        AuditLogger::log((int) $actor['id'], 'match.responded', 'blood_request', (string) $match['request_id'], [
-            'match_id' => $matchId,
-        ]);
-
-        Response::success(['message' => 'Response recorded.', 'status' => 'RESPONDED']);
+        Response::success($result);
     }
 
     public function withdraw(array $params): void

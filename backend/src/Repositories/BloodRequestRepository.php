@@ -52,6 +52,21 @@ final class BloodRequestRepository
         return $row === false ? null : $row;
     }
 
+    public function findByIdForUpdate(int $id): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT id, requester_id, request_chapter_id, required_blood_type,
+                    quantity_units, facility_name, urgency, needed_datetime, status
+               FROM blood_requests
+              WHERE id = ?
+              LIMIT 1
+              FOR UPDATE'
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
     public function listByRequester(int $requesterId): array
     {
         $stmt = Database::pdo()->prepare(

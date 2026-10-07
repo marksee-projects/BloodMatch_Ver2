@@ -285,10 +285,18 @@ All responses adhere to the standard JSON envelopes:
 - **Auth:** Authenticated (`officer` or `admin` only).
 - **Response (200):** `{ "success": true, "data": { "matrix": { "A+": ["A+","A-","O+","O-"], ... } } }`
 
-### `POST /api/matches/{id}/respond`
-- **Purpose:** Donor signals willingness to donate for a notified match. Transitions match status to `RESPONDED`.
-- **Auth:** Authenticated (The matched donor only).
-- **Response (200):** `{ "message": "Willingness to donate recorded", "match_status": "RESPONDED" }`
+### `POST /api/requests/{id}/respond`
+- **Purpose:** Canonical Home-card response endpoint. It locks the request and the caller's existing match in one transaction, re-evaluates every live donor/request rule through `DonorEligibilityService`, creates or reuses the unique `(request_id, donor_id)` match, and records `RESPONDED`.
+- **Auth:** Authenticated member; CSRF required. Staff, inactive/unverified accounts, ineligible donors, self-response, non-OPEN/past-due requests, and incompatible blood types are rejected by the shared evaluator.
+- **Idempotency:** Repeating an eligible response returns `200` without another match, notification, or audit transition. An eligible `CLOSED` match may return to `RESPONDED`; `COMPLETED` is never altered.
+- **Notifications:** The requester receives one deduplicated in-app `match.responded` notification. Critical requests additionally attempt best-effort email after commit; SMTP failure never rolls back or fails the response.
+- **Response (200):** `{ "success": true, "data": { "message": "Response recorded.", "match_id": 501, "status": "RESPONDED", "created": true, "already_responded": false } }`
+- **Ineligible response (403):** `{ "success": false, "error": { "code": "cooldown", "message": "...", "eligible_again_at": "2026-12-01 10:00:00" } }`
+
+### `POST /api/matches/{matchId}/respond`
+- **Purpose:** Compatibility wrapper for existing clients. The caller must own the referenced match; it then runs the same transactional eligibility re-check and response logic as `POST /api/requests/{id}/respond`.
+- **Auth:** Authenticated match owner; CSRF required.
+- **Response/errors:** Same response contract and eligibility errors as the canonical request-ID endpoint.
 
 ### `POST /api/donation-reports`
 - **Purpose:** Donor submits report of completed donation at facility for officer confirmation.

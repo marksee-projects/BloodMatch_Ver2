@@ -23,6 +23,7 @@ $suites = @(
     'email_verification.ps1',
     'donor_refresh.ps1',
     'home_safety.ps1',
+    'home_respond.ps1',
     'profile_view.ps1'
 )
 

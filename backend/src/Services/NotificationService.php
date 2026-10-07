@@ -18,6 +18,11 @@ final class NotificationService
         return "match:{$requestId}:{$donorId}";
     }
 
+    public static function dedupMatchResponse(int $requestId, int $donorId): string
+    {
+        return "match-response:{$requestId}:{$donorId}";
+    }
+
     public static function dedupVerification(int $userId, string $decision, ?int $auditId): string
     {
         $suffix = $auditId !== null ? (string) $auditId : uniqid('', true);
@@ -115,6 +120,20 @@ final class NotificationService
             }
         }
         return $notified;
+    }
+
+    public static function attemptExistingEmail(
+        int $userId,
+        int $notificationId,
+        string $subject,
+        string $body,
+        string $priority
+    ): void {
+        try {
+            self::attemptEmail($userId, $notificationId, $subject, $body, $priority);
+        } catch (\Throwable $e) {
+            error_log('[notifications] best-effort email failed: ' . $e->getMessage());
+        }
     }
 
     public static function notifyMatchGeneration(

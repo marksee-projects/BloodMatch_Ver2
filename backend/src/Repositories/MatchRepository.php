@@ -56,6 +56,39 @@ final class MatchRepository
         return $row === false ? null : $row;
     }
 
+    public function findByRequestAndDonorForUpdate(int $requestId, int $donorId): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT id, request_id, donor_id, generation, status
+               FROM matches
+              WHERE request_id = ? AND donor_id = ?
+              LIMIT 1
+              FOR UPDATE'
+        );
+        $stmt->execute([$requestId, $donorId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
+    public function maxGenerationForRequest(int $requestId): int
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT COALESCE(MAX(generation), 0) FROM matches WHERE request_id = ?'
+        );
+        $stmt->execute([$requestId]);
+        return (int) $stmt->fetchColumn();
+    }
+
+    public function insertResponded(int $requestId, int $donorId, int $generation): int
+    {
+        $stmt = Database::pdo()->prepare(
+            "INSERT INTO matches (request_id, donor_id, generation, status)
+             VALUES (?, ?, ?, 'RESPONDED')"
+        );
+        $stmt->execute([$requestId, $donorId, max(1, $generation)]);
+        return (int) Database::pdo()->lastInsertId();
+    }
+
     public function profileViewRelation(int $viewerId, int $targetId): ?string
     {
         $donorToRequester = Database::pdo()->prepare(

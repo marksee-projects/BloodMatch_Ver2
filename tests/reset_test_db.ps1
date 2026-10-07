@@ -13,6 +13,7 @@ param(
     [string]$MysqlPath = '',
     [string]$DbHost = '127.0.0.1',
     [string]$DbPort = '3306',
+    [string]$DbUser = 'root',
     [string]$Yes
 )
 

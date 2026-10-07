@@ -87,6 +87,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/requests/{id}', [new RequestsController(), 'show']);
     $router->add('PUT', '/api/requests/{id}', [new RequestsController(), 'update']);
     $router->add('POST', '/api/requests/{id}/cancel', [new RequestsController(), 'cancel']);
+    $router->add('POST', '/api/requests/{id}/respond', [new MatchesController(), 'respondToRequest']);
     $router->add('GET', '/api/requests/{id}/matches', [new RequestsController(), 'matches']);
     $router->add('POST', '/api/officer/requests/{id}/re-match', [new RequestsController(), 'rematch']);
     $router->add('GET', '/api/compatibility-matrix', [new CompatibilityController(), 'show']);

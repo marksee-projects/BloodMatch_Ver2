@@ -77,7 +77,7 @@ function New-Request($requesterId, $blood, $facility, $urgency, $neededAt, $stat
     return [int](DbQuery "SELECT id FROM blood_requests WHERE requester_id=$requesterId AND facility_name='$facility' ORDER BY id DESC LIMIT 1;")
 }
 function Feed($login, $query = '') { return Invoke-Json $login.s 'Get' ("/api/home-feed" + $query) $null $login.csrf }
-function Card($response, $id) { return @($response.body.data.requests | Where-Object { [int]$_.id -eq $id }) }
+function Card($response, $id) { return ,@($response.body.data.requests | Where-Object { [int]$_.id -eq $id }) }
 function Assert-State($name, $login, $requestId, $canRespond, $reasonCode, $needsDate = $false) {
     $r = Feed $login ("?q=" + (Url "State Hub $suffix"))
     $card = Card $r $requestId
