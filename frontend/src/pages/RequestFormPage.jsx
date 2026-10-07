@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, WarningCircle } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -16,7 +16,14 @@ const URGENCIES = [
   { id: 'emergency', label: 'Emergency (Immediate emergency / trauma)' }
 ]
 
-export default function RequestFormPage({ id, onSuccess, onCancel }) {
+function draftSnapshot(form, location) {
+  return JSON.stringify([
+    ...['required_blood_type', 'quantity_units', 'facility_name', 'urgency', 'needed_date', 'needed_time'].map((key) => String(form[key] ?? '')),
+    ...['location_id', 'municipality_code', 'barangay_code'].map((key) => String(location[key] ?? ''))
+  ])
+}
+
+export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange, onConfirmSave }) {
   const editing = Boolean(id)
   const { user, refresh } = useAuth()
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
@@ -37,6 +44,10 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
   const [loaded, setLoaded] = useState(!editing)
   const [loadError, setLoadError] = useState(null)
   const [loadAttempt, setLoadAttempt] = useState(0)
+  const initialDraft = useRef(null)
+  const savingRef = useRef(false)
+  const dirty = editing && loaded && initialDraft.current !== null && draftSnapshot(form, location) !== initialDraft.current
+  useEffect(() => { onStateChange?.({ dirty, submitting }) }, [dirty, submitting, onStateChange])
 
   useEffect(() => {
     let active = true
@@ -54,20 +65,23 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
         const r = data.request
         const needed = r.needed_datetime ? new Date(`${r.needed_datetime.replace(' ', 'T')}Z`) : null
         const pad = (value) => String(value).padStart(2, '0')
-        setForm({
+        const savedForm = {
           required_blood_type: r.required_blood_type,
           quantity_units: r.quantity_units,
           facility_name: r.facility_name,
           urgency: r.urgency,
           needed_date: needed ? `${needed.getFullYear()}-${pad(needed.getMonth() + 1)}-${pad(needed.getDate())}` : '',
           needed_time: needed ? `${pad(needed.getHours())}:${pad(needed.getMinutes())}` : ''
-        })
+        }
+        setForm(savedForm)
         const loc = r.location
-        setLocation({
+        const savedLocation = {
           location_id: loc?.location_id ?? null,
           municipality_code: loc?.municipality_code ?? null,
           barangay_code: loc?.barangay_code ?? null
-        })
+        }
+        setLocation(savedLocation)
+        initialDraft.current = draftSnapshot(savedForm, savedLocation)
         setLoaded(true)
       })
       .catch((err) => { if (active) setLoadError(err.message) })
@@ -100,12 +114,23 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
 
   const onSubmit = async (e) => {
     e.preventDefault()
+    if (savingRef.current) return
     const validationErrors = { ...validateStep(1, false), ...validateStep(2, false), ...validateStep(3, false) }
     setStepErrors(validationErrors)
     if (Object.keys(validationErrors).length) {
       if (!editing) setStep(validationErrors.required_blood_type || validationErrors.quantity_units ? 1 : validationErrors.facility_name || validationErrors.municipality_code || validationErrors.barangay_code ? 2 : 3)
       return
     }
+    if (editing && onConfirmSave) {
+      onConfirmSave(saveRequest)
+      return
+    }
+    await saveRequest()
+  }
+
+  const saveRequest = async () => {
+    if (savingRef.current) return
+    savingRef.current = true
     setErrors({})
     setMessage(null)
     setSubmitting(true)
@@ -136,6 +161,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
         setMessage(err.message || 'Failed to save request.')
       }
     } finally {
+      savingRef.current = false
       setSubmitting(false)
     }
   }
@@ -381,7 +407,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
           )}
 
           <div className="button-group" style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', justifyContent: 'space-between' }}>
-            <button type="button" className="btn btn-ghost" onClick={onCancel}>
+            <button type="button" className="btn btn-ghost" disabled={submitting} onClick={onCancel}>
               Cancel
             </button>
 

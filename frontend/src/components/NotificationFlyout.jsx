@@ -263,7 +263,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
         aria-label={label}
         title={label}
       >
-        <Bell size={17} weight="regular" aria-hidden="true" />
+        <Bell size={22} weight="regular" aria-hidden="true" />
         {badge && <span className="nav-badge notif-badge">{badge}</span>}
       </button>
       {panel}

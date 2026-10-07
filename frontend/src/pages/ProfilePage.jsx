@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import LocationSelector from '../components/LocationSelector'
 import RequestFormModal from '../components/RequestFormModal'
+import ConfirmationDialog from '../components/ConfirmationDialog'
 import { useRequestCreation } from '../context/RequestCreationContext'
 import { FeedCard } from '../components/FeedCard'
 import { Card } from '../components/ui/Card'
@@ -70,6 +71,8 @@ export default function ProfilePage() {
   const openCreateRequest = useRequestCreation()
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelling, setCancelling] = useState(false)
+  const [cancelError, setCancelError] = useState(null)
+  const cancelBusyRef = useRef(false)
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
     queryKey: isOtherProfile ? ['member-profile', profileId] : ['profile'],
@@ -181,8 +184,10 @@ export default function ProfilePage() {
   }
 
   const cancelRequest = async () => {
-    if (!cancelTarget || cancelling) return
+    if (!cancelTarget || cancelBusyRef.current) return
+    cancelBusyRef.current = true
     clearNotices()
+    setCancelError(null)
     setCancelling(true)
     try {
       await api.post(`/api/requests/${cancelTarget.id}/cancel`)
@@ -192,8 +197,8 @@ export default function ProfilePage() {
       setCancelTarget(null)
       await refetch()
       setMessage('Blood request cancelled.')
-    } catch (error) { showError(error) }
-    finally { setCancelling(false) }
+    } catch (error) { setCancelError(error.message || 'The request could not be cancelled. Try again.') }
+    finally { cancelBusyRef.current = false; setCancelling(false) }
   }
 
   const onUpload = async (event) => {
@@ -330,7 +335,6 @@ export default function ProfilePage() {
           <div className={styles.headerActions}>
             {profile.role === 'member' && profile.verification_status !== 'verified' && <Button variant="secondary" disabled>Verification required</Button>}
             {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && <Button variant="secondary" onClick={enrollAsDonor} isLoading={enrolling}>Enroll as donor</Button>}
-            <Button disabled={!canCreateRequest} onClick={openCreateRequest}>Create request</Button>
             <Button to="/matches" variant="secondary">Manage requests</Button>
           </div>
         </div>
@@ -482,15 +486,8 @@ export default function ProfilePage() {
                   <div className={styles.requestCardActions}>
                     {request.status === 'OPEN' && <Button className={styles.editRequest} variant="secondary" onClick={() => { clearNotices(); setEditingRequestId(request.id) }}>Edit</Button>}
                     <Button className={styles.viewMatches} to={`/requests/${request.id}/matches`}>View matches</Button>
-                    {request.status === 'OPEN' && <Button className={styles.cancelRequest} variant="dangerOutline" onClick={() => { clearNotices(); setCancelTarget(request) }}>Cancel request</Button>}
+                    {request.status === 'OPEN' && <Button className={styles.cancelRequest} variant="dangerOutline" onClick={() => { clearNotices(); setCancelError(null); setCancelTarget(request) }}>Cancel request</Button>}
                   </div>
-                  {cancelTarget?.id === request.id && <div className={styles.cancelConfirmation} role="group" aria-label="Confirm request cancellation">
-                    <p>Cancel this request? It will stop accepting responses.</p>
-                    <div className={styles.postActions}>
-                      <Button variant="secondary" disabled={cancelling} onClick={() => setCancelTarget(null)}>Keep request</Button>
-                      <Button variant="destructive" isLoading={cancelling} onClick={cancelRequest}>Confirm cancellation</Button>
-                    </div>
-                  </div>}
                 </FeedCard>
               ))}
             </section>
@@ -499,6 +496,10 @@ export default function ProfilePage() {
       </main>
 
       <RequestFormModal open={Boolean(editingRequestId)} id={editingRequestId} onSuccess={handleRequestSaved} onClose={closeRequestForm} />
+      <ConfirmationDialog open={Boolean(cancelTarget)} title="Cancel this blood request?" confirmLabel="Cancel request" cancelLabel="Keep request"
+        destructive busy={cancelling} error={cancelError} onConfirm={cancelRequest} onCancel={() => { if (!cancelBusyRef.current) setCancelTarget(null) }}>
+        <p>The request for {cancelTarget?.required_blood_type} blood at {cancelTarget?.facility_name} will stop accepting responses.</p>
+      </ConfirmationDialog>
       <PrivacyConsentModal isOpen={idPrivacyModalOpen} onClose={() => setIdPrivacyModalOpen(false)} readonly />
     </div>
   )

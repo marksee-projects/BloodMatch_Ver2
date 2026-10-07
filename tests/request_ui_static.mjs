@@ -45,6 +45,7 @@ async function loadPage(name) {
 
 const MatchesPage = await loadPage('MatchesPage')
 const ProfilePage = await loadPage('ProfilePage')
+const ConfirmationDialog = await loadPage('../components/ConfirmationDialog')
 const request = { id: 45, requester_id: 7, requester_name: 'Requester', requester_chapter_name: 'Chapter', requester_verification_status: 'verified', can_view_requester_profile: true,
   required_blood_type: 'B-', quantity_units: 2, facility_name: 'A hospital with a long name for the compact selector', status: 'OPEN', urgency: 'urgent',
   needed_datetime: '2099-10-15 09:00:00', created_at: '2026-10-06 13:00:00', location: { municipality_name: 'Bagac' }, match_count: 1, response_count: 0 }
@@ -98,9 +99,9 @@ check('Donor view retains help, profile and return-to-Home actions', () => {
 })
 const profile = { id: 7, full_name: 'Requester', first_name: 'Requester', chapter_name: 'Chapter', role: 'member', blood_type: 'A-', verification_status: 'verified', donor_enrolled: true, availability: 'available', availability_window: {}, capabilities: { create_request: true }, documents: [] }
 const ownProfile = render(ProfilePage, '/profile', [], null, undefined, { profile, reports: [], requests: [request, { ...second, status: 'CANCELLED' }] })
-check('Profile Overview preserves closed requests, filters/counts, both Create actions and Matches management', () => {
+check('Profile Overview preserves closed requests, filters/counts, section Create action and Matches management', () => {
   for (const value of ['Filter blood requests by status', 'Fulfilled', 'Cancelled', 'Expired', 'Another hospital', 'potential donor', 'responses', 'Donation History', 'Verification', 'href="/matches"']) assert.ok(ownProfile.includes(value), value)
-  assert.equal((ownProfile.match(/Create request/g) || []).length, 2)
+  assert.equal((ownProfile.match(/Create request/g) || []).length, 1)
   assert.ok(!ownProfile.includes('Set unavailable'))
   assert.ok(ownProfile.indexOf('>Edit</button>') < ownProfile.indexOf('>View matches</a>'))
   assert.ok(ownProfile.indexOf('>View matches</a>') < ownProfile.indexOf('>Cancel request</button>'))
@@ -112,5 +113,21 @@ check('Existing form fields, create/edit API distinction and legacy routes remai
   const app = readFileSync(`${frontend}src/App.jsx`, 'utf8')
   for (const route of ['/requests/mine', '/requests/new', '/requests/:id/matches', '/matches']) assert.ok(app.includes(`path="${route}"`), route)
   assert.ok(app.includes('<Navigate to="/profile" replace />'))
+})
+check('Save and discard confirmations expose clear, accessible choices', () => {
+  for (const [title, confirmLabel] of [['Save these changes?', 'Save changes'], ['Discard your changes?', 'Discard changes']]) {
+    const html = renderToStaticMarkup(h(ConfirmationDialog, { open: true, title, confirmLabel, onConfirm: () => {}, onCancel: () => {} }, h('p', null, 'Review your request changes.')))
+    assert.ok(html.includes('role="alertdialog"')); assert.ok(html.includes('aria-modal="true"'))
+    assert.ok(html.includes(title)); assert.ok(html.includes(confirmLabel)); assert.ok(html.includes('Keep editing'))
+    assert.ok(html.includes('aria-labelledby=')); assert.ok(html.includes('aria-describedby='))
+  }
+  assert.equal(renderToStaticMarkup(h(ConfirmationDialog, { open: false })), '')
+})
+check('Pending cancellation disables both popup actions; failure remains visible for retry', () => {
+  const props = { open: true, title: 'Cancel this blood request?', confirmLabel: 'Cancel request', cancelLabel: 'Keep request', destructive: true, onConfirm: () => {}, onCancel: () => {} }
+  const pending = renderToStaticMarkup(h(ConfirmationDialog, { ...props, busy: true }, h('p', null, 'The request will stop accepting responses.')))
+  assert.ok(pending.includes('aria-busy="true"')); assert.equal((pending.match(/disabled=""/g) || []).length, 2)
+  const failed = renderToStaticMarkup(h(ConfirmationDialog, { ...props, error: 'Unable to cancel. Try again.' }))
+  assert.ok(failed.includes('role="alert"')); assert.ok(failed.includes('Unable to cancel. Try again.')); assert.ok(!failed.includes('disabled=""'))
 })
 console.log(`${passed} static checks passed. Browser interactions and backend behavior were not exercised.`)

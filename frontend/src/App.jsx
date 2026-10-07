@@ -58,7 +58,7 @@ function NavbarAvatar({ src, alt, className }) {
   if (!src || failed) {
     return (
       <span className={`avatar avatar-fallback ${className || ''}`} role="img" aria-label="No profile picture">
-        <User size={16} weight="regular" aria-hidden="true" />
+        <User size={22} weight="regular" aria-hidden="true" />
       </span>
     )
   }
@@ -209,16 +209,16 @@ function AppShell() {
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
             <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined} title="Home">
-              <House size={24} weight={isActive('/') ? 'fill' : 'regular'} />
+              <House size={28} weight={isActive('/') ? 'fill' : 'regular'} />
             </Link>
             {user && (
               <Link to="/matches" className={`nav-link ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} aria-label="Matches" title="Matches">
-                <Users size={24} weight={isMatchesActive ? 'fill' : 'regular'} />
+                <Users size={28} weight={isMatchesActive ? 'fill' : 'regular'} />
               </Link>
             )}
             {user && (
               <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} title="Profile">
-                <User size={24} weight={isActive('/profile') ? 'fill' : 'regular'} />
+                <User size={28} weight={isActive('/profile') ? 'fill' : 'regular'} />
               </Link>
             )}
           </nav>
@@ -234,7 +234,7 @@ function AppShell() {
                     title="Create request"
                     aria-label="Create blood request"
                   >
-                    <Plus size={24} weight="bold" />
+                    <Plus size={28} weight="bold" aria-hidden="true" />
                   </button>
                   <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
                   <div style={{ position: 'relative' }} ref={profileMenuRef}>
@@ -349,7 +349,7 @@ function AppShell() {
                     title="Create request"
                     aria-label="Create blood request"
                   >
-                    <Plus size={24} weight="bold" />
+                    <Plus size={28} weight="bold" aria-hidden="true" />
                   </button>
                   <span className="notif-mobile" title="Notifications">
                     <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
