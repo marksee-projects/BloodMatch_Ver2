@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, CalendarBlank, Drop, Hospital, PencilSimple, Plus, Users } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
 import RequestFormModal from '../components/RequestFormModal'
 import { useRequestCreation } from '../context/RequestCreationContext'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
@@ -18,6 +19,7 @@ function formatDate(value) {
 }
 
 export default function RequestsPage() {
+  const { user } = useAuth()
   const openCreateRequest = useRequestCreation()
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
@@ -26,7 +28,8 @@ export default function RequestsPage() {
   const [cancelTarget, setCancelTarget] = useState(null)
 
   const { data: requests = [], isLoading, refetch } = useQuery({
-    queryKey: ['my-requests'],
+    queryKey: ['my-requests', user?.id],
+    enabled: Boolean(user?.id),
     queryFn: async () => {
       const data = await api.get('/api/my/requests')
       return data.requests || []

@@ -46,7 +46,7 @@ function formatPostedTime(value) {
 export default function ProfilePage() {
   const { id: profileId } = useParams()
   const isOtherProfile = Boolean(profileId)
-  const { refresh } = useAuth()
+  const { user, refresh } = useAuth()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(null)
@@ -75,7 +75,8 @@ export default function ProfilePage() {
   const cancelBusyRef = useRef(false)
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
-    queryKey: isOtherProfile ? ['member-profile', profileId] : ['profile'],
+    queryKey: isOtherProfile ? ['member-profile', profileId, user?.id] : ['profile', user?.id],
+    enabled: Boolean(user?.id),
     queryFn: async () => {
       const response = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile')
       if (isOtherProfile) {

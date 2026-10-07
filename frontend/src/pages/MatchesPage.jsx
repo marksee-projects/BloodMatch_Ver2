@@ -41,15 +41,15 @@ export default function MatchesPage() {
   const [submittingReport, setSubmittingReport] = useState(false)
 
   const { data: pageData, error: matchError, refetch: load } = useQuery({
-    queryKey: ['request-matches', id],
+    queryKey: ['request-matches', id, user?.id],
     staleTime: 0,
     queryFn: () => api.get(`/api/requests/${id}/matches`),
-    enabled: Boolean(id)
+    enabled: Boolean(id && user?.id)
   })
   const { data: myRequests = [], isLoading: requestsLoading, error: requestsError, refetch: reloadRequests } = useQuery({
-    queryKey: ['my-requests'],
+    queryKey: ['my-requests', user?.id],
     queryFn: async () => (await api.get('/api/my/requests')).requests || [],
-    enabled: !id || pageData?.viewer_mode === 'requester'
+    enabled: Boolean(user?.id) && (!id || pageData?.viewer_mode === 'requester')
   })
   useEffect(() => {
     setErrorAlert(null)

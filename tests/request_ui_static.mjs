@@ -53,12 +53,13 @@ const donor = { match_id: 81, display_name: 'Eligible donor', chapter_name: 'Don
 let passed = 0
 function check(label, fn) { fn(); passed++; console.log(`PASS ${label}`) }
 
-function render(Page, path, requests, data, user = { id: 7, role: 'member' }, profile) {
+function render(Page, path, requests, data, user = { id: 7, role: 'member' }, profile, previousQueries = []) {
   globalThis.requestUiUser = user
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } })
-  client.setQueryData(['my-requests'], requests)
-  if (data) client.setQueryData(['request-matches', path.split('/')[2]], data)
-  if (profile) client.setQueryData(['profile'], profile)
+  for (const [key, value] of previousQueries) client.setQueryData(key, value)
+  client.setQueryData(['my-requests', user.id], requests)
+  if (data) client.setQueryData(['request-matches', path.split('/')[2], user.id], data)
+  if (profile) client.setQueryData(['profile', user.id], profile)
   const markup = renderToStaticMarkup(h(QueryClientProvider, { client }, h(MemoryRouter, { initialEntries: [path] },
     h(Routes, null, h(Route, { path: path === '/matches' ? '/matches' : path === '/profile' ? '/profile' : '/requests/:id/matches', element: h(Page) })))))
   client.clear()
@@ -105,6 +106,22 @@ check('Profile Overview preserves closed requests, filters/counts, section Creat
   assert.ok(!ownProfile.includes('Set unavailable'))
   assert.ok(ownProfile.indexOf('>Edit</button>') < ownProfile.indexOf('>View matches</a>'))
   assert.ok(ownProfile.indexOf('>View matches</a>') < ownProfile.indexOf('>Cancel request</button>'))
+})
+check('Admin Profile does not display a previous member cache while loading', () => {
+  const memberData = { profile: { ...profile, full_name: 'Previous member' }, requests: [request], reports: [] }
+  const html = render(ProfilePage, '/profile', [], null, { id: 99, role: 'admin' }, null,
+    [[['profile'], memberData], [['profile', profile.id], memberData]])
+  assert.ok(html.includes('Loading profile')); assert.ok(!html.includes('Previous member')); assert.ok(!html.includes(request.facility_name))
+})
+check('Admin Matches ignores the previous member request selector cache', () => {
+  const html = render(MatchesPage, '/matches', [], null, { id: 99, role: 'admin' }, null,
+    [[['my-requests'], [request]], [['my-requests', profile.id], [request]]])
+  assert.ok(html.includes('active blood request yet')); assert.ok(!html.includes(request.facility_name))
+})
+check('Viewer-specific match cache cannot expose a prior requester donor list', () => {
+  const html = render(MatchesPage, '/requests/45/matches', [], null, { id: 99, role: 'admin' }, null,
+    [[['request-matches', '45'], ownData], [['request-matches', '45', profile.id], ownData]])
+  assert.ok(html.includes('Loading request')); assert.ok(!html.includes('Eligible donor')); assert.ok(!html.includes('href="/profile/9"'))
 })
 check('Existing form fields, create/edit API distinction and legacy routes remain in source', () => {
   const source = readFileSync(`${frontend}src/pages/RequestFormPage.jsx`, 'utf8')
