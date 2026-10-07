@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { useRequestCreation } from '../context/RequestCreationContext'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { Button } from '../components/ui/Button'
@@ -25,9 +27,11 @@ function eligibilityMessage(user) {
 
 export default function MatchesPage() {
   const { id } = useParams()
+  const navigate = useNavigate()
+  const location = useLocation()
+  const openCreateRequest = useRequestCreation()
   const { user, refresh } = useAuth()
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
-  const [pageData, setPageData] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [message, setMessage] = useState(null)
   const [confirmation, setConfirmation] = useState(null)
@@ -36,8 +40,24 @@ export default function MatchesPage() {
   const [reportNote, setReportNote] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
 
-  const load = useCallback(() => api.get(`/api/requests/${id}/matches`).then(setPageData).catch((error) => setErrorAlert(error.message)), [id])
-  useEffect(() => { load() }, [load])
+  const { data: pageData, error: matchError, refetch: load } = useQuery({
+    queryKey: ['request-matches', id],
+    staleTime: 0,
+    queryFn: () => api.get(`/api/requests/${id}/matches`),
+    enabled: Boolean(id)
+  })
+  const { data: myRequests = [], isLoading: requestsLoading, error: requestsError, refetch: reloadRequests } = useQuery({
+    queryKey: ['my-requests'],
+    queryFn: async () => (await api.get('/api/my/requests')).requests || [],
+    enabled: !id || pageData?.viewer_mode === 'requester'
+  })
+  useEffect(() => {
+    setErrorAlert(null)
+    setMessage(location.state?.requestCreated ? 'Blood request created. Potential donors are shown below when available.' : null)
+    setConfirmation(null)
+    setReportingMatchId(null)
+    setReportNote('')
+  }, [id])
   useEffect(() => {
     if (!message) return undefined
     const timeoutId = window.setTimeout(() => setMessage(null), 5000)
@@ -49,6 +69,7 @@ export default function MatchesPage() {
   const viewerMode = pageData?.viewer_mode
   const ownMatch = matches.find((match) => match.is_current_user)
   const isRequesterView = viewerMode === 'requester'
+  const isOwnRequest = request && String(request.requester_id) === String(user?.id)
 
   const respond = async () => {
     if (!ownMatch) return
@@ -106,8 +127,29 @@ export default function MatchesPage() {
     }
   }
 
-  if (errorAlert && !pageData) {
-    return <div className={styles.container}><div className="alert alert-error" role="alert">{errorAlert}</div><Button to="/" variant="secondary"><ArrowLeft size={16} /> Back</Button></div>
+  const activeRequests = myRequests.filter((item) => item.status === 'OPEN')
+  const selectorRequests = request && !activeRequests.some((item) => String(item.id) === String(id))
+    ? [request, ...activeRequests]
+    : activeRequests
+
+  if (!id) {
+    if (requestsLoading) return <div className={styles.container}><LoadingSpinner text="Loading active requests…" minHeight="24rem" /></div>
+    if (requestsError) return <div className={styles.container}><div className="alert alert-error" role="alert">{requestsError.message}</div><Button variant="secondary" onClick={() => reloadRequests()}>Try again</Button></div>
+    if (activeRequests.length) return <Navigate to={`/requests/${activeRequests[0].id}/matches`} replace />
+    return (
+      <div className={styles.container}>
+        <h1 className={styles.matchesTitle}>Matches</h1>
+        <section className={styles.emptyState}>
+          <h2>You don't have an active blood request yet.</h2>
+          <p>Create a blood request to view potential donors.</p>
+          <div className={styles.emptyActions}><Button onClick={openCreateRequest}>Create request</Button></div>
+        </section>
+      </div>
+    )
+  }
+
+  if ((errorAlert || matchError) && !pageData) {
+    return <div className={styles.container}><div className="alert alert-error" role="alert">{errorAlert || matchError.message}</div><Button to="/" variant="secondary"><ArrowLeft size={16} /> Back</Button></div>
   }
   if (!pageData || !request) return <div className={styles.container}><LoadingSpinner text="Loading request…" minHeight="24rem" /></div>
 
@@ -115,10 +157,28 @@ export default function MatchesPage() {
 
   return (
     <div className={styles.container}>
-      <Link className={styles.backLink} to={isRequesterView ? '/requests/mine' : '/'}><ArrowLeft size={16} /> {isRequesterView ? 'My blood requests' : 'Compatible requests'}</Link>
+      {isRequesterView ? (
+        <header className={styles.matchesHeader}>
+          <h1 className={styles.matchesTitle}>Matches</h1>
+          {isOwnRequest && selectorRequests.length > 1 && <div className={styles.requestSelector}>
+            <label htmlFor="matches-request">Choose a blood request</label>
+            <select id="matches-request" value={id} onChange={(event) => navigate(`/requests/${event.target.value}/matches`)}>
+              {selectorRequests.map((item) => (
+                <option key={item.id} value={item.id} title={`${item.required_blood_type} • ${item.facility_name} • ${item.urgency}`}>
+                  {item.required_blood_type} • {item.facility_name.length > 36 ? `${item.facility_name.slice(0, 35)}…` : item.facility_name} • {item.urgency.charAt(0).toUpperCase() + item.urgency.slice(1)}{item.status !== 'OPEN' ? ` • ${item.status}` : ''}
+                  {selectorRequests.filter((other) => other.required_blood_type === item.required_blood_type && other.facility_name === item.facility_name && other.urgency === item.urgency).length > 1 ? ` • Needed ${formatDate(item.needed_datetime)}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>}
+          {isOwnRequest && requestsLoading && <p role="status">Loading active requests…</p>}
+          {isOwnRequest && requestsError && <div role="alert"><p>Active requests could not be loaded: {requestsError.message}</p><Button variant="secondary" onClick={() => reloadRequests()}>Try again</Button></div>}
+        </header>
+      ) : <Link className={styles.backLink} to="/"><ArrowLeft size={16} /> Compatible requests</Link>}
 
       {message && <div className="alert alert-success" role="status">{message}</div>}
       {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
+      {matchError && <div className="alert alert-error" role="alert">{matchError.message}</div>}
 
       <section className={styles.requestSurface} aria-labelledby="request-title">
         <div className={styles.requestHeader}>
@@ -145,7 +205,7 @@ export default function MatchesPage() {
 
         <div className={styles.requestActions}>
           <div className={styles.profileActions}>
-            {request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
+            {!isOwnRequest && request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
           </div>
           <div className={styles.donorActions}>
             {!isRequesterView && ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}

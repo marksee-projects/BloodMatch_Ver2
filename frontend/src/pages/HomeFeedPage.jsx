@@ -133,7 +133,7 @@ export default function HomeFeedPage() {
                 </div>
                 <hr className={styles.accountDetailDivider} />
                 <ul className={styles.quickLinks}>
-                  <li><Link to="/requests/mine" className={styles.quickLink}>My Requests</Link></li>
+                  <li><Link to="/profile" className={styles.quickLink}>My Requests</Link></li>
                   <li><Link to="/profile" className={styles.quickLink}>Edit Profile</Link></li>
                 </ul>
               </div>

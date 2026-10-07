@@ -35,24 +35,32 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
   const [message, setMessage] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [loaded, setLoaded] = useState(!editing)
+  const [loadError, setLoadError] = useState(null)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
+    let active = true
     api.get('/api/hospitals')
       .then((data) => setHospitalsList(data.hospitals || []))
       .catch((err) => console.error('Failed to load hospitals:', err))
 
-    if (!editing) return
+    if (!editing) return () => { active = false }
+    setLoaded(false)
+    setLoadError(null)
     api
       .get(`/api/requests/${id}`)
       .then((data) => {
+        if (!active) return
         const r = data.request
+        const needed = r.needed_datetime ? new Date(`${r.needed_datetime.replace(' ', 'T')}Z`) : null
+        const pad = (value) => String(value).padStart(2, '0')
         setForm({
           required_blood_type: r.required_blood_type,
           quantity_units: r.quantity_units,
           facility_name: r.facility_name,
           urgency: r.urgency,
-          needed_date: (r.needed_datetime || '').slice(0, 10),
-          needed_time: (r.needed_datetime || '').slice(11, 16)
+          needed_date: needed ? `${needed.getFullYear()}-${pad(needed.getMonth() + 1)}-${pad(needed.getDate())}` : '',
+          needed_time: needed ? `${pad(needed.getHours())}:${pad(needed.getMinutes())}` : ''
         })
         const loc = r.location
         setLocation({
@@ -62,8 +70,9 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
         })
         setLoaded(true)
       })
-      .catch((err) => setMessage(err.message))
-  }, [editing, id])
+      .catch((err) => { if (active) setLoadError(err.message) })
+    return () => { active = false }
+  }, [editing, id, loadAttempt])
 
   const setField = (name) => (e) => {
     setForm((f) => ({ ...f, [name]: e.target.value }))
@@ -91,7 +100,10 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
 
   const onSubmit = async (e) => {
     e.preventDefault()
-    if (!validateStep(1) || !validateStep(2) || !validateStep(3)) {
+    const validationErrors = { ...validateStep(1, false), ...validateStep(2, false), ...validateStep(3, false) }
+    setStepErrors(validationErrors)
+    if (Object.keys(validationErrors).length) {
+      if (!editing) setStep(validationErrors.required_blood_type || validationErrors.quantity_units ? 1 : validationErrors.facility_name || validationErrors.municipality_code || validationErrors.barangay_code ? 2 : 3)
       return
     }
     setErrors({})
@@ -105,15 +117,16 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
       )
       payload.hospital_id = matchedHospital ? matchedHospital.id : null
 
-      if (payload.needed_date && payload.needed_time) payload.needed_datetime = `${payload.needed_date}T${payload.needed_time}`
+      if (payload.needed_date && payload.needed_time) {
+        // The controls show local time; the PHP API accepts a UTC datetime.
+        payload.needed_datetime = new Date(`${payload.needed_date}T${payload.needed_time}`).toISOString().slice(0, 19)
+      }
       delete payload.needed_date; delete payload.needed_time
       
-      if (editing) {
-        await api.put(`/api/requests/${id}`, payload)
-      } else {
-        await api.post('/api/requests', payload)
-      }
-      if (onSuccess) onSuccess()
+      const result = editing
+        ? await api.put(`/api/requests/${id}`, payload)
+        : await api.post('/api/requests', payload)
+      if (onSuccess) onSuccess(result)
     } catch (err) {
       if (err.status === 403 && err.details?.code === 'EMAIL_UNVERIFIED') {
         setVerifyDialogOpen(true)
@@ -129,7 +142,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
 
   const [step, setStep] = useState(1)
 
-  const validateStep = (currentStep) => {
+  const validateStep = (currentStep, showErrors = true) => {
     const newErrors = {}
     if (currentStep === 1) {
       if (!form.required_blood_type) newErrors.required_blood_type = ['Please select a blood type.']
@@ -157,12 +170,15 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
         }
       }
     }
+    if (!showErrors) return newErrors
     setStepErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
   const nextStep = () => { if (validateStep(step)) setStep((s) => Math.min(s + 1, 3)) }
   const prevStep = () => setStep((s) => Math.max(s - 1, 1))
+
+  if (loadError) return <div role="alert" className="alert alert-error"><p>{loadError}</p><button type="button" className="btn btn-secondary" onClick={() => setLoadAttempt((value) => value + 1)}>Try again</button><button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button></div>
 
   if (!loaded) {
     return (
@@ -180,8 +196,9 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
       <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%' }}>
       <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: '0' }}>
-          {editing ? 'Edit request details' : 'Create blood request'}
+          {editing ? 'Edit request' : 'Create blood request'}
         </h1>
+        {editing && <p className="muted">Review your saved request details and update the fields below.</p>}
       </div>
 
       {message && (
@@ -192,7 +209,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
       )}
 
       <div className={styles.wizardCard}>
-        <div className={styles.stepperContainer}>
+        {!editing && <div className={styles.stepperContainer}>
           <div className={styles.stepperTrack}>
             <div className={styles.stepperLineBg} />
             <div className={styles.stepperLineFill} style={{ width: step === 1 ? '0%' : step === 2 ? '33.333%' : '66.666%' }} />
@@ -236,11 +253,11 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
               <span className={styles.stepLabel}>Timing &amp; Urgency</span>
             </button>
           </div>
-        </div>
+        </div>}
 
         <form className="form" onSubmit={onSubmit} noValidate>
           
-          {step === 1 && (
+          {(editing || step === 1) && (
             <div className="form-step">
               
               <div className="field">
@@ -276,7 +293,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
             </div>
           )}
 
-          {step === 2 && (
+          {(editing || step === 2) && (
             <div className="form-step">
               
               <div className="field">
@@ -309,7 +326,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
             </div>
           )}
 
-          {step === 3 && (
+          {(editing || step === 3) && (
             <div className="form-step">
               <div className="field">
                 <label htmlFor="urgency">Urgency Level *</label>
@@ -369,19 +386,19 @@ export default function RequestFormPage({ id, onSuccess, onCancel }) {
             </button>
 
             <div style={{ display: 'flex', gap: 'var(--space-2)' }}>
-              {step > 1 && (
+              {!editing && step > 1 && (
                 <button type="button" className="btn btn-secondary" onClick={prevStep}>
                   Back
                 </button>
               )}
               
-              {step < 3 ? (
+              {!editing && step < 3 ? (
                 <button type="button" className="btn" onClick={nextStep}>
                   Next Step
                 </button>
               ) : (
                 <button type="submit" className="btn" disabled={submitting}>
-                  {submitting ? 'Saving…' : (editing ? 'Update Request' : 'Publish Request')}
+                  {submitting ? 'Saving…' : (editing ? 'Save changes' : 'Publish Request')}
                 </button>
               )}
             </div>

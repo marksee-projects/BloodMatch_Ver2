@@ -23,7 +23,7 @@ export default function Footer() {
             <div className="site-footer-col-title">Platform</div>
             <ul className="site-footer-col-links">
               <li><Link to="/">Home Feed</Link></li>
-              <li><Link to="/requests/mine">My Requests</Link></li>
+              <li><Link to="/profile">My Requests</Link></li>
               <li><Link to="/notifications">Notifications</Link></li>
               <li><Link to="/profile">Profile</Link></li>
             </ul>

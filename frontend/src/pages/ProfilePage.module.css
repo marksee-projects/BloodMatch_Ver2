@@ -42,7 +42,15 @@
 .postLocation { margin: var(--space-2) 0 var(--space-4); color: var(--color-text-secondary); font-size: var(--text-sm); }
 .postMeta { margin: var(--space-2) 0; color: var(--color-text-muted); font-size: var(--text-sm); }
 .postCounts { display: grid; gap: var(--space-2); padding: var(--space-4) 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
-.cancelRequest { min-height: 44px; margin-left: auto; padding: var(--space-3); border: 0; background: transparent; color: var(--color-emergency-red); font: inherit; font-size: var(--text-sm); cursor: pointer; }
+.requestCardActions { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-3); }
+.editRequest { grid-column: 1; justify-self: start; }
+.viewMatches { grid-column: 2; justify-self: center; }
+.cancelRequest { grid-column: 3; justify-self: end; }
+.requestFilters { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
+.requestFilter, .requestFilterActive { min-height: 44px; gap: var(--space-2); border: 1px solid var(--color-border-hairline); background: var(--color-surface); color: var(--color-text); }
+.requestFilter:hover:not(:disabled) { background: var(--color-surface-sunken); border-color: var(--color-border-strong); }
+.requestFilterActive { background: var(--color-brand-navy); color: var(--color-accent-fg); }
+.requestFilter span, .requestFilterActive span { font-variant-numeric: tabular-nums; }
 .cancelConfirmation { margin-top: var(--space-4); padding: var(--space-4); border: 1px solid var(--color-danger-border); border-radius: var(--radius-control); background: var(--color-danger-subtle); }
 .cancelConfirmation p { margin: 0 0 var(--space-4); color: var(--color-text); }
 .verificationCard { width: min(100%, 440px); }
@@ -123,7 +131,11 @@
   .headerActions > * { width: 100% !important; flex: none; }
   .twoColumns, .detailsGrid { grid-template-columns: 1fr; }
   .headerNav { gap: var(--space-2); }
-  .cancelRequest { margin-left: 0; }
+  .headerNav { flex-wrap: wrap; }
+  .requestCardActions { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .viewMatches { grid-column: 1 / -1; grid-row: 1; }
+  .editRequest { grid-column: 1; grid-row: 2; }
+  .cancelRequest { grid-column: 2; grid-row: 2; }
   .cardHeader, .alertBox { align-items: stretch; flex-direction: column; }
   .historyRow { grid-template-columns: auto 1fr; }
   .historyRow > :last-child { grid-column: 2; justify-self: start; }

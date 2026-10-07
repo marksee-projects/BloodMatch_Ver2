@@ -1,5 +1,4 @@
 import React, { useId, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CaretDown, CheckCircle, User } from '@phosphor-icons/react'
 import { Card } from './ui/Card'
@@ -9,10 +8,10 @@ import { BloodTypeBlock } from './ui/BloodTypeBlock'
 import { api } from '../services/apiClient'
 import styles from './FeedCard.module.css'
 
-function formatNeededDate(value) {
+function formatNeededDate(value, includeYear = false) {
   if (!value) return 'Date not provided'
   return new Date(value.replace(' ', 'T') + 'Z').toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', ...(includeYear ? { year: 'numeric' } : {})
   })
 }
 
@@ -27,8 +26,8 @@ function formatPostedTime(value) {
   return `Posted ${count} ${unit}${count === 1 ? '' : 's'} ago`
 }
 
-export function FeedCard({ request, hideActions = false }) {
-  const [expanded, setExpanded] = useState(false)
+export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, children }) {
+  const [expanded, setExpanded] = useState(defaultExpanded)
   const detailsId = useId()
   const reasonId = useId()
   const queryClient = useQueryClient()
@@ -97,7 +96,7 @@ export function FeedCard({ request, hideActions = false }) {
               </div>
               <div>
                 <dt>Needed by</dt>
-                <dd>{formatNeededDate(request.needed_datetime)}</dd>
+                <dd>{formatNeededDate(request.needed_datetime, showNeededYear)}</dd>
               </div>
             </dl>
 
@@ -109,12 +108,13 @@ export function FeedCard({ request, hideActions = false }) {
                     onClick={() => response.mutate()}>
                     {responded ? 'Responded' : 'Respond'}
                   </Button>
-                  <Link className={styles.viewRequest} to={`/requests/${request.id}/matches`}>View request</Link>
+                  <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
                 </footer>
                 {responseReason && <p id={reasonId} className={styles.responseReason} role="status">{responseReason}</p>}
                 {response.isError && <p className={styles.responseReason} role="alert">{response.error.message}</p>}
               </div>
             )}
+            {children}
           </div>
         )}
       </article>

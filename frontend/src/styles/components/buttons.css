@@ -1,6 +1,11 @@
 /* ==========================================================================
    Buttons: unified, restrained, high-contrast
    ========================================================================== */
+.ui-button { background: var(--button-bg); color: var(--button-fg); }
+.ui-button:hover:not(:disabled):not([aria-disabled='true']) { background: var(--button-hover-bg); color: var(--button-fg); border-color: transparent; box-shadow: inset 0 0 0 1px currentColor; }
+.ui-button:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.ui-button[aria-disabled='true'] { pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .ui-button { transition: none !important; } .ui-button:hover:not(:disabled) { transform: none; } }
 button,
 .btn {
   display: inline-flex;

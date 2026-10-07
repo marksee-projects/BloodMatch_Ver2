@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -7,7 +7,8 @@ import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import LocationSelector from '../components/LocationSelector'
 import RequestFormModal from '../components/RequestFormModal'
-import { BloodTypeBlock } from '../components/ui/BloodTypeBlock'
+import { useRequestCreation } from '../context/RequestCreationContext'
+import { FeedCard } from '../components/FeedCard'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -46,6 +47,7 @@ export default function ProfilePage() {
   const isOtherProfile = Boolean(profileId)
   const { refresh } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [form, setForm] = useState(null)
   const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [errors, setErrors] = useState({})
@@ -53,7 +55,6 @@ export default function ProfilePage() {
   const [errorAlert, setErrorAlert] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
-  const [availabilityUpdating, setAvailabilityUpdating] = useState(false)
   const [file, setFile] = useState(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
   const [documentUploading, setDocumentUploading] = useState(false)
@@ -64,8 +65,9 @@ export default function ProfilePage() {
   const [pictureFailed, setPictureFailed] = useState(false)
   const pictureInputRef = useRef(null)
   const [activeSection, setActiveSection] = useState('overview')
+  const [requestFilter, setRequestFilter] = useState('ALL')
   const [editingRequestId, setEditingRequestId] = useState(null)
-  const [isCreating, setIsCreating] = useState(false)
+  const openCreateRequest = useRequestCreation()
   const [cancelTarget, setCancelTarget] = useState(null)
   const [cancelling, setCancelling] = useState(false)
 
@@ -92,35 +94,21 @@ export default function ProfilePage() {
   const profile = data?.profile
   const reports = data?.reports || []
   const requestHistory = data?.requests || []
-  const activeRequests = requestHistory.filter((request) => request.status === 'OPEN')
-  const pastRequests = requestHistory.filter((request) => request.status !== 'OPEN')
+  const filteredRequests = requestFilter === 'ALL' ? requestHistory : requestHistory.filter((request) => request.status === requestFilter)
 
   useEffect(() => setPictureFailed(false), [profile?.profile_picture_url])
 
   const showError = (error) => setErrorAlert(error?.message || 'The change could not be saved.')
   const clearNotices = () => { setMessage(null); setErrorAlert(null) }
-  const openCreateRequest = () => { clearNotices(); setEditingRequestId(null); setIsCreating(true) }
-  const closeRequestForm = useCallback(() => { setIsCreating(false); setEditingRequestId(null) }, [])
+  const closeRequestForm = useCallback(() => { setEditingRequestId(null) }, [])
   const handleRequestSaved = async () => {
     const wasEditing = Boolean(editingRequestId)
     closeRequestForm()
+    queryClient.invalidateQueries({ queryKey: ['my-requests'] })
+    queryClient.invalidateQueries({ queryKey: ['request-matches', String(editingRequestId)] })
+    queryClient.invalidateQueries({ queryKey: ['home-feed'] })
     await refetch()
     setMessage(wasEditing ? 'Request details updated.' : 'Blood request created and matching started.')
-  }
-
-  const setAvailability = async () => {
-    const next = profile.availability === 'available' ? 'unavailable' : 'available'
-    clearNotices()
-    setAvailabilityUpdating(true)
-    try {
-      await api.post('/api/profile/donor-availability', { availability: next })
-      await Promise.all([refetch(), refresh()])
-      setMessage(next === 'available' ? 'You are now available to donate.' : 'You are now unavailable for donor matches.')
-    } catch (error) {
-      showError(error)
-    } finally {
-      setAvailabilityUpdating(false)
-    }
   }
 
   const enrollAsDonor = async () => {
@@ -198,6 +186,9 @@ export default function ProfilePage() {
     setCancelling(true)
     try {
       await api.post(`/api/requests/${cancelTarget.id}/cancel`)
+      queryClient.invalidateQueries({ queryKey: ['my-requests'] })
+      queryClient.invalidateQueries({ queryKey: ['request-matches', String(cancelTarget.id)] })
+      queryClient.invalidateQueries({ queryKey: ['home-feed'] })
       setCancelTarget(null)
       await refetch()
       setMessage('Blood request cancelled.')
@@ -288,7 +279,6 @@ export default function ProfilePage() {
     .filter((document) => document.doc_type === 'national_id')
     .sort((a, b) => b.id - a.id)
   const availabilityBlocked = Boolean(profile.availability_window?.blocked)
-  const availabilityLabel = profile.availability === 'available' ? 'Set unavailable' : 'Set available'
   const availabilityStatus = availabilityBlocked
     ? `${titleCase(profile.availability_window.which)} until ${formatDate(profile.availability_window.ends_at_utc)}`
     : profile.donor_enrolled
@@ -340,13 +330,12 @@ export default function ProfilePage() {
           <div className={styles.headerActions}>
             {profile.role === 'member' && profile.verification_status !== 'verified' && <Button variant="secondary" disabled>Verification required</Button>}
             {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && <Button variant="secondary" onClick={enrollAsDonor} isLoading={enrolling}>Enroll as donor</Button>}
-            {profile.role === 'member' && profile.donor_enrolled && <Button variant="secondary" disabled={availabilityBlocked} onClick={setAvailability} isLoading={availabilityUpdating}>{availabilityBlocked ? 'Availability locked' : availabilityLabel}</Button>}
             <Button disabled={!canCreateRequest} onClick={openCreateRequest}>Create request</Button>
-            <Button to="/requests/mine" variant="secondary">Manage requests</Button>
+            <Button to="/matches" variant="secondary">Manage requests</Button>
           </div>
         </div>
         <nav className={styles.headerNav} aria-label="Profile sections">
-          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History']].map(([section, label]) => (
+          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'Donation History']].map(([section, label]) => (
             <button key={section} type="button" aria-current={activeSection === section || (section === 'overview' && activeSection === 'edit') ? 'page' : undefined}
               onClick={() => { setActiveSection(section); setEditingRequestId(null); setCancelTarget(null) }}>{label}</button>
           ))}
@@ -458,25 +447,7 @@ export default function ProfilePage() {
               </Card>
               </>}
             </section>
-            <section aria-labelledby="request-history-heading">
-              <h3 id="request-history-heading" className={styles.historySubheading}>Request history</h3>
-              <Card className={pastRequests.length ? styles.historyCard : styles.compactCard}>
-                {pastRequests.length === 0 ? <p className={styles.emptyText}>No past blood requests yet.</p> : (
-                  <div className={styles.historyList}>
-                    {pastRequests.map((request) => (
-                      <article key={request.id} className={styles.historyRow}>
-                        <div className={styles.historyBlood}>{request.required_blood_type}</div>
-                        <div><h4>{request.facility_name}</h4><p>Posted {formatDate(request.created_at)}</p>
-                          <p>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'} &bull; Needed {formatDate(request.needed_datetime)}</p>
-                          <Button to={`/requests/${request.id}/matches`} variant="secondary" size="sm">View matches</Button>
-                        </div>
-                        <Badge variant={request.status === 'FULFILLED' ? 'success' : 'neutral'}>{titleCase(request.status)}</Badge>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </Card>
-            </section>
+
           </div>
           )}
 
@@ -484,50 +455,50 @@ export default function ProfilePage() {
             <section className={styles.activitySection} aria-labelledby="profile-requests-heading">
               <div className={styles.cardHeader}>
                 <h2 id="profile-requests-heading">Blood requests</h2>
+                <Button variant="secondary" disabled={!canCreateRequest} onClick={openCreateRequest}>+ Create request</Button>
               </div>
-              {activeRequests.length === 0 ? (
-                <Card className={styles.compactCard}><p className={styles.emptyText}>No current blood requests. Past requests are in History.</p></Card>
-              ) : activeRequests.map((request) => (
-                <Card key={request.id} className={styles.requestPost}>
-                  <article aria-label={`Blood request at ${request.facility_name}`}>
-                    <div className={styles.postHeading}>
-                      <BloodTypeBlock bloodType={request.required_blood_type} />
-                      <div className={styles.postBadges}>
-                        <Badge variant={request.urgency === 'emergency' ? 'emergency' : request.urgency === 'urgent' ? 'urgent' : 'neutral'}>{request.urgency === 'critical' ? 'Emergency' : request.urgency}</Badge>
-                        {request.status !== 'OPEN' && <Badge variant={request.status === 'FULFILLED' ? 'success' : 'neutral'}>{titleCase(request.status)}</Badge>}
-                      </div>
-                    </div>
-                    <h3>{request.facility_name}</h3>
-                    <p className={styles.postLocation}>{request.location?.municipality_name || 'Municipality not provided'}</p>
-                    <p className={styles.postMeta}>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'} &bull; Needed {formatDate(request.needed_datetime)}</p>
-                    <p className={styles.postMeta}>{formatPostedTime(request.created_at)}</p>
-                    <div className={styles.postCounts}>
-                      {request.match_count != null && <span>{request.match_count} potential {request.match_count === 1 ? 'donor' : 'donors'}</span>}
-                      {request.response_count != null && <span>{request.response_count} {request.response_count === 1 ? 'response' : 'responses'}</span>}
-                    </div>
+              <nav className={styles.requestFilters} aria-label="Filter blood requests by status">
+                {['ALL', 'OPEN', 'FULFILLED', 'CANCELLED', 'EXPIRED'].map((status) => (
+                  <button key={status} type="button" className={requestFilter === status ? styles.requestFilterActive : styles.requestFilter}
+                    aria-pressed={requestFilter === status} onClick={() => { setRequestFilter(status); setCancelTarget(null) }}>
+                    {status === 'ALL' ? 'All' : titleCase(status)} <span>{status === 'ALL' ? requestHistory.length : requestHistory.filter((request) => request.status === status).length}</span>
+                  </button>
+                ))}
+              </nav>
+              {filteredRequests.length === 0 ? (
+                <Card className={styles.compactCard}><p className={styles.emptyText}>{requestFilter === 'ALL' ? 'No blood requests yet. Create a request to begin matching.' : 'No ' + requestFilter.toLowerCase() + ' blood requests. Choose another status to review your activity.'}</p></Card>
+              ) : filteredRequests.map((request) => (
+                <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{ ...request,
+                  requester_name: profile.full_name,
+                  requester_chapter_name: profile.chapter_name,
+                  requester_profile_picture_url: profile.profile_picture_url,
+                  requester_verification_status: profile.verification_status
+                }}>
+                  <div className={styles.postCounts}>
+                    <Badge variant={request.status === 'FULFILLED' ? 'success' : request.status === 'OPEN' ? 'brand' : 'neutral'}>{titleCase(request.status)}</Badge>
+                    {request.match_count != null && <span>{request.match_count} potential {request.match_count === 1 ? 'donor' : 'donors'}</span>}
+                    {request.response_count != null && <span>{request.response_count} {request.response_count === 1 ? 'response' : 'responses'}</span>}
+                  </div>
+                  <div className={styles.requestCardActions}>
+                    {request.status === 'OPEN' && <Button className={styles.editRequest} variant="secondary" onClick={() => { clearNotices(); setEditingRequestId(request.id) }}>Edit</Button>}
+                    <Button className={styles.viewMatches} to={`/requests/${request.id}/matches`}>View matches</Button>
+                    {request.status === 'OPEN' && <Button className={styles.cancelRequest} variant="dangerOutline" onClick={() => { clearNotices(); setCancelTarget(request) }}>Cancel request</Button>}
+                  </div>
+                  {cancelTarget?.id === request.id && <div className={styles.cancelConfirmation} role="group" aria-label="Confirm request cancellation">
+                    <p>Cancel this request? It will stop accepting responses.</p>
                     <div className={styles.postActions}>
-                      <Button to={`/requests/${request.id}/matches`}>View matches</Button>
-                      {request.status === 'OPEN' && <>
-                        <Button variant="secondary" onClick={() => setEditingRequestId(request.id)}>Edit</Button>
-                        <button type="button" className={styles.cancelRequest} onClick={() => setCancelTarget(request)}>Cancel request</button>
-                      </>}
+                      <Button variant="secondary" disabled={cancelling} onClick={() => setCancelTarget(null)}>Keep request</Button>
+                      <Button variant="destructive" isLoading={cancelling} onClick={cancelRequest}>Confirm cancellation</Button>
                     </div>
-                    {cancelTarget?.id === request.id && <div className={styles.cancelConfirmation} role="group" aria-label="Confirm request cancellation">
-                      <p>Cancel this request? It will stop accepting responses.</p>
-                      <div className={styles.postActions}>
-                        <Button variant="secondary" disabled={cancelling} onClick={() => setCancelTarget(null)}>Keep request</Button>
-                        <Button variant="destructive" isLoading={cancelling} onClick={cancelRequest}>Confirm cancellation</Button>
-                      </div>
-                    </div>}
-                  </article>
-                </Card>
+                  </div>}
+                </FeedCard>
               ))}
             </section>
           )}
         </div>
       </main>
 
-      <RequestFormModal open={isCreating || Boolean(editingRequestId)} id={editingRequestId} onSuccess={handleRequestSaved} onClose={closeRequestForm} />
+      <RequestFormModal open={Boolean(editingRequestId)} id={editingRequestId} onSuccess={handleRequestSaved} onClose={closeRequestForm} />
       <PrivacyConsentModal isOpen={idPrivacyModalOpen} onClose={() => setIdPrivacyModalOpen(false)} readonly />
     </div>
   )

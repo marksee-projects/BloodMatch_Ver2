@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, House, ClipboardText, ShieldCheck, SignOut, CircleNotch } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, Users, House, ClipboardText, ShieldCheck, SignOut, CircleNotch } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
@@ -10,8 +10,7 @@ import RegisterPage from './pages/RegisterPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
-import RequestsPage from './pages/RequestsPage'
-import RequestFormPage from './pages/RequestFormPage'
+import { CreateRequestEntry, RequestCreationProvider, useRequestCreation } from './context/RequestCreationContext'
 import MatchesPage from './pages/MatchesPage'
 import NotificationFlyout from './components/NotificationFlyout'
 import Footer from './components/Footer'
@@ -67,6 +66,11 @@ function NavbarAvatar({ src, alt, className }) {
 }
 
 export default function App() {
+  return <RequestCreationProvider><AppShell /></RequestCreationProvider>
+}
+
+function AppShell() {
+  const openCreateRequest = useRequestCreation()
   const { theme, toggleTheme } = useTheme()
   const { user, loading, logout, refresh } = useAuth()
   const queryClient = useQueryClient()
@@ -144,6 +148,7 @@ export default function App() {
   }, [user])
 
   const isActive = (path) => location.pathname === path
+  const isMatchesActive = isActive('/matches') || /^\/requests\/[^/]+\/matches$/.test(location.pathname)
   const isPortalActive = location.pathname.startsWith('/officer') ||
     location.pathname.startsWith('/admin') ||
     location.pathname === '/demand-map' ||
@@ -207,6 +212,11 @@ export default function App() {
               <House size={24} weight={isActive('/') ? 'fill' : 'regular'} />
             </Link>
             {user && (
+              <Link to="/matches" className={`nav-link ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} aria-label="Matches" title="Matches">
+                <Users size={24} weight={isMatchesActive ? 'fill' : 'regular'} />
+              </Link>
+            )}
+            {user && (
               <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} title="Profile">
                 <User size={24} weight={isActive('/profile') ? 'fill' : 'regular'} />
               </Link>
@@ -217,14 +227,15 @@ export default function App() {
             <div className="nav-actions nav-actions--desktop">
               {user ? (
                 <>
-                  <Link
-                    to="/requests/mine"
+                  <button
+                    type="button"
+                    onClick={openCreateRequest}
                     className="nav-icon-btn nav-icon-btn--accent"
-                    title="My Requests"
-                    aria-label="Manage blood requests"
+                    title="Create request"
+                    aria-label="Create blood request"
                   >
                     <Plus size={24} weight="bold" />
-                  </Link>
+                  </button>
                   <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
                   <div style={{ position: 'relative' }} ref={profileMenuRef}>
                     <button 
@@ -266,7 +277,7 @@ export default function App() {
                         
                         <hr className="dropdown-divider" />
                         
-                        <Link to="/requests/mine" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
+                        <Link to="/profile" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
                           <div className="dropdown-icon-wrapper"><ClipboardText size={20} weight="fill" /></div>
                           <span className="dropdown-item-text">My Requests</span>
                           <CaretRight size={16} className="dropdown-caret" />
@@ -331,14 +342,15 @@ export default function App() {
             <div className="topbar-utilities">
               {user && (
                 <>
-                  <Link
-                    to="/requests/mine"
+                  <button
+                    type="button"
+                    onClick={openCreateRequest}
                     className="nav-icon-btn nav-icon-btn--accent nav-icon-btn--mobile"
-                    title="My Requests"
-                    aria-label="Manage blood requests"
+                    title="Create request"
+                    aria-label="Create blood request"
                   >
                     <Plus size={24} weight="bold" />
-                  </Link>
+                  </button>
                   <span className="notif-mobile" title="Notifications">
                     <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
                   </span>
@@ -374,9 +386,10 @@ export default function App() {
               <Link to="/" className={`mobile-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Home</Link>
               {user ? (
                 <>
+                  <Link to="/matches" className={`mobile-link ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Matches</Link>
                   <div className="mobile-section-label">Account</div>
                   <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Profile</Link>
-                  <Link to="/requests/mine" className={`mobile-link ${isActive('/requests/mine') ? 'active' : ''}`} aria-current={isActive('/requests/mine') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>My Requests</Link>
+                  <Link to="/profile" className="mobile-link" onClick={() => setMobileOpen(false)}>My Requests</Link>
                   <Link to="/notifications" className={`mobile-link ${isActive('/notifications') ? 'active' : ''}`} aria-label={`Notifications, ${unread} unread`} aria-current={isActive('/notifications') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Notifications {unread > 0 && <span className="nav-badge">{unread}</span>}</Link>
                   {user.role === 'officer' && (
                     <>
@@ -490,9 +503,10 @@ export default function App() {
             />
 
             {/* Standard Member Routes */}
-            <Route path="/requests/new" element={<RequireAuth><Navigate replace to="/requests/mine" state={{ openCreate: true }} /></RequireAuth>} />
-            <Route path="/requests/mine" element={<RequireAuth><RequestsPage /></RequireAuth>} />
+            <Route path="/requests/new" element={<RequireAuth><CreateRequestEntry /></RequireAuth>} />
+            <Route path="/requests/mine" element={<RequireAuth><Navigate to="/profile" replace /></RequireAuth>} />
             <Route path="/requests/:id/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
+            <Route path="/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
             <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
 
             <Route path="*" element={

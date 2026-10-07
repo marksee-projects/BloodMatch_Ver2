@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 /**
  * Standardized Button component following BloodMatch design system.
  * Props:
- * - variant: 'primary' | 'secondary' | 'destructive' (default 'primary')
+ * - variant: 'primary' | 'secondary' | 'destructive' | 'dangerOutline' (default 'primary')
  * - size: 'md' | 'lg' | 'sm' (default 'md')
  * - isLoading: boolean
  * - fullWidth: boolean
@@ -39,17 +39,26 @@ export function Button({
 
   const variants = {
     primary: {
-      backgroundColor: 'var(--color-brand-navy)',
-      color: '#FFFFFF',
+      '--button-bg': 'var(--color-brand-navy)',
+      '--button-fg': 'var(--color-accent-fg)',
+      '--button-hover-bg': 'var(--color-brand-navy-hover)',
     },
     secondary: {
-      backgroundColor: 'var(--color-surface)',
-      color: 'var(--color-text)',
+      '--button-bg': 'var(--color-surface)',
+      '--button-fg': 'var(--color-text)',
+      '--button-hover-bg': 'var(--color-surface-sunken)',
       boxShadow: 'inset 0 0 0 1px var(--color-border-hairline)',
     },
     destructive: {
-      backgroundColor: 'var(--color-emergency-red)',
-      color: '#FFFFFF',
+      '--button-bg': 'var(--color-emergency-red)',
+      '--button-fg': 'var(--color-accent-fg)',
+      '--button-hover-bg': 'var(--color-emergency-red)',
+    },
+    dangerOutline: {
+      '--button-bg': 'var(--color-surface)',
+      '--button-fg': 'var(--color-emergency-red)',
+      '--button-hover-bg': 'var(--color-emergency-bg)',
+      boxShadow: 'inset 0 0 0 1px var(--color-emergency-red)',
     }
   };
 
@@ -85,6 +94,7 @@ export function Button({
       className={`ui-button ${className}`}
       style={style}
       disabled={disabled || isLoading}
+      aria-disabled={disabled || isLoading || undefined}
       {...props}
     >
       {isLoading ? <span className="spinner" aria-hidden="true" style={{ width: '1em', height: '1em', border: '2px solid currentColor', borderRightColor: 'transparent', borderRadius: '50%', animation: 'spin 0.75s linear infinite' }} /> : null}

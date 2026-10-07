@@ -1,4 +1,13 @@
 .container { max-width: 900px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
+.matchesHeader { display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: var(--space-6); }
+.matchesTitle { margin: 0 0 var(--space-5); font-size: var(--text-hero); text-align: center; }
+.matchesHeader .matchesTitle { margin-bottom: 0; }
+.requestSelector { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; width: min(100%, 30rem); margin-inline: auto; }
+.requestSelector label { font-size: var(--text-sm); font-weight: 600; }
+.requestSelector select { width: 100%; min-height: 44px; padding: var(--space-3); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font: inherit; }
+.requestSelector select:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.requestSelector p { margin: 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.emptyActions { display: flex; justify-content: center; margin-top: var(--space-4); }
 .backLink { min-height: 44px; display: inline-flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); color: var(--color-text-muted); font-size: var(--text-sm); font-weight: 600; text-decoration: none; }
 
 .requestSurface { margin-bottom: var(--space-6); padding-bottom: var(--space-5); border-bottom: 1px solid var(--color-border-hairline); }

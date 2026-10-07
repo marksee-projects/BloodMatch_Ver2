@@ -1,9 +1,9 @@
 import { useCallback, useState } from 'react'
-import { useLocation } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, CalendarBlank, Drop, Hospital, PencilSimple, Plus, Users } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import RequestFormModal from '../components/RequestFormModal'
+import { useRequestCreation } from '../context/RequestCreationContext'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -18,11 +18,10 @@ function formatDate(value) {
 }
 
 export default function RequestsPage() {
-  const location = useLocation()
+  const openCreateRequest = useRequestCreation()
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [filter, setFilter] = useState('ALL')
-  const [isCreating, setIsCreating] = useState(Boolean(location.state?.openCreate))
   const [editingId, setEditingId] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
 
@@ -34,10 +33,9 @@ export default function RequestsPage() {
     }
   })
 
-  const modalOpen = isCreating || Boolean(editingId)
+  const modalOpen = Boolean(editingId)
 
   const closeForm = useCallback(() => {
-    setIsCreating(false)
     setEditingId(null)
   }, [])
 
@@ -77,7 +75,7 @@ export default function RequestsPage() {
           <h1>My blood requests</h1>
           <p>Publish a request, track responses, and manage its progress in one place.</p>
         </div>
-        <Button onClick={() => setIsCreating(true)}>
+        <Button onClick={openCreateRequest}>
           <Plus size={18} weight="bold" aria-hidden="true" /> Create blood request
         </Button>
       </header>
@@ -101,7 +99,7 @@ export default function RequestsPage() {
           <Drop size={32} weight="duotone" aria-hidden="true" />
           <h2>{filter === 'ALL' ? 'Create your first blood request' : `No ${filter.toLowerCase()} requests`}</h2>
           <p>{filter === 'ALL' ? 'Add the blood requirement, facility, and deadline to begin matching.' : 'Choose another status to review your request history.'}</p>
-          {filter === 'ALL' && <Button onClick={() => setIsCreating(true)}>Create blood request</Button>}
+          {filter === 'ALL' && <Button onClick={openCreateRequest}>Create blood request</Button>}
         </section>
       ) : (
         <div className={styles.requestList}>
