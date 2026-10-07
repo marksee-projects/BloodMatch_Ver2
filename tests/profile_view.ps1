@@ -85,9 +85,12 @@ New-Match $openRequest $donor.id 'POTENTIAL'
 $donorSession = Login $donor
 $result = Get-Profile $donorSession $target.id
 Assert-Status 'T05 donor matched to target open request may view target' $result.status 200
-$feedResult = Get-Json $donorSession '/api/home-feed'
+$feedResult = Get-Json $donorSession '/api/home-feed?q=Profile%20Test%20Clinic'
 $feedRequest = @($feedResult.body.data.requests | Where-Object { $_.id -eq $openRequest })
-if ($feedResult.status -eq 200 -and $feedRequest.Count -eq 1 -and $feedRequest[0].requester_id -eq $target.id -and $feedRequest[0].can_view_requester_profile -eq $true) {
+if ($feedResult.status -eq 200 -and $feedRequest.Count -eq 1 -and $feedRequest[0].requester_id -eq $target.id -and $feedRequest[0].can_view_requester_profile -eq $true `
+    -and $feedRequest[0].can_respond -eq $false -and $feedRequest[0].reason_code -eq 'not_enrolled' `
+    -and -not [string]::IsNullOrWhiteSpace([string]$feedRequest[0].reason_text) `
+    -and $null -eq $feedRequest[0].eligible_again_at -and $feedRequest[0].responded -eq $false) {
     Ok 'T05a Home feed exposes the requester public profile'
 } else {
     Bad 'T05a Home feed profile access metadata' "status=$($feedResult.status), matches=$($feedRequest.Count)"
@@ -117,9 +120,12 @@ New-Match $closedRequest $closedDonor.id 'CLOSED'
 $closedDonorSession = Login $closedDonor
 $result = Get-Profile $closedDonorSession $target.id
 Assert-Status 'T08 active member may view another active member after a match closes' $result.status 200
-$closedFeed = Get-Json $closedDonorSession '/api/home-feed'
+$closedFeed = Get-Json $closedDonorSession '/api/home-feed?q=Profile%20Test%20Clinic'
 $closedFeedEntry = @($closedFeed.body.data.requests | Where-Object { $_.id -eq $closedRequest })
-if ($closedFeedEntry.Count -eq 1 -and $closedFeedEntry[0].can_view_requester_profile -eq $true) {
+if ($closedFeedEntry.Count -eq 1 -and $closedFeedEntry[0].can_view_requester_profile -eq $true `
+    -and $closedFeedEntry[0].can_respond -eq $false -and $closedFeedEntry[0].reason_code -eq 'not_enrolled' `
+    -and -not [string]::IsNullOrWhiteSpace([string]$closedFeedEntry[0].reason_text) `
+    -and $null -eq $closedFeedEntry[0].eligible_again_at -and $closedFeedEntry[0].responded -eq $false) {
     Ok 'T08a compatible request keeps limited requester profile access'
 } else {
     Bad 'T08a compatibility-only Home card' "matches=$($closedFeedEntry.Count)"
@@ -139,9 +145,12 @@ $unrelated = New-User 'unrelated'
 $unrelatedSession = Login $unrelated
 $result = Get-Profile $unrelatedSession $target.id
 Assert-Status 'T10 unrelated active member receives the limited account view' $result.status 200
-$unrelatedFeed = Get-Json $unrelatedSession '/api/home-feed'
+$unrelatedFeed = Get-Json $unrelatedSession '/api/home-feed?q=Profile%20Test%20Clinic'
 $unrelatedEntry = @($unrelatedFeed.body.data.requests | Where-Object { $_.id -eq $openRequest })
-if ($unrelatedFeed.status -eq 200 -and $unrelatedEntry.Count -eq 1 -and $unrelatedEntry[0].can_view_requester_profile -eq $true) {
+if ($unrelatedFeed.status -eq 200 -and $unrelatedEntry.Count -eq 1 -and $unrelatedEntry[0].can_view_requester_profile -eq $true `
+    -and $unrelatedEntry[0].can_respond -eq $false -and $unrelatedEntry[0].reason_code -eq 'not_enrolled' `
+    -and -not [string]::IsNullOrWhiteSpace([string]$unrelatedEntry[0].reason_text) `
+    -and $null -eq $unrelatedEntry[0].eligible_again_at -and $unrelatedEntry[0].responded -eq $false) {
     Ok 'T10a compatible member can browse the requester limited profile'
 } else {
     Bad 'T10a compatibility-only Home feed' "status=$($unrelatedFeed.status), matches=$($unrelatedEntry.Count)"

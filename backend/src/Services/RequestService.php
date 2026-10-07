@@ -18,6 +18,88 @@ final class RequestService
         return AuthService::nowUtc();
     }
 
+    /**
+     * Validate and normalize the Home feed query. All list values are exact
+     * allow-list matches; q remains data and is escaped by the repository.
+     */
+    public static function validateHomeFeedQuery(array $query): array
+    {
+        $errors = [];
+        $scalar = static function (string $key) use ($query, &$errors): ?string {
+            if (!array_key_exists($key, $query) || $query[$key] === null) {
+                return null;
+            }
+            if (!is_scalar($query[$key])) {
+                $errors[$key][] = 'Value must be a single string.';
+                return null;
+            }
+            return trim((string) $query[$key]);
+        };
+
+        $pageRaw = $scalar('page');
+        $page = 1;
+        if ($pageRaw !== null && ($pageRaw === '' || !preg_match('/^[1-9]\d*$/', $pageRaw))) {
+            $errors['page'][] = 'Page must be a positive integer.';
+        } elseif ($pageRaw !== null && (int) $pageRaw > 2147483647) {
+            $errors['page'][] = 'Page is too large.';
+        } elseif ($pageRaw !== null) {
+            $page = (int) $pageRaw;
+        }
+
+        $q = $scalar('q');
+        if ($q === '') {
+            $q = null;
+        }
+        $qLength = $q === null ? 0 : (function_exists('mb_strlen') ? mb_strlen($q, 'UTF-8') : strlen($q));
+        if ($qLength > 80) {
+            $errors['q'][] = 'Search must be at most 80 characters.';
+        }
+
+        $municipalityCode = $scalar('municipality_code');
+        if ($municipalityCode === '') {
+            $municipalityCode = null;
+        }
+        if ($municipalityCode !== null
+            && (!preg_match('/^\d{9}$/', $municipalityCode)
+                || !LocationService::municipalityExists($municipalityCode))) {
+            $errors['municipality_code'][] = 'Selected municipality is invalid or unavailable.';
+        }
+
+        $parseList = static function (string $key, array $allowed) use ($scalar, &$errors): array {
+            $raw = $scalar($key);
+            if ($raw === null || $raw === '') {
+                return [];
+            }
+            $values = array_map('trim', explode(',', $raw));
+            if (in_array('', $values, true)) {
+                $errors[$key][] = 'List values cannot be empty.';
+                return [];
+            }
+            foreach ($values as $value) {
+                if (!in_array($value, $allowed, true)) {
+                    $errors[$key][] = 'Invalid value: ' . $value . '.';
+                }
+            }
+            return array_values(array_unique($values));
+        };
+
+        $blood = $parseList('blood', self::BLOOD_TYPES);
+        $urgency = $parseList('urgency', self::URGENCIES);
+
+        if ($errors !== []) {
+            throw new Exceptions\ValidationException($errors);
+        }
+
+        return [
+            'page' => $page,
+            'page_size' => 20,
+            'q' => $q,
+            'municipality_code' => $municipalityCode,
+            'blood' => $blood,
+            'urgency' => $urgency,
+        ];
+    }
+
     public static function validatePayload(array $body, bool $partial = false): array
     {
         $v = new \BloodMatch\Utils\Validator();
@@ -214,8 +296,12 @@ final class RequestService
         ];
     }
 
-    public static function homeFeedView(array $row): array
+    public static function homeFeedView(array $row, array $eligibility): array
     {
+        $matchStatus = isset($row['match_status']) && $row['match_status'] !== null
+            ? (string) $row['match_status']
+            : null;
+
         return [
             'id' => (int) $row['id'],
             'requester_id' => (int) $row['requester_id'],
@@ -241,11 +327,12 @@ final class RequestService
             'created_at' => (string) $row['created_at'],
             'status' => (string) $row['status'],
             'match_id' => isset($row['match_id']) && $row['match_id'] !== null ? (int) $row['match_id'] : null,
-            'match_status' => isset($row['match_status']) && $row['match_status'] !== null
-                ? (string) $row['match_status']
-                : null,
-            'can_respond' => isset($row['match_status'])
-                && in_array((string) $row['match_status'], ['POTENTIAL', 'NOTIFIED'], true),
+            'match_status' => $matchStatus,
+            'can_respond' => (bool) $eligibility['eligible'],
+            'reason_code' => $eligibility['code'],
+            'reason_text' => $eligibility['reason'],
+            'eligible_again_at' => $eligibility['eligible_again_at'],
+            'responded' => $matchStatus === 'RESPONDED',
             'can_view_requester_profile' => true,
         ];
     }

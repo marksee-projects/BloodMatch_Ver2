@@ -94,7 +94,7 @@ final class DonorEligibilityService
         $nowUtc = $nowUtc ?? self::nowUtc();
 
         if ((string) ($donor['role'] ?? '') !== 'member') {
-            return self::blocked('staff_account', "Staff accounts can't donate.");
+            return self::blocked('staff_account', "Staff accounts can't donate");
         }
         if ((string) ($donor['account_status'] ?? '') !== 'active') {
             return self::blocked('inactive_account', 'This account is not active.');

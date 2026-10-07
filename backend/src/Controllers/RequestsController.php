@@ -8,6 +8,8 @@ use BloodMatch\Middleware\AuthMiddleware;
 use BloodMatch\Repositories\BloodRequestRepository;
 use BloodMatch\Repositories\UserRepository;
 use BloodMatch\Services\AuditLogger;
+use BloodMatch\Services\BloodCompatibilityService;
+use BloodMatch\Services\DonorEligibilityService;
 use BloodMatch\Services\RequestService;
 use BloodMatch\Services\Exceptions\ValidationException;
 use BloodMatch\Utils\Request;
@@ -104,30 +106,79 @@ final class RequestsController
 
     public function homeFeed(): void
     {
-        $actor = AuthMiddleware::requireActiveUser('requests.home_feed');
-        if ((string) $actor['role'] !== 'member' || empty($actor['blood_type'])) {
-            Response::success([
-                'requests' => [],
-                'blood_type' => $actor['blood_type'] ?? null,
-                'compatible_recipient_types' => [],
-            ]);
+        $actor = AuthMiddleware::requireAuthenticatedUser('requests.home_feed');
+        try {
+            $filters = RequestService::validateHomeFeedQuery($_GET);
+        } catch (ValidationException $e) {
+            Response::error($e->getMessage(), 422, $e->errors());
             return;
         }
 
-        $recipientTypes = \BloodMatch\Services\BloodCompatibilityService::getCompatibleRecipientTypesForDonor(
-            (string) $actor['blood_type']
+        if ((string) $actor['account_status'] !== 'active') {
+            $this->emptyHomeFeed($actor, $filters, 'not_active', 'This account is not active.');
+            return;
+        }
+        if ((string) $actor['verification_status'] !== 'verified') {
+            $this->emptyHomeFeed(
+                $actor,
+                $filters,
+                'not_verified',
+                'Only verified accounts can view donor request suggestions.'
+            );
+            return;
+        }
+        if ((string) $actor['role'] !== 'member' && empty($actor['blood_type'])) {
+            $this->emptyHomeFeed(
+                $actor,
+                $filters,
+                'staff_no_blood_type',
+                'Staff accounts need a blood type to view read-only request suggestions.'
+            );
+            return;
+        }
+        if (empty($actor['blood_type'])) {
+            $this->emptyHomeFeed(
+                $actor,
+                $filters,
+                'blood_type_missing',
+                'Add your blood type to view compatible requests.'
+            );
+            return;
+        }
+
+        $recipientTypes = BloodCompatibilityService::getCompatibleRecipientTypesForDonor((string) $actor['blood_type']);
+        $nowUtc = DonorEligibilityService::nowUtc();
+        $window = DonorEligibilityService::evaluateWindows(
+            $actor['last_verified_donation_at'] !== null
+                ? (string) $actor['last_verified_donation_at']
+                : null,
+            $nowUtc
         );
-        $rows = (new BloodRequestRepository())->listCompatibleOpenForDonor(
+        $result = (new BloodRequestRepository())->pageCompatibleOpenForViewer(
             (int) $actor['id'],
-            $recipientTypes
+            $recipientTypes,
+            $filters,
+            (int) $filters['page'],
+            (int) $filters['page_size'],
+            $nowUtc
         );
         Response::success([
             'blood_type' => (string) $actor['blood_type'],
             'compatible_recipient_types' => $recipientTypes,
+            'reason_code' => null,
+            'reason_text' => null,
             'requests' => array_map(
-                static fn (array $row): array => RequestService::homeFeedView($row),
-                $rows
+                static fn (array $row): array => RequestService::homeFeedView(
+                    $row,
+                    DonorEligibilityService::evaluateForRequest($actor, $row, $nowUtc, $window)
+                ),
+                $result['rows']
             ),
+            'page' => (int) $filters['page'],
+            'page_size' => (int) $filters['page_size'],
+            'has_more' => (bool) $result['has_more'],
+            'total_matching' => (int) $result['total_matching'],
+            'total_unfiltered' => (int) $result['total_unfiltered'],
         ]);
     }
 
@@ -216,7 +267,19 @@ final class RequestsController
             && $actor['chapter_id'] !== null
             && (int) $actor['chapter_id'] === (int) $row['request_chapter_id'];
         $context = $repo->findRequestContext($requestId, (int) $actor['id']);
-        $requestView = $context !== null ? RequestService::homeFeedView($context) : null;
+        $nowUtc = DonorEligibilityService::nowUtc();
+        $window = DonorEligibilityService::evaluateWindows(
+            $actor['last_verified_donation_at'] !== null
+                ? (string) $actor['last_verified_donation_at']
+                : null,
+            $nowUtc
+        );
+        $requestView = $context !== null
+            ? RequestService::homeFeedView(
+                $context,
+                DonorEligibilityService::evaluateForRequest($actor, $context, $nowUtc, $window)
+            )
+            : null;
 
         if ($isOwner || $isAdmin || $isSameChapterOfficer) {
             Response::success([
@@ -241,22 +304,30 @@ final class RequestsController
             return;
         }
 
-        // Home is a compatibility browse view. A member may inspect the same
+        // Home is a compatibility browse view. A verified viewer may inspect the same
         // privacy-safe request information shown on its card even when the
         // account is not currently eligible to respond as a donor.
-        if ((string) $actor['role'] === 'member'
-            && !empty($actor['blood_type'])
-            && (string) $row['status'] === 'OPEN'
-            && in_array(
-                (string) $row['required_blood_type'],
-                \BloodMatch\Services\BloodCompatibilityService::getCompatibleRecipientTypesForDonor(
-                    (string) $actor['blood_type']
-                ),
-                true
-            )) {
+        if ((string) $actor['verification_status'] === 'verified' && !empty($actor['blood_type'])) {
+            $recipientTypes = BloodCompatibilityService::getCompatibleRecipientTypesForDonor(
+                (string) $actor['blood_type']
+            );
+            $browseContext = $repo->findCompatibleOpenForViewer(
+                $requestId,
+                (int) $actor['id'],
+                $recipientTypes,
+                $nowUtc
+            );
+        } else {
+            $browseContext = null;
+        }
+
+        if ($browseContext !== null) {
             Response::success([
                 'viewer_mode' => 'browser',
-                'request' => $requestView,
+                'request' => RequestService::homeFeedView(
+                    $browseContext,
+                    DonorEligibilityService::evaluateForRequest($actor, $browseContext, $nowUtc, $window)
+                ),
                 'matches' => [],
             ]);
             return;
@@ -267,6 +338,26 @@ final class RequestsController
             'reason' => 'not_owner_officer_or_matched_donor',
         ]);
         Response::error('Forbidden.', 403);
+    }
+
+    private function emptyHomeFeed(
+        array $actor,
+        array $filters,
+        string $reasonCode,
+        string $reasonText
+    ): void {
+        Response::success([
+            'blood_type' => $actor['blood_type'] ?? null,
+            'compatible_recipient_types' => [],
+            'reason_code' => $reasonCode,
+            'reason_text' => $reasonText,
+            'requests' => [],
+            'page' => (int) $filters['page'],
+            'page_size' => (int) $filters['page_size'],
+            'has_more' => false,
+            'total_matching' => 0,
+            'total_unfiltered' => 0,
+        ]);
     }
 
     public function rematch(array $params): void

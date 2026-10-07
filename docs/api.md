@@ -198,11 +198,13 @@ All responses adhere to the standard JSON envelopes:
 ## 4. Blood Requests & Matching Engine
 
 ### `GET /api/home-feed`
-- **Purpose:** Return up to 20 OPEN requests for which the authenticated member already has a live persisted match, ordered Critical, Urgent, Routine, then newest.
-- **Auth:** Authenticated. Non-member roles receive an empty feed.
-- **Privacy:** Returns requester display data, chapter, municipality-level location, request details, match status, and `can_view_requester_profile: true`. It excludes phone, birth date, availability, exact coordinates/barangay, documents, and donation history.
-- **Profile access:** Every returned row is backed by the same OPEN-request match relation accepted by `GET /api/profile/{id}`. Own requests and `CLOSED` matches are excluded.
-- **Response (200):** `{ "requests": [{ "id": 12, "requester_id": 42, "can_view_requester_profile": true, ... }] }`
+- **Purpose:** Suggest blood-compatible requests independently of the match table: OPEN, not past needed-by, not the viewer's own request, and compatible with the viewer's donor blood type. Results are ordered Critical, Urgent, Routine, then newest.
+- **Auth:** Authenticated. Only active, verified accounts receive suggestions. Ineligible viewers receive `200` with an empty `requests` array plus `reason_code`/`reason_text`; staff with a blood type receive the same cards read-only, while staff without one receive `staff_no_blood_type` and no rows.
+- **Paging:** Fixed at 20 rows per page. Query `page` is a positive integer. Response metadata is `page`, `page_size`, `has_more`, `total_matching` (after filters), and `total_unfiltered` (before filters).
+- **Filters:** `q` (trimmed, max 80; facility or municipality only; case-insensitive and literal `%`, `_`, `\`), `municipality_code` (one active Bataan municipality), `blood` (comma-separated needed blood types), and `urgency` (comma-separated `routine`, `urgent`, `critical`). Invalid values return `422`. Filters only narrow the compatible base set; selecting a municipality excludes requests without a location.
+- **Live donor state:** Each card contains `can_respond`, `reason_code`, `reason_text`, `eligible_again_at` (UTC), and `responded`. State is evaluated live by `DonorEligibilityService`; a persisted match is not required for inclusion.
+- **Privacy:** Returns requester display data, chapter, municipality-level location, request details, optional match status, and `can_view_requester_profile: true`. It excludes requester email/blood type, patient name, notes, contact details, birth date, availability, exact coordinates/barangay, documents, and donation history.
+- **Response (200):** `{ "requests": [{ "id": 12, "requester_id": 42, "can_respond": true, "reason_code": null, "eligible_again_at": null, "responded": false, ... }], "page": 1, "page_size": 20, "has_more": false, "total_matching": 1, "total_unfiltered": 1 }`
 
 ### `GET /api/my/requests`
 - **Purpose:** List all blood requests created by the authenticated user.
@@ -231,6 +233,10 @@ All responses adhere to the standard JSON envelopes:
 - **Purpose:** Get full details of a specific blood request.
 - **Auth:** Authenticated (Request owner, Chapter Officer, or Admin).
 - **Response (200):** `{ "request": { ...requestDetails } }`
+
+### `GET /api/requests/{id}/matches`
+- **Purpose:** Requester/staff match view or the donor-side privacy-safe request details view. Donor-side request state uses the same live eligibility evaluator and fields as the corresponding Home card, even when no match row exists.
+- **Auth:** Authenticated. Owners and authorized staff retain their requester-side match view. A verified viewer may browse a request only when it belongs to the same OPEN, current, blood-compatible set used by Home; an existing matched donor retains access to their own match context.
 
 ### `PUT /api/requests/{id}`
 - **Purpose:** Update facility, needed date, units, urgency, or Bataan location of an active OPEN request. Location edit is material (coords re-resolved, `request.material_change` audited, regeneration).

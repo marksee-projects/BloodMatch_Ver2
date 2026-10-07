@@ -57,6 +57,11 @@ final class LocationService
         ];
     }
 
+    public static function municipalityExists(string $municipalityCode): bool
+    {
+        return self::findMunicipality($municipalityCode) !== null;
+    }
+
     public static function findById(int $id): ?array
     {
         $stmt = Database::pdo()->prepare(

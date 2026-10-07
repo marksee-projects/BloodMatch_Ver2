@@ -46,6 +46,29 @@ final class AuthMiddleware
         return $user;
     }
 
+    /**
+     * Return the authenticated account without enforcing active status.
+     * Endpoints that must explain an inactive state can apply their own
+     * read-only response policy after this identity check.
+     */
+    public static function requireAuthenticatedUser(string $endpoint = ''): array
+    {
+        self::requireAuth($endpoint);
+
+        $userId = (int) $_SESSION['user_id'];
+        $user = (new UserRepository())->findById($userId);
+        if ($user === null) {
+            AuditLogger::log($userId, 'authz.denied', 'user', (string) $userId, [
+                'endpoint' => $endpoint,
+                'reason' => 'missing_account',
+            ]);
+            Response::error('Authentication required.', 401);
+            exit;
+        }
+
+        return $user;
+    }
+
     public static function requireRoles(array $roles, string $endpoint = ''): array
     {
         $user = self::requireActiveUser($endpoint);
