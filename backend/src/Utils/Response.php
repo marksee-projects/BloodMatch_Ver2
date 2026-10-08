@@ -11,6 +11,7 @@ final class Response
         http_response_code($status);
         if (!headers_sent()) {
             header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store, private');
         }
         echo json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }

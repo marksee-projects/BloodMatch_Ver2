@@ -15,6 +15,11 @@ const slots = []
 let cursor = 0
 let csrfClears = 0
 let response
+const effects = []
+const listeners = new Map()
+globalThis.window = { addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: (name) => listeners.delete(name) }
+globalThis.document = { visibilityState: "visible", addEventListener() {}, removeEventListener() {} }
+Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { setItem() {} } })
 const hooks = {
   ...React,
   useState(initial) {
@@ -28,7 +33,7 @@ const hooks = {
     return slots[index]
   },
   useCallback: (fn) => fn,
-  useEffect: () => {}
+  useEffect: (effect) => { effects.push(effect) }
 }
 const api = { get: (...args) => response(...args), post: (...args) => response(...args) }
 const fixtureRequire = (name) => {
@@ -92,5 +97,36 @@ await auth().refresh()
 assert.equal(auth().user, null)
 assert.equal(client.getQueryCache().getAll().length, 0)
 console.log('PASS Session expiry clears private cached data')
+response = async () => ({ user: member })
+const cleanup = effects[0]()
+await Promise.resolve()
+client.setQueryData(['profile', member.id], { profile: member })
+const otherTab = deferred()
+response = () => otherTab.promise
+listeners.get('storage')({ key: 'bloodmatch-session-change' })
+assert.equal(auth().user, null)
+assert.equal(auth().loading, true)
+assert.equal(client.getQueryCache().getAll().length, 0)
+otherTab.resolve({ user: admin })
+await Promise.resolve()
+assert.equal(auth().user.id, admin.id)
+assert.equal(auth().loading, false)
+console.log('PASS Another tab changing accounts clears identity and cache before reloading the session')
+response = async () => ({ user: member })
+listeners.get('focus')()
+await Promise.resolve()
+assert.equal(auth().user.id, member.id)
+console.log('PASS Returning to the tab revalidates the shared session')
+const first = deferred()
+response = () => first.promise
+const firstRefresh = auth().refresh()
+response = async () => ({ user: admin })
+await auth().refresh()
+first.resolve({ user: member })
+await firstRefresh
+assert.equal(auth().user.id, admin.id)
+console.log('PASS Older refresh results cannot overwrite a newer session refresh')
+cleanup()
+assert.equal(listeners.size, 0)
 client.clear()
-console.log('6 offline authentication checks passed. Browser sessions and backend behavior were not exercised.')
+console.log('9 offline authentication checks passed. Browser sessions and backend behavior were not exercised.')

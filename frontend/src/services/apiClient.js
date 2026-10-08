@@ -80,6 +80,7 @@ async function request(path, options = {}, isRetry = false) {
 
   const res = await fetch(path, {
     credentials: 'include',
+    cache: 'no-store',
     headers,
     ...options
   })
