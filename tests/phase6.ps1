@@ -45,7 +45,8 @@ function DbQuery($sql) {
 function New-FixtureUser($email, $name, $role, $chapterId, $vs) {
     $hash = & $PhpPath -r "echo password_hash('Str0ngPass1', PASSWORD_BCRYPT);"
     $chapSql = 'NULL'; if ($null -ne $chapterId) { $chapSql = "$chapterId" }
-    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status) VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active');"
+    # Request creation fixtures satisfy the established email-verification gate.
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, email_verified_at) VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', UTC_TIMESTAMP());"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -170,7 +171,7 @@ $r = Invoke-Json $off.s 'Put' "/api/requests/$reqVId" @{ facility_name='Officer 
 if ($r.status -eq 403) { Ok 'T16 officer edit (owner-only PUT) 403' } else { Bad 'T16' "got $($r.status)" }
 
 # --- T17 cancel flows ---
-$r = Invoke-Json $off.s 'Post' "/api/requests/$reqVId/cancel" @{} $offB.csrf
+$r = Invoke-Json $offB.s 'Post' "/api/requests/$reqVId/cancel" @{} $offB.csrf
 if ($r.status -eq 403) { Ok 'T17 cross-chapter officer cancel 403' } else { Bad 'T17' "got $($r.status)" }
 $r = Invoke-Json $off.s 'Post' "/api/requests/$reqVId/cancel" @{} $off.csrf
 if ($r.status -eq 200) { Ok 'T18 same-chapter officer cancels OPEN request' } else { Bad 'T18' "got $($r.status)" }

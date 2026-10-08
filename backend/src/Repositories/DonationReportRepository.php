@@ -114,7 +114,7 @@ final class DonationReportRepository
         $stmt = Database::pdo()->prepare(
             "SELECT dr.id, dr.match_id, dr.donor_id, dr.report_note, dr.reported_at,
                     u.full_name AS donor_name, br.required_blood_type, br.facility_name,
-                    br.request_chapter_id, br.status AS request_status, m.status AS match_status
+                    br.request_chapter_id, br.status AS request_status, br.needed_datetime, m.status AS match_status
              FROM donation_reports dr
              JOIN users u ON u.id = dr.donor_id
              JOIN matches m ON m.id = dr.match_id

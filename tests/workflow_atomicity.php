@@ -16,6 +16,7 @@ use BloodMatch\Services\DonationService;
 use BloodMatch\Services\Exceptions\DonorIneligibleException;
 use BloodMatch\Services\MatchResponseService;
 use BloodMatch\Services\MatchService;
+use BloodMatch\Services\RequestLifecycleService;
 
 Env::load(BASE_PATH . '/.env');
 $pdo = Database::pdo();
@@ -37,6 +38,10 @@ if (($argv[1] ?? '') === '--worker') {
             'withdraw' => (new MatchResponseService())->withdraw($actor, $targetId),
             'confirm' => (new DonationService())->decide($actor, $targetId, true),
             'generate' => (new MatchService())->generateForRequest($targetId, false, 'manual_rematch', $actorId),
+            'cancel' => (new RequestLifecycleService())->cancel($actor, $targetId),
+            'edit' => (new RequestLifecycleService())->update($actor, $targetId, ['facility_name' => 'Edited workflow request']),
+            'expire' => (new RequestLifecycleService())->expireOne($targetId, gmdate('Y-m-d H:i:s')),
+            'respond' => (new MatchResponseService())->respond($actor, $targetId, 'lifecycle_worker'),
             default => throw new RuntimeException('Unknown test operation.', 400),
         };
         echo json_encode(['status' => $operation === 'report' ? 201 : 200, 'result' => $result]);
@@ -95,7 +100,7 @@ function blocked(callable $work, int $status): bool {
     try { $work(); } catch (Throwable $e) { return (int) $e->getCode() === $status; }
     return false;
 }
-function race(array $jobs): array {
+function race(array $jobs, ?callable $beforeCollect = null): array {
     $running = [];
     foreach ($jobs as [$operation, $actorId, $targetId]) {
         $pipes = [];
@@ -104,6 +109,7 @@ function race(array $jobs): array {
         if (!is_resource($process)) { throw new RuntimeException('Could not launch parallel PHP test worker.'); }
         fclose($pipes[0]); $running[] = [$process, $pipes];
     }
+    if ($beforeCollect !== null) { $beforeCollect(); }
     $results = [];
     foreach ($running as [$process, $pipes]) {
         $out = stream_get_contents($pipes[1]); $err = stream_get_contents($pipes[2]);
@@ -178,9 +184,103 @@ try {
             && scalar('SELECT last_verified_donation_at FROM users WHERE id = ?', [$closedDonor['id']]) === null
             && scalar('SELECT status FROM donation_reports WHERE id = ?', [$closedReport]) === 'PENDING');
     }
+    $lifecycle = new RequestLifecycleService();
+    $deadlineDonor = user('deadline'); $deadlineOther = user('deadline-other'); $deadlineRequest = requestFor($requester);
+    $deadlineMatch = offer($deadlineDonor, $deadlineRequest); $otherMatch = offer($deadlineOther, $deadlineRequest);
+    $deadlineReport = (new DonationService())->submit((int) $deadlineDonor['id'], $deadlineMatch, null)['id'];
+    write('UPDATE blood_requests SET needed_datetime = ? WHERE id = ?', [gmdate('Y-m-d H:i:s', time() - 60), $deadlineRequest]);
+    check('L01 overdue edit cannot extend/reopen request', blocked(fn () => $lifecycle->update($requester, $deadlineRequest,
+        ['needed_datetime' => gmdate('Y-m-d H:i:s', time() + 86400)]), 409));
+    check('L02 overdue response blocked', blocked(fn () => offer($deadlineOther, $deadlineRequest), 403));
+    check('L03 overdue donation submission blocked', blocked(fn () => (new DonationService())->submit((int) $deadlineOther['id'], $otherMatch, null), 409));
+    check('L04 overdue confirmation leaves report pending and donor anchor untouched', blocked(fn () => (new DonationService())->decide($officer, $deadlineReport, true), 409)
+        && scalar('SELECT status FROM donation_reports WHERE id = ?', [$deadlineReport]) === 'PENDING'
+        && scalar('SELECT last_verified_donation_at FROM users WHERE id = ?', [$deadlineDonor['id']]) === null);
+    ob_start(); (new \BloodMatch\Controllers\DonationReportController())->officerQueue(); $queue = json_decode(ob_get_clean(), true);
+    $pending = array_values(array_filter($queue['data']['pending_reports'] ?? [], fn ($r) => (int) $r['id'] === (int) $deadlineReport));
+    check('L05 overdue pending report visible for rejection, confirmation disabled', count($pending) === 1 && !$pending[0]['can_confirm'] && $pending[0]['can_reject']);
+    $expired = $lifecycle->expireOne($deadlineRequest, gmdate('Y-m-d H:i:s'));
+    check('L06 expiry closes all unfinished offers and retains pending report', $expired !== null
+        && (int) scalar("SELECT COUNT(*) FROM matches WHERE request_id = ? AND status <> 'CLOSED'", [$deadlineRequest]) === 0
+        && scalar('SELECT status FROM donation_reports WHERE id = ?', [$deadlineReport]) === 'PENDING');
+    (new DonationService())->decide($officer, $deadlineReport, false, 'Needed-by deadline passed; report cannot be confirmed.');
+    check('L07 explicit rejection keeps approved reason without recording donation', scalar('SELECT rejection_reason FROM donation_reports WHERE id = ?', [$deadlineReport]) === 'Needed-by deadline passed; report cannot be confirmed.'
+        && scalar('SELECT last_verified_donation_at FROM users WHERE id = ?', [$deadlineDonor['id']]) === null);
+
+    foreach (['cancel', 'expire'] as $closure) {
+        $done = user($closure . '-done'); $waiting = user($closure . '-waiting'); $req = requestFor($requester, 3);
+        $doneMatch = offer($done, $req); $waitingMatch = offer($waiting, $req);
+        $doneReport = (new DonationService())->submit((int) $done['id'], $doneMatch, null)['id'];
+        $waitingReport = (new DonationService())->submit((int) $waiting['id'], $waitingMatch, null)['id'];
+        (new DonationService())->decide($officer, $doneReport, true);
+        $doneAnchor = scalar('SELECT last_verified_donation_at FROM users WHERE id = ?', [$done['id']]);
+        if ($closure === 'cancel') { $lifecycle->cancel($requester, $req); }
+        else {
+            write('UPDATE blood_requests SET needed_datetime = ? WHERE id = ?', [gmdate('Y-m-d H:i:s', time() - 60), $req]);
+            $lifecycle->expireOne($req, gmdate('Y-m-d H:i:s'));
+        }
+        check('L08 ' . $closure . ' preserves completed donation/anchor', scalar('SELECT status FROM matches WHERE id = ?', [$doneMatch]) === 'COMPLETED'
+            && scalar('SELECT status FROM donation_reports WHERE id = ?', [$doneReport]) === 'CONFIRMED'
+            && scalar('SELECT last_verified_donation_at FROM users WHERE id = ?', [$done['id']]) === $doneAnchor);
+        check('L09 ' . $closure . ' closes waiting offer, keeps pending report and no new cooldown', scalar('SELECT status FROM matches WHERE id = ?', [$waitingMatch]) === 'CLOSED'
+            && scalar('SELECT status FROM donation_reports WHERE id = ?', [$waitingReport]) === 'PENDING'
+            && scalar('SELECT last_verified_donation_at FROM users WHERE id = ?', [$waiting['id']]) === null);
+    }
+    $raceDonor = user('cancel-confirm'); $req = requestFor($requester, 1); $match = offer($raceDonor, $req);
+    $report = (new DonationService())->submit((int) $raceDonor['id'], $match, null)['id'];
+    $results = race([['cancel', $requester['id'], $req], ['confirm', $officer['id'], $report]]);
+    $statuses = array_column($results, 'status'); sort($statuses);
+    $terminal = scalar('SELECT status FROM blood_requests WHERE id = ?', [$req]);
+    check('L10 cancel/fulfill race has one winner and no terminal overwrite', $statuses === [200, 409] && in_array($terminal, ['CANCELLED', 'FULFILLED'], true)
+        && scalar('SELECT status FROM matches WHERE id = ?', [$match]) === ($terminal === 'FULFILLED' ? 'COMPLETED' : 'CLOSED')
+        && scalar('SELECT status FROM donation_reports WHERE id = ?', [$report]) === ($terminal === 'FULFILLED' ? 'CONFIRMED' : 'PENDING'));
+    $req = requestFor($requester); $results = race([['edit', $requester['id'], $req], ['cancel', $requester['id'], $req]]);
+    check('L11 edit/cancel race ends closed with no later edit', $results[1]['status'] === 200 && in_array($results[0]['status'], [200, 409], true)
+        && scalar('SELECT status FROM blood_requests WHERE id = ?', [$req]) === 'CANCELLED');
+    $facility = scalar('SELECT facility_name FROM blood_requests WHERE id = ?', [$req]);
+    (new BloodRequestRepository())->updateFields($req, ['facility_name' => 'Late closed edit']);
+    check('L12 repository guards cannot edit or overwrite terminal state', scalar('SELECT facility_name FROM blood_requests WHERE id = ?', [$req]) === $facility
+        && !(new BloodRequestRepository())->setStatus($req, 'EXPIRED') && scalar('SELECT status FROM blood_requests WHERE id = ?', [$req]) === 'CANCELLED');
+    foreach (['edit', 'respond', 'confirm'] as $operation) {
+        $d = user('expire-' . $operation); $req = requestFor($requester); $match = offer($d, $req);
+        $report = (new DonationService())->submit((int) $d['id'], $match, null)['id'];
+        write('UPDATE blood_requests SET needed_datetime = ? WHERE id = ?', [gmdate('Y-m-d H:i:s', time() - 60), $req]);
+        $target = $operation === 'confirm' ? $report : $req;
+        $actorId = $operation === 'confirm' ? $officer['id'] : ($operation === 'respond' ? $d['id'] : $requester['id']);
+        $results = race([['expire', $requester['id'], $req], [$operation, $actorId, $target]]);
+        check('L13 expiry/' . $operation . ' race cannot revive or donate on overdue request', $results[0]['status'] === 200
+            && $results[1]['status'] === ($operation === 'respond' ? 403 : 409)
+            && scalar('SELECT status FROM blood_requests WHERE id = ?', [$req]) === 'EXPIRED'
+            && scalar('SELECT last_verified_donation_at FROM users WHERE id = ?', [$d['id']]) === null);
+    }
+    foreach (['edit', 'respond', 'report', 'confirm'] as $operation) {
+        $d = user('lockwait-' . $operation); $req = requestFor($requester); $match = offer($d, $req);
+        $report = $operation === 'confirm' ? (new DonationService())->submit((int) $d['id'], $match, null)['id'] : null;
+        write('UPDATE blood_requests SET needed_datetime = ? WHERE id = ?', [gmdate('Y-m-d H:i:s', time() + 2), $req]);
+        $pdo->beginTransaction(); (new BloodRequestRepository())->findByIdForUpdate($req);
+        $target = $operation === 'confirm' ? $report : ($operation === 'report' ? $match : $req);
+        $actorId = $operation === 'confirm' ? $officer['id'] : ($operation === 'edit' ? $requester['id'] : $d['id']);
+        $results = race([[$operation, $actorId, $target]], function () use ($pdo): void { usleep(3000000); $pdo->commit(); });
+        check('L14 ' . $operation . ' rechecks deadline after lock wait', $results[0]['status'] === ($operation === 'respond' ? 403 : 409));
+    }
+    $bulk = [];
+    for ($i = 0; $i < 501; $i++) {
+        $id = requestFor($requester); $bulk[] = $id;
+        write('UPDATE blood_requests SET needed_datetime = ? WHERE id = ?', [gmdate('Y-m-d H:i:s', time() - 60), $id]);
+    }
+    $pipes = [];
+    $process = proc_open([PHP_BINARY, BASE_PATH . '/database/run_expiry.php'], [0 => ['pipe','r'], 1 => ['pipe','w'], 2 => ['pipe','w']], $pipes, BASE_PATH);
+    if (!is_resource($process)) { throw new RuntimeException('Could not launch test expiry CLI.'); }
+    fclose($pipes[0]); $expiryOut = stream_get_contents($pipes[1]); $expiryErr = stream_get_contents($pipes[2]); fclose($pipes[1]); fclose($pipes[2]); $exit = proc_close($process);
+    $ph = implode(',', array_fill(0, count($bulk), '?'));
+    check('L15 expiry CLI drains a backlog exceeding 500 requests', $exit === 0
+        && (int) scalar("SELECT COUNT(*) FROM blood_requests WHERE id IN ($ph) AND status = 'EXPIRED'", $bulk) === 501);
+    $count = count(iterator_to_array($lifecycle->expireDueRequests(gmdate('Y-m-d H:i:s'))));
+    check('L16 repeated drain is idempotent', $count === 0);
 } catch (Throwable $e) {
     $failed++; echo 'FAIL workflow test interrupted: ' . get_class($e) . ' at ' . basename($e->getFile()) . ':' . $e->getLine() . PHP_EOL;
 } finally {
+    if ($pdo->inTransaction()) { $pdo->rollBack(); }
     if ($requestIds !== []) {
         $ph = implode(',', array_fill(0, count($requestIds), '?'));
         write("DELETE FROM notifications WHERE related_type = 'blood_request' AND related_id IN ($ph)", $requestIds);

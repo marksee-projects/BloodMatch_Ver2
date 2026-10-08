@@ -77,6 +77,14 @@ final class WorkflowLockService
         }
     }
 
+    public static function assertOpenBeforeDeadline(array $request, ?string $nowUtc = null): void
+    {
+        self::assertOpen($request);
+        if (RequestService::hasDeadlinePassed($request, $nowUtc)) {
+            throw new RuntimeException("This request's needed-by time has passed.", 409);
+        }
+    }
+
     public static function assertReportReviewer(array $actor, array $request, int $donorId): void
     {
         self::assertActiveActor($actor);

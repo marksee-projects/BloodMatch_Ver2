@@ -159,9 +159,7 @@ final class DonorEligibilityService
             return self::blocked('request_not_open', 'This request is no longer open.');
         }
 
-        $neededAt = strtotime((string) ($request['needed_datetime'] ?? '') . ' UTC');
-        $now = strtotime($nowUtc . ' UTC');
-        if ($neededAt === false || $now === false || $neededAt < $now) {
+        if (RequestService::hasDeadlinePassed($request, $nowUtc)) {
             return self::blocked('request_expired', "This request's needed-by time has passed.");
         }
 

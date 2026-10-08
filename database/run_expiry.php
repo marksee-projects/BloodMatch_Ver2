@@ -8,10 +8,9 @@ require BASE_PATH . '/backend/src/autoload.php';
 
 use BloodMatch\Config\Database;
 use BloodMatch\Config\Env;
-use BloodMatch\Repositories\BloodRequestRepository;
 use BloodMatch\Services\AuditLogger;
 use BloodMatch\Services\AuthService;
-use BloodMatch\Services\NotificationService;
+use BloodMatch\Services\RequestLifecycleService;
 
 Env::load(BASE_PATH . '/.env');
 
@@ -23,21 +22,18 @@ try {
 }
 
 $nowUtc = AuthService::nowUtc();
-$expiredRows = (new BloodRequestRepository())->expireDueBatch($nowUtc);
-$expiredCount = count($expiredRows);
-
-foreach ($expiredRows as $row) {
-    NotificationService::notify(
-        (int) $row['requester_id'],
-        'request.expired',
-        'Blood request expired',
-        sprintf('Your blood request #%d passed its needed date and has expired.', (int) $row['id']),
-        [
-            'related_type' => 'blood_request',
-            'related_id' => (int) $row['id'],
-            'dedup_key' => 'request:' . ((int) $row['id']) . ':expired',
-        ]
-    );
+$expiredCount = 0;
+$lifecycle = new RequestLifecycleService();
+try {
+    foreach ($lifecycle->expireDueRequests($nowUtc, 500) as $row) { $expiredCount++; }
+} catch (Throwable $e) {
+    if ($expiredCount > 0) {
+        AuditLogger::log(null, 'request.expired_batch', 'blood_request', null,
+            ['count' => $expiredCount, 'cutoff_utc' => $nowUtc, 'incomplete' => true]);
+    }
+    error_log('[expiry] batch failed: ' . $e->getMessage());
+    fwrite(STDERR, "[expiry] stopped after {$expiredCount} committed expirations; rerun to retry the remaining due requests.\n");
+    exit(1);
 }
 
 if ($expiredCount > 0) {

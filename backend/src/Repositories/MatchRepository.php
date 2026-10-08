@@ -124,20 +124,21 @@ final class MatchRepository
         return (int) $stmt->fetchColumn();
     }
 
-    public static function fulfillAndCloseUnresolved(int $requestId): int
+    public static function closeUnfinishedForRequest(int $requestId): int
     {
         $close = Database::pdo()->prepare(
             "UPDATE matches SET status = 'CLOSED'
              WHERE request_id = ? AND status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED')"
         );
         $close->execute([$requestId]);
-        $closedCount = $close->rowCount();
+        return $close->rowCount();
+    }
 
-        $upd = Database::pdo()->prepare(
-            "UPDATE blood_requests SET status = 'FULFILLED' WHERE id = ?"
-        );
-        $upd->execute([$requestId]);
-
-        return $closedCount;
+    public static function fulfillAndCloseUnresolved(int $requestId): int
+    {
+        if (!(new BloodRequestRepository())->setStatus($requestId, 'FULFILLED')) {
+            throw new \RuntimeException('This request is no longer active.', 409);
+        }
+        return self::closeUnfinishedForRequest($requestId);
     }
 }

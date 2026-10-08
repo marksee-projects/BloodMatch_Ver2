@@ -11,6 +11,7 @@ use BloodMatch\Services\AuditLogger;
 use BloodMatch\Services\BloodCompatibilityService;
 use BloodMatch\Services\DonorEligibilityService;
 use BloodMatch\Services\RequestService;
+use BloodMatch\Services\RequestLifecycleService;
 use BloodMatch\Services\Exceptions\ValidationException;
 use BloodMatch\Utils\Request;
 use BloodMatch\Utils\Response;
@@ -196,56 +197,21 @@ final class RequestsController
     public function update(array $params): void
     {
         $actor = AuthMiddleware::requireActiveUser('requests.update');
-        $repo = new BloodRequestRepository();
         $id = (int) $params['id'];
-
-        $row = $repo->findById($id);
-        if ($row === null || (int) $row['requester_id'] !== (int) $actor['id']) {
-            AuditLogger::log((int) $actor['id'], 'authz.denied', 'blood_request', (string) $id, [
-                'endpoint' => 'requests.update',
-                'reason' => $row === null ? 'not_found' : 'not_owner',
-            ]);
-            Response::error('Request not found.', $row === null ? 404 : 403);
-            return;
-        }
-
-        if ((string) $row['status'] !== 'OPEN') {
-            Response::error('Only OPEN requests can be edited.', 409);
-            return;
-        }
-
         try {
-            $fields = RequestService::validatePayload(Request::json(), partial: true);
+            $fresh = (new RequestLifecycleService())->update($actor, $id, Request::json());
         } catch (ValidationException $e) {
             Response::error($e->getMessage(), 400, $e->errors());
             return;
-        }
-
-        if ($fields === []) {
-            Response::error('No editable fields supplied.', 400);
+        } catch (RuntimeException $e) {
+            $code = (int) $e->getCode();
+            if ($code >= 400 && $code <= 499) { Response::error($e->getMessage(), $code); }
+            else {
+                error_log('[requests] update failed: ' . $e->getMessage());
+                Response::error('Could not update the request.', 500);
+            }
             return;
         }
-
-        $materialGroups = RequestService::materialChangedFields($row, $fields);
-        $repo->updateFields($id, $fields);
-
-        if ($materialGroups !== []) {
-            AuditLogger::log((int) $actor['id'], 'request.material_change', 'blood_request', (string) $id, [
-                'groups' => $materialGroups,
-            ]);
-            try {
-                (new \BloodMatch\Services\MatchService())
-                    ->generateForRequest($id, true, 'material_change', (int) $actor['id']);
-            } catch (\Throwable $e) {
-                error_log('[matches] regeneration failed for request ' . $id . ': ' . $e->getMessage());
-            }
-        } else {
-            AuditLogger::log((int) $actor['id'], 'request.updated', 'blood_request', (string) $id, [
-                'material' => false,
-            ]);
-        }
-
-        $fresh = $repo->findById($id);
         Response::success(['request' => RequestService::publicView($fresh, $actor)]);
     }
 
@@ -392,54 +358,18 @@ final class RequestsController
     public function cancel(array $params): void
     {
         $actor = AuthMiddleware::requireActiveUser('requests.cancel');
-        $repo = new BloodRequestRepository();
         $id = (int) $params['id'];
-
-        $row = $repo->findById($id);
-        if ($row === null) {
-            Response::error('Request not found.', 404);
+        try { $fresh = (new RequestLifecycleService())->cancel($actor, $id); }
+        catch (RuntimeException $e) {
+            $code = (int) $e->getCode();
+            if ($code >= 400 && $code <= 499) { Response::error($e->getMessage(), $code); }
+            else {
+                error_log('[requests] cancellation failed: ' . $e->getMessage());
+                Response::error('Could not cancel the request.', 500);
+            }
             return;
         }
-
-        $isOwner = (int) $row['requester_id'] === (int) $actor['id'];
-        $isAdmin = (string) $actor['role'] === 'admin';
-        $isChapterOfficer = (string) $actor['role'] === 'officer'
-            && $actor['chapter_id'] !== null
-            && (int) $actor['chapter_id'] === (int) $row['request_chapter_id'];
-
-        if (!$isOwner && !$isAdmin && !$isChapterOfficer) {
-            AuditLogger::log((int) $actor['id'], 'authz.denied', 'blood_request', (string) $id, [
-                'endpoint' => 'requests.cancel',
-                'reason' => 'not_owner_or_out_of_chapter',
-                'actor_role' => (string) $actor['role'],
-            ]);
-            Response::error('Forbidden.', 403);
-            return;
-        }
-
-        if ((string) $row['status'] !== 'OPEN') {
-            Response::error("Only OPEN requests can be cancelled (current: {$row['status']}).", 409);
-            return;
-        }
-
-        $repo->setStatus($id, 'CANCELLED');
-        AuditLogger::log((int) $actor['id'], 'request.cancelled', 'blood_request', (string) $id, [
-            'via' => $isOwner ? 'owner' : ($isAdmin ? 'admin' : 'officer'),
-        ]);
-
-        \BloodMatch\Services\NotificationService::notify(
-            (int) $row['requester_id'],
-            'request.cancelled',
-            'Blood request cancelled',
-            sprintf('Your blood request #%d has been cancelled.', $id),
-            [
-                'related_type' => 'blood_request',
-                'related_id' => $id,
-                'dedup_key' => "request:{$id}:cancelled",
-            ]
-        );
-
-        Response::success(['request' => RequestService::publicView($repo->findById($id), null)]);
+        Response::success(['request' => RequestService::publicView($fresh, null)]);
     }
 
     private function loadForAccess(array $actor, int $id, string $endpoint): ?array

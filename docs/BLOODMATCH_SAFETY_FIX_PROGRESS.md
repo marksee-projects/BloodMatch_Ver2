@@ -1,6 +1,68 @@
 # BloodMatch Safety Fix Progress
 
-Marker: `BM-SAFETY-FIX-PROGRESS-2026-10-08`. Updated 2026-10-08, Asia/Manila.
+Marker: `BM-SAFETY-FIX-PROGRESS-2026-10-08`. Updated 2026-10-09, Asia/Manila.
+
+Latest checkpoint: **Phase 3B2 request edit/cancel/expiry locking and closure cleanup only**. Marker `BM-SAFETY-PHASE3B2-LIFECYCLE-2026-10-09`. Source changes and lightweight checks are complete; new database/concurrency results await user execution. Earlier changes were preserved. Migration 020 execution/status has not been independently verified; no new migration was added.
+
+## Phase 3B2 checkpoint — 2026-10-09
+
+Authorized scope: consistent request locking across edit/cancel/expiry/respond/confirm; deadlines on edit/respond/report/confirm; unfinished-offer cleanup on cancellation/expiry/fulfillment; completed donations and pending reports retained. No standby, queue, notification expansion, ranking/exclusion change, new permission, scheduler installation, schema/data migration or live chat.
+
+Source recheck found edit/cancel used unprotected read-then-write; expiry updated at most 500 rows and rediscovered them by shared expired_at timestamp; submit/confirm and staff queue checked stored OPEN without deadline. The checkpoint now:
+
+- Routes edit/cancel through RequestLifecycleService with request -> sorted user IDs -> offer/report ordering, matching the existing workflows. Current actor authorization is rechecked under lock: owner edits only; active owner/admin/same-chapter officer can cancel, as before. No extra edit permission is granted to staff/admin.
+- Guards all request field/status UPDATE statements with status='OPEN'; setStatus permits terminal transitions only. Confirmation fulfillment uses the guarded transition and shared cleanup. Closed requests cannot be reopened/overwritten by these paths.
+- Centralizes deadline comparison in RequestService::hasDeadlinePassed and WorkflowLockService::assertOpenBeforeDeadline. Time is rechecked after lock waits and before edits/report insertion/confirmation. An overdue stored OPEN request cannot be extended by edit or used to respond/report/confirm. Existing exact-second equality boundary is retained (past means needed time < now). Cancellation remains governed by stored OPEN and current authorization, preserving its existing behavior; no new cancellation-priority rule was introduced.
+- Shares closeUnfinishedForRequest for CANCELLED/EXPIRED/FULFILLED: POTENTIAL/NOTIFIED/RESPONDED -> CLOSED, COMPLETED untouched. Closure does not change reports or donor donation/availability windows. Pending reports stay visible to the existing scoped staff queue, cannot confirm on a closed/overdue request, and require the already approved reason for explicit rejection.
+- Keeps matching generation in its existing separate request-locked transaction after edit commits. If cancellation/fulfillment/expiry wins before generation, generation refuses the terminal request; it cannot restore offers on that closed request. Compatible blood substitutions and chapter/distance scoring are unchanged.
+- Makes expiry select candidate IDs in ascending bounded batches and recheck each under its own request/user locks. Each request's status, offer cleanup and existing requester in-app alert commit together. A generator drains beyond 500 with a fixed run cutoff and yields only committed rows, so partial failure reports the correct completed count and remaining OPEN rows can be retried on rerun. No old expired_at timestamp collision can select unrelated already-expired requests. No automatic repair/backfill of preexisting terminal rows is performed.
+- Preserves existing requester-only cancellation/expiry notification event/channel/dedup behavior and the existing expiry batch audit. No new recipients, email, or event coverage was added. Existing best-effort audit limitations remain.
+
+| Check actually run | Result |
+|---|---|
+| tests/request_lifecycle_offline.php | PASS: 22 pure deadline/boundary/role-policy checks; no DB connection |
+| tests/donor_age_offline.php | PASS: 23 pure eligibility checks after shared deadline change |
+| tests/workflow_lock_offline.php | PASS: 16 connectionless transaction/review-policy checks |
+| PHP syntax | PASS on changed production files, expiry CLI, new pure test and extended deferred DB suite; follow-up service cleanup rechecked |
+| PowerShell parser | Parse-only check on updated phase6 fixture script; no suite execution |
+| git diff --check | PASS; line-ending normalization warnings only |
+| Database suites / expiry CLI execution | NOT RUN by agent; all actual SQL locking/draining/persistence remains user-tested |
+| Frontend build/browser | Not repeated: no frontend source changed in this checkpoint |
+
+Deferred workflow_atomicity coverage now includes the prior 17 checks plus 23 lifecycle assertions (40 total): all four deadline paths; staff queue visibility; explicit closed-report rejection/reason without donation; cancel/expiry preserve confirmed records/anchors and retain pending history; cancel vs fulfill, edit vs cancel and expiry vs edit/respond/confirm; guards against late raw-repository edits/status changes; four forced request-lock waits crossing the deadline; expiry CLI backlog of 501; repeat-drain idempotency. Parallel PHP workers avoid the single-threaded development HTTP server. Agent ran php -l only on this database file.
+
+The older phase6 fixtures did not mark request creators email verified, and its cross-chapter test mixed one officer's session with another's CSRF token (testing CSRF instead of scope). Fixture email verification and the matching officer session/token were corrected without removing assertions or weakening production rules.
+
+User-run commands, from repo root, **existing disposable bloodmatch_test on 3306**, its reference data and approved migration 020 ready, XAMPP paths installed, free port 8001 and proc_open enabled. Do not reset/seed production. The isolated runner disables real SMTP and restores its process environment. The new workflow tests deliberately invoke the expiry CLI only against the inherited test DB, including 501 temporary fixtures.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests\run_isolated.ps1 -DbPort 3306 -Suite workflow_atomicity.ps1
+powershell -ExecutionPolicy Bypass -File tests\run_isolated.ps1 -DbPort 3306 -Suite phase6.ps1
+powershell -ExecutionPolicy Bypass -File tests\run_isolated.ps1 -DbPort 3306 -Suite home_respond.ps1
+powershell -ExecutionPolicy Bypass -File tests\run_isolated.ps1 -DbPort 3306 -Suite rejection_reason.ps1
+```
+
+Expected: zero failures, workflow atomicity **40 passed**. Check final state invariants, not which actor wins a race. Return full summaries/errors before dependent work. Migration 020 is the previously approved rejection-reason prerequisite, not a new migration; if not yet ready, use the review/apply/test commands in [rejection-reason-migration.md](rejection-reason-migration.md). No migration or database suite was executed here.
+
+Unfinished/unverified: real MySQL race/wait outcomes, expiry drain/persistence, related API regressions and migration readiness await user results. Installed scheduler execution remains UNVERIFIED and is outside this checkpoint; a callable draining CLI is not proof of automatic scheduling. Historical already-closed rows with stale offers are not backfilled; that would be a separate existing-data action. Existing-offer compatibility revalidation after material edits, availability/analytics accuracy, approved non-response standby persistence, queues and notification expansion remain later work. No such phase was started.
+
+| File | What changed | Distinctive string to search for | Found? |
+|---|---|---|---|
+| backend/src/Services/RequestLifecycleService.php | Locked edit/cancel/per-request expiry and drain | expireDueRequests | Yes |
+| backend/src/Services/RequestService.php | Shared deadline comparison | hasDeadlinePassed | Yes |
+| backend/src/Services/WorkflowLockService.php | OPEN + deadline assertion | assertOpenBeforeDeadline | Yes |
+| backend/src/Services/DonorEligibilityService.php | Respond uses shared deadline rule | RequestService::hasDeadlinePassed | Yes |
+| backend/src/Services/DonationService.php | Submission/confirmation deadline checks | assertOpenBeforeDeadline | Yes |
+| backend/src/Controllers/RequestsController.php | Delegate edit/cancel to locked service | new RequestLifecycleService | Yes |
+| backend/src/Repositories/BloodRequestRepository.php | Guarded updates, keyset due IDs | dueRequestIds | Yes |
+| backend/src/Repositories/MatchRepository.php | Shared unfinished-offer cleanup | closeUnfinishedForRequest | Yes |
+| backend/src/Repositories/DonationReportRepository.php | Pending queue deadline projection | br.needed_datetime | Yes |
+| backend/src/Controllers/DonationReportController.php | Disable overdue confirmation in queue | hasDeadlinePassed($r) | Yes |
+| database/run_expiry.php | Drain and accurate committed failure counts | committed expirations | Yes |
+| tests/request_lifecycle_offline.php | 22 pure boundary/permission checks | offline lifecycle checks passed | Yes |
+| tests/workflow_atomicity.php | 23 new deferred lifecycle assertions | L15 expiry CLI drains | Yes |
+| tests/phase6.ps1 | Valid email fixtures; genuine chapter denial | $offB.s | Yes |
+| docs/BLOODMATCH_SAFETY_FIX_PROGRESS.md | Scoped checkpoint, checks and commands | BM-SAFETY-PHASE3B2-LIFECYCLE-2026-10-09 | Yes |
 
 Actual test DB port: **3306**, confirmed by user. This overrides the older guide's 3307 assumption for subsequent commands. No environment file was changed.
 
@@ -286,7 +348,7 @@ Do not add this coverage until the user approves recipients/channels, generation
 
 ## Remaining work
 
-Phase 2 and 3A integration were reported passed by the user. Phase 3B1 rejection reason migration/API/UI are prepared with lightweight validation; migration execution and new related tests await the user. Phase 3B2 and later remain pending: request edit/cancel/expiry locking and closure cleanup, approved non-response timer/recovery, queues/notifications, material-offer reconciliation, availability/analytics accuracy and requirement alignment. No schema migration execution, data modification, scheduler install, encryption, real email, new dependency, management expansion or live chat has been performed by the agent.
+Phase 2 and 3A integration were reported passed by the user. Phase 3B1 rejection reason migration/API/UI and Phase 3B2 request lifecycle changes are prepared with lightweight validation; migration readiness and current database/concurrency results await the user. Remaining work: verified expiry scheduling, any separately approved historical offer cleanup, non-response standby persistence/recovery, queues/notifications, material-offer reconciliation, availability/analytics accuracy and requirement alignment. No schema migration execution, data modification, scheduler install, encryption, real email, new dependency, management expansion or live chat has been performed by the agent.
 
 | File | What changed | Distinctive string to search for | Found? |
 |---|---|---|---|

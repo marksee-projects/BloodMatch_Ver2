@@ -18,6 +18,16 @@ final class RequestService
         return AuthService::nowUtc();
     }
 
+    public static function hasDeadlinePassed(array $request, ?string $nowUtc = null): bool
+    {
+        $needed = trim((string) ($request['needed_datetime'] ?? ''));
+        $clock = trim($nowUtc ?? self::nowUtc());
+        if ($needed === '' || $clock === '') { return true; }
+        $neededAt = strtotime($needed . ' UTC');
+        $now = strtotime($clock . ' UTC');
+        return $neededAt === false || $now === false || $neededAt < $now;
+    }
+
     /**
      * Validate and normalize the Home feed query. All list values are exact
      * allow-list matches; q remains data and is escaped by the repository.

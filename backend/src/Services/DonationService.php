@@ -53,7 +53,9 @@ final class DonationService
             if ($reports->pendingExistsForMatchForUpdate($matchId)) {
                 throw new RuntimeException('A donation report is already pending for this match.', 409);
             }
-            $reportId = $reports->insert($matchId, $donorId, $note, AuthService::nowUtc());
+            $nowUtc = AuthService::nowUtc();
+            WorkflowLockService::assertOpenBeforeDeadline($request, $nowUtc);
+            $reportId = $reports->insert($matchId, $donorId, $note, $nowUtc);
             AuditLogger::log($donorId, 'donation.reported', 'donation_report', (string) $reportId, ['match_id' => $matchId]);
             return ['id' => $reportId, 'status' => 'PENDING'];
         });
@@ -115,7 +117,7 @@ final class DonationService
                 $nowUtc = AuthService::nowUtc();
                 $fulfilledNow = false;
                 if ($confirm) {
-                    WorkflowLockService::assertOpen($request);
+                    WorkflowLockService::assertOpenBeforeDeadline($request, $nowUtc);
                     if ((string) $match['status'] !== 'RESPONDED') {
                         throw new RuntimeException('Only a responded match can be confirmed as a donation.', 409);
                     }

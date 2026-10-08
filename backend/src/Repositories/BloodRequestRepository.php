@@ -301,13 +301,13 @@ final class BloodRequestRepository
         }
         $params[] = $id;
 
-        $stmt = Database::pdo()->prepare('UPDATE blood_requests SET ' . implode(', ', $sets) . ' WHERE id = ?');
+        $stmt = Database::pdo()->prepare('UPDATE blood_requests SET ' . implode(', ', $sets) . " WHERE id = ? AND status = 'OPEN'");
         $stmt->execute($params);
     }
 
-    public function setStatus(int $id, string $status, ?string $expiredAtUtc = null): void
+    public function setStatus(int $id, string $status, ?string $expiredAtUtc = null): bool
     {
-        $allowed = ['OPEN', 'FULFILLED', 'CANCELLED', 'EXPIRED'];
+        $allowed = ['FULFILLED', 'CANCELLED', 'EXPIRED'];
         if (!in_array($status, $allowed, true)) {
             throw new \InvalidArgumentException('Invalid request status.');
         }
@@ -318,28 +318,19 @@ final class BloodRequestRepository
         }
         $params[] = $id;
 
-        $stmt = Database::pdo()->prepare("UPDATE blood_requests SET status = ?{$extra} WHERE id = ?");
+        $stmt = Database::pdo()->prepare("UPDATE blood_requests SET status = ?{$extra} WHERE id = ? AND status = 'OPEN'");
         $stmt->execute($params);
+        return $stmt->rowCount() === 1;
     }
 
-    public function expireDueBatch(string $nowUtc, int $limit = 500): array
+    public function dueRequestIds(string $nowUtc, int $limit = 500, int $afterId = 0): array
     {
         $stmt = Database::pdo()->prepare(
-            "UPDATE blood_requests
-             SET status = 'EXPIRED', expired_at = ?
-             WHERE status = 'OPEN' AND needed_datetime < ?
-             LIMIT " . (int) $limit
+            "SELECT id FROM blood_requests
+             WHERE status = 'OPEN' AND needed_datetime < ? AND id > ?
+             ORDER BY id ASC LIMIT " . max(1, min($limit, 500))
         );
-        $stmt->execute([$nowUtc, $nowUtc]);
-
-        if ($stmt->rowCount() === 0) {
-            return [];
-        }
-
-        $idStmt = Database::pdo()->prepare(
-            'SELECT id, requester_id FROM blood_requests WHERE status = ? AND expired_at = ?'
-        );
-        $idStmt->execute(['EXPIRED', $nowUtc]);
-        return $idStmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute([$nowUtc, max(0, $afterId)]);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
     }
 }

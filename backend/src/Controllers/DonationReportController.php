@@ -89,7 +89,8 @@ final class DonationReportController
             'match_status' => (string) $r['match_status'],
             'can_reject' => (int) $r['donor_id'] !== (int) $actor['id'],
             'can_confirm' => (int) $r['donor_id'] !== (int) $actor['id']
-                && (string) $r['request_status'] === 'OPEN' && (string) $r['match_status'] === 'RESPONDED',
+                && (string) $r['request_status'] === 'OPEN' && (string) $r['match_status'] === 'RESPONDED'
+                && !\BloodMatch\Services\RequestService::hasDeadlinePassed($r),
         ], $rows)]);
     }
 
