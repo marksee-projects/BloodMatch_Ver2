@@ -48,10 +48,13 @@ const ProfilePage = await loadPage('ProfilePage')
 const ConfirmationDialog = await loadPage('../components/ConfirmationDialog')
 const request = { id: 45, requester_id: 7, requester_name: 'Requester', requester_chapter_name: 'Chapter', requester_verification_status: 'verified', can_view_requester_profile: true,
   required_blood_type: 'B-', quantity_units: 2, facility_name: 'A hospital with a long name for the compact selector', status: 'OPEN', urgency: 'urgent',
-  needed_datetime: '2099-10-15 09:00:00', created_at: '2026-10-06 13:00:00', location: { municipality_name: 'Bagac' }, match_count: 1, response_count: 0 }
+  needed_datetime: '2099-10-15 09:00:00', created_at: '2026-10-06 13:00:00', location: { municipality_name: 'Bagac' }, match_count: 1, response_count: 0, can_respond: true }
 const donor = { match_id: 81, display_name: 'Eligible donor', chapter_name: 'Donor chapter', availability: 'available', approximate_distance_km: 17.9, status: 'NOTIFIED', profile_user_id: 9 }
 let passed = 0
 function check(label, fn) { fn(); passed++; console.log(`PASS ${label}`) }
+function offerButton(html) {
+  return [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map(match => match[0]).find(button => button.includes('I can help'))
+}
 
 function render(Page, path, requests, data, user = { id: 7, role: 'member' }, profile, previousQueries = []) {
   globalThis.requestUiUser = user
@@ -61,7 +64,7 @@ function render(Page, path, requests, data, user = { id: 7, role: 'member' }, pr
   if (data) client.setQueryData(['request-matches', path.split('/')[2], user.id], data)
   if (profile) client.setQueryData(['profile', user.id], profile)
   const markup = renderToStaticMarkup(h(QueryClientProvider, { client }, h(MemoryRouter, { initialEntries: [path] },
-    h(Routes, null, h(Route, { path: path === '/matches' ? '/matches' : path === '/profile' ? '/profile' : '/requests/:id/matches', element: h(Page) })))))
+    h(Routes, null, h(Route, { path: path === '/matches' ? '/matches' : path === '/profile' ? '/profile' : path.startsWith('/profile/') ? '/profile/:id' : '/requests/:id/matches', element: h(Page) })))))
   client.clear()
   return markup
 }
@@ -98,6 +101,23 @@ check('Donor view retains help, profile and return-to-Home actions', () => {
   const html = render(MatchesPage, '/requests/45/matches', [], { viewer_mode: 'donor', request, matches: [{ ...donor, is_current_user: true }] }, { id: 9, role: 'member' })
   assert.ok(html.includes('I can help')); assert.ok(html.includes('href="/profile/7"')); assert.ok(html.includes('Compatible requests')); assert.ok(!html.includes('<select'))
 })
+check('Eligible compatible browser can offer without a persisted match', () => {
+  const html = render(MatchesPage, '/requests/45/matches', [], { viewer_mode: 'browser', request, matches: [] }, { id: 9, role: 'member' })
+  assert.ok(offerButton(html))
+  assert.doesNotMatch(offerButton(html), /^<button[^>]*disabled/)
+  assert.ok(!html.includes('Review donor eligibility'))
+})
+check('Stale NOTIFIED match obeys server eligibility and shows its reason/date', () => {
+  const blocked = { ...request, can_respond: false, reason_code: 'cooldown', reason_text: 'Donation cooldown is active.', eligible_again_at: '2099-10-01 00:00:00' }
+  const html = render(MatchesPage, '/requests/45/matches', [], { viewer_mode: 'donor', request: blocked, matches: [{ ...donor, is_current_user: true }] }, { id: 9, role: 'member' })
+  assert.match(offerButton(html), /^<button[^>]*disabled/)
+  assert.ok(html.includes('Donation cooldown is active.') && html.includes('Eligible again:'))
+})
+check('Staff request browsing is read-only and does not show donor setup advice', () => {
+  const html = render(MatchesPage, '/requests/45/matches', [], { viewer_mode: 'browser', request: { ...request, can_respond: false, reason_code: 'staff_account' }, matches: [] }, { id: 99, role: 'officer' })
+  assert.match(offerButton(html), /^<button[^>]*disabled/)
+  assert.ok(!html.includes('Your blood type can support this request') && !html.includes('Review donor eligibility'))
+})
 const profile = { id: 7, full_name: 'Requester', first_name: 'Requester', chapter_name: 'Chapter', role: 'member', blood_type: 'A-', verification_status: 'verified', donor_enrolled: true, availability: 'available', availability_window: {}, capabilities: { create_request: true }, documents: [] }
 const ownProfile = render(ProfilePage, '/profile', [], null, undefined, { profile, reports: [], requests: [request, { ...second, status: 'CANCELLED' }] })
 check('Profile Overview preserves closed requests, filters/counts, section Create action and Matches management', () => {
@@ -106,6 +126,25 @@ check('Profile Overview preserves closed requests, filters/counts, section Creat
   assert.ok(!ownProfile.includes('Set unavailable'))
   assert.ok(ownProfile.indexOf('>Edit</button>') < ownProfile.indexOf('>View matches</a>'))
   assert.ok(ownProfile.indexOf('>View matches</a>') < ownProfile.indexOf('>Cancel request</button>'))
+})
+check('Own rejected history displays escaped reason and honest legacy fallback', () => {
+  const originalState = React.useState
+  React.useState = initial => { const state = originalState(initial); return initial === 'overview' ? ['history', state[1]] : state }
+  try {
+    const reports = [
+      { id: 1, required_blood_type: 'O+', facility_name: 'History clinic', reported_at: '2026-10-01 00:00:00', status: 'REJECTED', rejection_reason: '<script>alert(1)</script>' },
+      { id: 2, required_blood_type: 'O+', facility_name: 'Legacy clinic', reported_at: '2026-10-01 00:00:00', status: 'REJECTED', rejection_reason: null }
+    ]
+    const html = render(ProfilePage, '/profile', [], null, undefined, { profile, reports, requests: [] })
+    assert.ok(html.includes('Rejection reason:') && html.includes('&lt;script&gt;alert(1)&lt;/script&gt;'))
+    assert.ok(html.includes('No reason recorded') && !html.includes('<script>alert'))
+  } finally { React.useState = originalState }
+})
+check('Other member profile does not expose rejection history', () => {
+  const otherData = { profile: { ...profile, id: 88, full_name: 'Other member' }, reports: [{ status: 'REJECTED', rejection_reason: 'PRIVATE-REJECTION-REASON' }], requests: [] }
+  const html = render(ProfilePage, '/profile/88', [], null, undefined, null, [[['member-profile', '88', 7], otherData]])
+  assert.ok(html.includes('Other member'))
+  assert.ok(!html.includes('PRIVATE-REJECTION-REASON') && !html.includes('Rejection reason:'))
 })
 check('Admin Profile does not display a previous member cache while loading', () => {
   const memberData = { profile: { ...profile, full_name: 'Previous member' }, requests: [request], reports: [] }

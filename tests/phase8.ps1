@@ -51,8 +51,9 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    # These donation fixtures represent email-verified accounts under the current eligibility rules.
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth, email_verified_at)
+             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15', UTC_TIMESTAMP());"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -200,7 +201,7 @@ if ($r.status -eq 403) { Ok 'E2 cross-chapter officer confirm 403' } else { Bad 
 
 # self-confirmation defensive path: officer cannot be match owner via pool, so verify guard via direct member-owned report is unreachable;
 # instead assert the rule exists in code path by confirming as admin where actor != donor.
-$r = Invoke-Json $adm.s 'Post' "/api/officer/donation-reports/$rep1/reject" @{} $adm.csrf
+$r = Invoke-Json $adm.s 'Post' "/api/officer/donation-reports/$rep1/reject" @{ rejection_reason = 'The reported donation could not be verified.' } $adm.csrf
 if ($r.status -eq 200) { Ok 'E3 admin reject allowed (scope-exempt)' } else { Bad 'E3' "got $($r.status)" }
 $r = Invoke-Json $off.s 'Post' "/api/officer/donation-reports/$rep1/confirm" @{} $off.csrf
 if ($r.status -eq 409) { Ok 'E4 rejected report cannot be confirmed later' } else { Bad 'E4' "got $($r.status)" }

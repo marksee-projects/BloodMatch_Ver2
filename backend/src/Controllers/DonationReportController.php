@@ -8,6 +8,7 @@ use BloodMatch\Middleware\AuthMiddleware;
 use BloodMatch\Repositories\DonationReportRepository;
 use BloodMatch\Services\AuthBridge;
 use BloodMatch\Services\DonationService;
+use BloodMatch\Services\Exceptions\ValidationException;
 use BloodMatch\Utils\Request;
 use BloodMatch\Utils\Response;
 use RuntimeException;
@@ -54,6 +55,7 @@ final class DonationReportController
             'match_id' => (int) $r['match_id'],
             'status' => (string) $r['status'],
             'note' => $r['report_note'],
+            'rejection_reason' => $r['rejection_reason'],
             'reported_at' => (string) $r['reported_at'],
             'confirmed_at' => $r['confirmed_at'],
             'required_blood_type' => (string) $r['required_blood_type'],
@@ -83,6 +85,11 @@ final class DonationReportController
             'facility_name' => (string) $r['facility_name'],
             'report_note' => $r['report_note'],
             'reported_at' => (string) $r['reported_at'],
+            'request_status' => (string) $r['request_status'],
+            'match_status' => (string) $r['match_status'],
+            'can_reject' => (int) $r['donor_id'] !== (int) $actor['id'],
+            'can_confirm' => (int) $r['donor_id'] !== (int) $actor['id']
+                && (string) $r['request_status'] === 'OPEN' && (string) $r['match_status'] === 'RESPONDED',
         ], $rows)]);
     }
 
@@ -98,17 +105,21 @@ final class DonationReportController
 
     private function decide(array $params, bool $confirm): void
     {
-        $actor = AuthMiddleware::requireActiveUser('officer.reports.decide');
+        $actor = AuthMiddleware::requireRoles(['officer', 'admin'], 'officer.reports.decide');
 
         try {
             $result = (new \BloodMatch\Services\DonationService())->decide(
                 $actor,
                 (int) $params['id'],
-                $confirm
+                $confirm,
+                Request::json()['rejection_reason'] ?? null
             );
+        } catch (ValidationException $e) {
+            Response::error($e->getMessage(), 400, $e->errors());
+            return;
         } catch (RuntimeException $e) {
             $code = $e->getCode();
-            Response::error($e->getMessage(), $code >= 400 && $code <= 499 ? $code : 500);
+            Response::error($e->getMessage(), $code >= 400 && $code <= 599 ? $code : 500);
             return;
         }
 

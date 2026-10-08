@@ -34,10 +34,25 @@ final class UserRepository
                     u.blood_type_verified, u.date_of_birth, u.password_hash, u.donor_enrolled_at,
                     u.donor_availability, u.last_verified_donation_at, u.profile_picture,
                     u.location_id, u.latitude, u.longitude, u.email_verified_at,
-                    u.email_code_hash, u.email_code_expires_at
+                    u.email_code_hash, u.email_code_expires_at,
+                    EXISTS (SELECT 1 FROM member_documents consent
+                            WHERE consent.user_id = u.id AND consent.doc_type = \'parental_consent\') AS has_parental_consent
              FROM users u
              LEFT JOIN chapters c ON c.id = u.chapter_id
              WHERE u.id = ? LIMIT 1'
+        );
+        $stmt->execute([$id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row === false ? null : $row;
+    }
+
+    public function findByIdForUpdate(int $id): ?array
+    {
+        $stmt = Database::pdo()->prepare(
+            'SELECT u.*,
+                    EXISTS (SELECT 1 FROM member_documents consent
+                            WHERE consent.user_id = u.id AND consent.doc_type = \'parental_consent\') AS has_parental_consent
+             FROM users u WHERE u.id = ? LIMIT 1 FOR UPDATE'
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);

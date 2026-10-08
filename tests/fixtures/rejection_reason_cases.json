@@ -1,0 +1,19 @@
+[
+  {"label":"missing", "input":null, "valid":false},
+  {"label":"empty", "input":"", "valid":false},
+  {"label":"whitespace", "input":" \r\n\t ", "valid":false},
+  {"label":"Unicode blank", "input":"\u00a0\u200b\u200d", "valid":false},
+  {"label":"array", "input":["reason"], "valid":false},
+  {"label":"number", "input":42, "valid":false},
+  {"label":"boolean", "input":true, "valid":false},
+  {"label":"plain", "input":"Could not verify the reported donation.", "valid":true, "expected":"Could not verify the reported donation."},
+  {"label":"outer whitespace trimmed", "input":"  Needs correction.\n ", "valid":true, "expected":"Needs correction."},
+  {"label":"Unicode outer blank trimmed", "input":"\u200b\u00a0Needs correction.\u200d", "valid":true, "expected":"Needs correction."},
+  {"label":"line breaks preserved", "input":"First explanation.\nSecond explanation.", "valid":true, "expected":"First explanation.\nSecond explanation."},
+  {"label":"one character", "input":"A", "valid":true, "expected":"A"},
+  {"label":"500 ASCII characters", "repeat":"a", "count":500, "valid":true},
+  {"label":"501 ASCII characters", "repeat":"a", "count":501, "valid":false},
+  {"label":"500 Unicode characters", "repeat":"\ud83d\ude42", "count":500, "valid":true},
+  {"label":"501 Unicode characters", "repeat":"\ud83d\ude42", "count":501, "valid":false},
+  {"label":"markup is text", "input":"<script>alert(1)</script>", "valid":true, "expected":"<script>alert(1)</script>"}
+]

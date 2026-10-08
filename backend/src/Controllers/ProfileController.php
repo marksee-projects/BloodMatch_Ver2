@@ -130,16 +130,19 @@ final class ProfileController
                 && ($actor['location_id'] === null || (int) $actor['location_id'] !== (int) $fields['location_id']);
             $bloodTypeChanged = array_key_exists('blood_type', $fields)
                 && (string) ($actor['blood_type'] ?? '') !== (string) ($fields['blood_type'] ?? '');
+            $dateOfBirthChanged = array_key_exists('date_of_birth', $fields)
+                && ($actor['date_of_birth'] ?? null) !== $fields['date_of_birth'];
             (new UserRepository())->updateProfile((int) $actor['id'], $fields);
             AuditLogger::log((int) $actor['id'], 'profile.updated', 'user', (string) $actor['id'], [
                 'fields' => array_keys($fields),
             ]);
 
-            if ($locationChanged || $bloodTypeChanged) {
+            if ($locationChanged || $bloodTypeChanged || $dateOfBirthChanged) {
                 $matchesRefreshed = (new \BloodMatch\Services\MatchService())
                     ->refreshMatchesForDonor(
                         (int) $actor['id'],
-                        $bloodTypeChanged ? 'donor_blood_type_change' : 'donor_location_change',
+                        $dateOfBirthChanged ? 'donor_birth_date_change'
+                            : ($bloodTypeChanged ? 'donor_blood_type_change' : 'donor_location_change'),
                         (int) $actor['id']
                     );
             }

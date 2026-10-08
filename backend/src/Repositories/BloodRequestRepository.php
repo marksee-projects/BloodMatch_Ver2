@@ -55,8 +55,7 @@ final class BloodRequestRepository
     public function findByIdForUpdate(int $id): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT id, requester_id, request_chapter_id, required_blood_type,
-                    quantity_units, facility_name, urgency, needed_datetime, status
+            'SELECT *
                FROM blood_requests
               WHERE id = ?
               LIMIT 1

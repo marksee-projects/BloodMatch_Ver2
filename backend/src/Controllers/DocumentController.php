@@ -111,6 +111,15 @@ final class DocumentController
             }
         }
 
+        $matchesRefreshed = [];
+        if ($docType === 'parental_consent' && (string) $actor['role'] === 'member') {
+            $matchesRefreshed = (new \BloodMatch\Services\MatchService())->refreshMatchesForDonor(
+                (int) $actor['id'],
+                'donor_parental_consent_change',
+                (int) $actor['id']
+            );
+        }
+
         Response::success([
             'document' => [
                 'id' => $docId,
@@ -120,6 +129,7 @@ final class DocumentController
             ],
             'verification_status' => $verificationStatus,
             'resubmitted' => $resubmitted,
+            'matches_refreshed' => $matchesRefreshed,
         ], 201);
     }
 
@@ -207,7 +217,9 @@ final class DocumentController
         header('Content-Type: ' . (string) $doc['mime_type']);
         header('Content-Length: ' . (string) filesize($path));
         header('Content-Disposition: inline; filename="document-' . (int) $doc['id'] . '.' . (string) $doc['original_ext'] . '"');
-        header_remove('Cache-Control');
+        header('Cache-Control: private, no-store, max-age=0');
+        header('Pragma: no-cache');
+        header('Expires: 0');
         readfile($path);
         exit;
     }

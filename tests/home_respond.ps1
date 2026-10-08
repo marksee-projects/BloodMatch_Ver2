@@ -115,6 +115,61 @@ try {
     $requester = New-User 'requester' 'member' 'verified' 'A+' $false $null
     $requesterAuth = Login $requester
 
+    # Live age/consent after enrollment: fixture DB writes only, user-run suite.
+    $ageRequest = New-Request $requester.id 'live-age'
+    $ageDonor = New-User 'age-change'
+    $ageAuth = Login $ageDonor
+    $ageMatch = New-Match $ageRequest $ageDonor.id 'NOTIFIED'
+    $underageDate = (Get-Date).AddYears(-15).ToString('yyyy-MM-dd')
+    $r = Invoke-Json $ageAuth.s 'Put' '/api/profile' @{ date_of_birth = $underageDate } $ageAuth.csrf
+    $ageState = "$(DbQuery "SELECT status FROM matches WHERE id=$ageMatch;")".Trim()
+    if ($r.status -eq 200 -and $ageState -eq 'CLOSED') { Ok 'A01 DOB change refresh closes unanswered ineligible candidate' } else { Bad 'A01 age refresh' "status=$($r.status) match=$ageState" }
+    $r = Respond $ageAuth $ageRequest
+    if ($r.status -eq 403 -and $r.body.error.code -eq 'age_ineligible') { Ok 'A02 enrolled underage donor rejected by request-ID response' } else { Bad 'A02 underage response' "status=$($r.status) code=$($r.body.error.code)" }
+    $r = Invoke-Json $ageAuth.s 'Post' "/api/matches/$ageMatch/respond" @{} $ageAuth.csrf
+    if ($r.status -eq 403 -and $r.body.error.code -eq 'age_ineligible') { Ok 'A03 legacy match-ID response rechecks age' } else { Bad 'A03 legacy age guard' "status=$($r.status) code=$($r.body.error.code)" }
+    $ageSearch = [uri]::EscapeDataString("HR-$token-live-age")
+    $r = Invoke-Json $ageAuth.s 'Get' "/api/home-feed?q=$ageSearch" $null $ageAuth.csrf
+    $ageCard = @($r.body.data.requests | Where-Object { $_.id -eq $ageRequest })
+    if ($ageCard.Count -eq 1 -and $ageCard[0].can_respond -eq $false -and $ageCard[0].reason_code -eq 'age_ineligible') { Ok 'A04 age-ineligible donor still sees compatible disabled Home card' } else { Bad 'A04 Home age state' "cards=$($ageCard.Count) status=$($r.status)" }
+    $r = Invoke-Json $ageAuth.s 'Put' '/api/profile' @{ date_of_birth = '1990-01-02' } $ageAuth.csrf
+    $r = Respond $ageAuth $ageRequest
+    if ($r.status -eq 200 -and [int](DbQuery "SELECT COUNT(*) FROM users WHERE id=$($ageDonor.id) AND donor_enrolled_at IS NOT NULL;") -eq 1) { Ok 'A05 corrected DOB restores response without destroying enrollment' } else { Bad 'A05 corrected DOB' "status=$($r.status)" }
+    $r = Invoke-Json $ageAuth.s 'Put' '/api/profile' @{ date_of_birth = $null } $ageAuth.csrf
+    $r = Respond $ageAuth $ageRequest
+    $existingResponse = "$(DbQuery "SELECT status FROM matches WHERE id=$ageMatch;")".Trim()
+    if ($r.status -eq 403 -and $r.body.error.code -eq 'age_ineligible' -and $existingResponse -eq 'RESPONDED') { Ok 'A06 missing DOB blocks repeat response while preserving existing offer/history' } else { Bad 'A06 missing DOB' "status=$($r.status) code=$($r.body.error.code) match=$existingResponse" }
+
+    $minor = New-User 'minor-consent'
+    $minorAuth = Login $minor
+    $minorDate = (Get-Date).AddYears(-17).ToString('yyyy-MM-dd')
+    $r = Invoke-Json $minorAuth.s 'Put' '/api/profile' @{ date_of_birth = $minorDate } $minorAuth.csrf
+    $r = Respond $minorAuth $ageRequest
+    if ($r.status -eq 403 -and $r.body.error.code -eq 'parental_consent_required' -and (Match-Count $ageRequest $minor.id) -eq 0) { Ok 'A07 enrolled minor requires stored consent' } else { Bad 'A07 minor consent' "status=$($r.status) code=$($r.body.error.code)" }
+    # Consent fixture models the existing document-presence policy; no file/SMTP operation.
+    $consentName = ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N'))
+    DbQuery "INSERT INTO member_documents (user_id,doc_type,stored_name,mime_type,original_ext,size_bytes,uploaded_at) VALUES ($($minor.id),'parental_consent','$consentName','application/pdf','pdf',1,UTC_TIMESTAMP());" | Out-Null
+    $r = Respond $minorAuth $ageRequest
+    if ($r.status -eq 200) { Ok 'A08 live stored consent projection allows eligible minor' } else { Bad 'A08 stored consent' "status=$($r.status) code=$($r.body.error.code)" }
+    DbQuery "DELETE FROM member_documents WHERE user_id=$($minor.id) AND stored_name='$consentName';" | Out-Null
+    $r = Respond $minorAuth $ageRequest
+    if ($r.status -eq 403 -and $r.body.error.code -eq 'parental_consent_required') { Ok 'A09 consent absence rechecked on next response despite enrollment and prior offer' } else { Bad 'A09 consent recheck' "status=$($r.status) code=$($r.body.error.code)" }
+
+    # Re-match tests the candidate pool projection and retains cross-chapter substitutions.
+    $officer = New-User 'age-officer' 'officer'
+    $officerAuth = Login $officer
+    $poolMinor = New-User 'pool-minor'
+    $poolAdult = New-User 'pool-cross-chapter' 'member' 'verified' 'O-'
+    DbQuery "UPDATE users SET date_of_birth='$minorDate' WHERE id=$($poolMinor.id); UPDATE users SET chapter_id=2,latitude=10,longitude=123 WHERE id=$($poolAdult.id);" | Out-Null
+    $poolRequest = New-Request $requester.id 'age-pool' 'AB+'
+    DbQuery "UPDATE blood_requests SET latitude=14.6,longitude=120.5 WHERE id=$poolRequest;" | Out-Null
+    $r = Invoke-Json $officerAuth.s 'Post' "/api/officer/requests/$poolRequest/re-match" @{} $officerAuth.csrf
+    if ($r.status -eq 200 -and (Match-Count $poolRequest $poolMinor.id) -eq 0 -and (Match-Count $poolRequest $poolAdult.id) -eq 1) { Ok 'A10 matching excludes minor without consent but includes distant compatible cross-chapter adult' } else { Bad 'A10 candidate age/ranking' "status=$($r.status)" }
+    $poolConsentName = ([guid]::NewGuid().ToString('N') + [guid]::NewGuid().ToString('N'))
+    DbQuery "INSERT INTO member_documents (user_id,doc_type,stored_name,mime_type,original_ext,size_bytes,uploaded_at) VALUES ($($poolMinor.id),'parental_consent','$poolConsentName','application/pdf','pdf',1,UTC_TIMESTAMP());" | Out-Null
+    $r = Invoke-Json $officerAuth.s 'Post' "/api/officer/requests/$poolRequest/re-match" @{} $officerAuth.csrf
+    if ($r.status -eq 200 -and (Match-Count $poolRequest $poolMinor.id) -eq 1) { Ok 'A11 matching reads stored parental consent for eligible minor' } else { Bad 'A11 candidate consent projection' "status=$($r.status)" }
+
     # Canonical no-match response, notification, audit, and idempotency.
     $eligible = New-User 'eligible'
     $eligibleAuth = Login $eligible

@@ -25,10 +25,7 @@ final class MatchRepository
     public function findByIdForUpdate(int $matchId): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT m.*, br.status AS request_status, br.request_chapter_id, br.quantity_units
-             FROM matches m
-             JOIN blood_requests br ON br.id = m.request_id
-             WHERE m.id = ? LIMIT 1
+            'SELECT * FROM matches WHERE id = ? LIMIT 1
              FOR UPDATE'
         );
         $stmt->execute([$matchId]);

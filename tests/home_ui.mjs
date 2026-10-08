@@ -1,4 +1,4 @@
-// Offline rendered-component checks; no database, network, or response mutation.
+// Offline rendered-component/callback checks; response API is mocked, no database/network mutation.
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -28,8 +28,13 @@ require.extensions['.js'] = (module, filename) => {
 const { FeedCard } = require('./src/components/FeedCard.jsx')
 const Home = require('./src/pages/HomeFeedPage.jsx').default
 const DemandMap = require('./src/components/DemandMapWidget.jsx').default
+const { api } = require('./src/services/apiClient.js')
+const originalPost = api.post
+const responseCalls = []
+api.post = async (...args) => { responseCalls.push(args); return { status: 'RESPONDED' } }
 const request = { id: 17, requester_name: 'Rafael Garcia', requester_verification_status: 'verified', requester_chapter_name: 'Mt. Samat Chapter', urgency: 'emergency', required_blood_type: 'AB+', facility_name: 'Mariveles Mental Wellness and General Hospital', location: { municipality_name: 'Mariveles' }, quantity_units: 2, needed_datetime: '2026-10-09 15:00:00', created_at: new Date(Date.now() - 7200000).toISOString().slice(0, 19).replace('T', ' '), can_respond: true }
 let expanded = false
+let confirmingResponse = false
 let inCard = false
 let cardStateIndex = 0
 let cardTree
@@ -46,8 +51,12 @@ React.useState = initial => {
     const state = originalState(demandStates[index])
     return [state[0], value => { demandStates[index] = typeof value === 'function' ? value(demandStates[index]) : value }]
   }
-  const state = originalState(inCard && cardStateIndex === 0 ? expanded : initial)
-  if (inCard && cardStateIndex++ === 0) return [state[0], value => { expanded = typeof value === 'function' ? value(expanded) : value }]
+  const state = originalState(inCard && cardStateIndex === 0 ? expanded : inCard && cardStateIndex === 1 ? confirmingResponse : initial)
+  if (inCard) {
+    const index = cardStateIndex++
+    if (index === 0) return [state[0], value => { expanded = typeof value === 'function' ? value(expanded) : value }]
+    if (index === 1) return [state[0], value => { confirmingResponse = typeof value === 'function' ? value(confirmingResponse) : value }]
+  }
   return state
 }
 function FixtureDemandMap() {
@@ -92,6 +101,30 @@ try {
   assert.equal(details.split(request.facility_name).length - 1, 1, 'Long hospital name occurs once')
   assert(details.match(/<button(?![^>]*disabled)[^>]*>Respond<\/button>/), 'Eligible Respond is enabled')
   assert(details.includes('href="/requests/17/matches"'), 'View request retains its existing destination')
+  findElement(cardTree, element => element.props?.children === 'Respond').props.onClick()
+  assert.equal(responseCalls.length, 0, 'Respond opens confirmation without submitting')
+  const confirmationMarkup = renderCard(request)
+  assert(confirmationMarkup.includes('role="alertdialog"') && confirmationMarkup.includes('Confirm I can help'), 'Shared accessible confirmation appears')
+  assert(confirmationMarkup.includes('final medical eligibility decision'), 'Facility screening notice is shown before responding')
+  const dialog = findElement(cardTree, element => element.props?.confirmLabel === 'Confirm I can help')
+  dialog.props.onCancel()
+  assert.equal(responseCalls.length, 0, 'Cancellation does not submit a response')
+  assert(!renderCard(request).includes('role="alertdialog"'), 'Cancellation dismisses confirmation')
+  findElement(cardTree, element => element.props?.children === 'Respond').props.onClick()
+  renderCard(request)
+  const confirmedDialog = findElement(cardTree, element => element.props?.confirmLabel === 'Confirm I can help')
+  confirmedDialog.props.onConfirm()
+  confirmedDialog.props.onConfirm()
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(responseCalls, [['/api/requests/17/respond']], 'Confirmation submits once through the request-ID API; rapid repeats are blocked')
+  assert.equal(confirmingResponse, false, 'Successful mocked response dismisses confirmation')
+  confirmingResponse = true
+  const staleConfirmation = renderCard({ ...request, can_respond: false, reason_text: 'This request is no longer open.' })
+  assert(staleConfirmation.match(/<button[^>]*disabled[^>]*>Confirm I can help<\/button>/), 'Confirmation disables submission when eligibility changes while it is open')
+  findElement(cardTree, element => element.props?.confirmLabel === 'Confirm I can help').props.onConfirm()
+  assert.equal(responseCalls.length, 1, 'Stale confirmation cannot submit even when its callback is invoked directly')
+  confirmingResponse = false
+  renderCard(request)
   for (const reason of ['Donation cooldown is active', 'You are unavailable']) {
     const disabled = renderCard({ ...request, can_respond: false, reason_text: reason })
     assert(disabled.match(/<button[^>]*disabled[^>]*>Respond<\/button>/), 'Ineligible and staff Respond remain disabled')
@@ -149,8 +182,9 @@ try {
   findElement(demandTree, element => element.type === 'button' && element.props.children === 'Reset filters').props.onClick()
   mapMarkup = wrap(React.createElement(FixtureDemandMap))
   assert(mapMarkup.includes('Mt. Samat Chapter: 3 matching active requests') && mapMarkup.includes('Mt. Tarak Chapter: 4 matching active requests'), 'Map reset restores all chapters and urgencies')
-  console.log('PASS: grouped card, response safety, native Home dropdowns/selected values/no chips, active/inactive filters, Load more, Chapter/urgency panel and reset counts. No API mutations executed.')
+  console.log('PASS: grouped card, response confirmation/cancellation/repeat/stale safety, native Home filters, pagination, Chapter/urgency reset. Response API mocked; no real API mutations.')
 } finally {
   React.useState = originalState
+  api.post = originalPost
   console.error = originalError
 }

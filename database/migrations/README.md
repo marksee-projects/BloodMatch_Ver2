@@ -11,6 +11,13 @@ urgency value to `emergency`, preserving request rows and timestamps. Final doma
 `routine`, `urgent`, `emergency`. It has not been executed by the coding agent.
 Execution, preflight, and verification: [`docs/urgency-migration-u0.md`](../../docs/urgency-migration-u0.md).
 
+Prepared rejection-reason migration: `020_donation_report_rejection_reason.sql` adds
+`donation_reports.rejection_reason VARCHAR(500) NULL` only. Existing reasons stay
+NULL and statuses are untouched. It has not been executed by the coding agent.
+The test-only review/apply helper targets `bloodmatch_test` on port 3306 and applies
+only 020, recording it in the existing ledger. Review and exact commands:
+[`docs/rejection-reason-migration.md`](../../docs/rejection-reason-migration.md).
+
 Current migration state: 001–016 applied (verified via `run_migrations.php`; see `docs/erd.md` and `docs/test-log-location.md`).
 
 | Migration | Purpose |

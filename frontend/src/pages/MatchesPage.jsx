@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X } from '@phosphor-icons/react'
@@ -36,6 +36,7 @@ export default function MatchesPage() {
   const [message, setMessage] = useState(null)
   const [confirmation, setConfirmation] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const responseBusyRef = useRef(false)
   const [reportingMatchId, setReportingMatchId] = useState(null)
   const [reportNote, setReportNote] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
@@ -70,22 +71,27 @@ export default function MatchesPage() {
   const ownMatch = matches.find((match) => match.is_current_user)
   const isRequesterView = viewerMode === 'requester'
   const isOwnRequest = request && String(request.requester_id) === String(user?.id)
+  const hasActiveResponse = ['RESPONDED', 'COMPLETED'].includes(ownMatch?.status)
+  const canRespond = !isRequesterView && request?.can_respond === true && !hasActiveResponse
 
   const respond = async () => {
-    if (!ownMatch) return
+    if (!canRespond || responseBusyRef.current) return
+    responseBusyRef.current = true
     setActionLoading(true)
     setMessage(null)
     setErrorAlert(null)
     try {
-      await api.post(`/api/matches/${ownMatch.match_id}/respond`)
+      await api.post(`/api/requests/${id}/respond`)
       setConfirmation(null)
       setMessage('Your offer to help has been sent to the requester.')
       await load()
     } catch (error) {
       setConfirmation(null)
-      if (error.status === 403 && error.details?.code === 'EMAIL_UNVERIFIED') setVerifyDialogOpen(true)
+      if (error.status === 403 && ['EMAIL_UNVERIFIED', 'email_unverified'].includes(error.code)) setVerifyDialogOpen(true)
       else setErrorAlert(error.message)
+      await load()
     } finally {
+      responseBusyRef.current = false
       setActionLoading(false)
     }
   }
@@ -208,13 +214,13 @@ export default function MatchesPage() {
             {!isOwnRequest && request.can_view_requester_profile && <Button to={`/profile/${request.requester_id}`} variant="secondary" size="sm">View profile</Button>}
           </div>
           <div className={styles.donorActions}>
-            {!isRequesterView && ownMatch && (ownMatch.status === 'POTENTIAL' || ownMatch.status === 'NOTIFIED') && <Button onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
+            {!isRequesterView && !hasActiveResponse && <Button disabled={!canRespond || actionLoading} onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
             {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
             {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
-            {!isRequesterView && !ownMatch && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
+            {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && <Button to="/profile" variant="secondary">Review donor eligibility</Button>}
           </div>
         </div>
-        {!isRequesterView && !ownMatch && <p className={styles.eligibilityNote}>{eligibilityMessage(user)}</p>}
+        {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && <p className={styles.eligibilityNote}>{request.reason_text || eligibilityMessage(user)}{request.eligible_again_at && ` Eligible again: ${formatDate(request.eligible_again_at)}.`}</p>}
       </section>
 
       {isRequesterView && (

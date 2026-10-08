@@ -22,7 +22,8 @@ final class AgeEligibilityService
         }
 
         $birth = DateTimeImmutable::createFromFormat('!Y-m-d', $dobUtcDate);
-        if ($birth === false || $birth->format('Y-m-d') !== $dobUtcDate) {
+        $today = new DateTimeImmutable('today');
+        if ($birth === false || $birth->format('Y-m-d') !== $dobUtcDate || $birth > $today) {
             return [
                 'age' => null,
                 'category' => 'unknown',
@@ -33,18 +34,7 @@ final class AgeEligibilityService
             ];
         }
 
-        $today = new DateTimeImmutable('today');
         $age = (int) $today->diff($birth)->y;
-        $hadBirthday = ($today->format('m-d') >= $birth->format('m-d'));
-        if (!$hadBirthday && $age > 0) {
-            $boundaryCheck = DateTimeImmutable::createFromFormat(
-                '!Y-m-d',
-                ($birth->format('Y') + $age) . '-' . $birth->format('m-d')
-            );
-            if ($boundaryCheck !== null && $boundaryCheck > $today) {
-                $age--;
-            }
-        }
 
         if ($age < 16) {
             return [

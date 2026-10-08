@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Button } from './ui/Button'
 import styles from './ConfirmationDialog.module.css'
 
-export default function ConfirmationDialog({ open, title, children, confirmLabel, cancelLabel = 'Keep editing', destructive = false, busy = false, error, onConfirm, onCancel }) {
+export default function ConfirmationDialog({ open, title, children, confirmLabel, cancelLabel = 'Keep editing', destructive = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel }) {
   const panelRef = useRef(null)
   const titleId = useId()
   const descriptionId = useId()
@@ -19,7 +19,8 @@ export default function ConfirmationDialog({ open, title, children, confirmLabel
     const background = [...document.body.children].filter((element) => element !== backdrop)
       .map((element) => ({ element, inert: element.getAttribute('inert'), hidden: element.getAttribute('aria-hidden') }))
     background.forEach(({ element }) => { element.setAttribute('inert', ''); element.setAttribute('aria-hidden', 'true') })
-    panelRef.current.querySelector('button')?.focus()
+    const focusableSelector = 'button:not(:disabled), input:not(:disabled), select:not(:disabled), textarea:not(:disabled), a[href], [tabindex="0"]'
+    panelRef.current.querySelector(focusableSelector)?.focus()
     const onKeyDown = (event) => {
       if (event.key === 'Escape') {
         event.preventDefault()
@@ -27,7 +28,7 @@ export default function ConfirmationDialog({ open, title, children, confirmLabel
         if (!busyRef.current) cancelHandlerRef.current()
       }
       if (event.key !== 'Tab') return
-      const controls = [...panelRef.current.querySelectorAll('button:not(:disabled)')]
+      const controls = [...panelRef.current.querySelectorAll(focusableSelector)]
       if (!controls.length) { event.preventDefault(); panelRef.current.focus(); return }
       const first = controls[0]
       const last = controls.at(-1)
@@ -59,7 +60,7 @@ export default function ConfirmationDialog({ open, title, children, confirmLabel
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <div className={styles.actions}>
           <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>
-          <Button type="button" variant={destructive ? 'destructive' : 'primary'} isLoading={busy} onClick={onConfirm}>{confirmLabel}</Button>
+          <Button type="button" variant={destructive ? 'destructive' : 'primary'} disabled={confirmDisabled} isLoading={busy} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </section>
     </div>

@@ -1,10 +1,11 @@
-import React, { useId, useState } from 'react'
+import React, { useId, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { CaretDown, CheckCircle, User } from '@phosphor-icons/react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
 import { BloodTypeBlock } from './ui/BloodTypeBlock'
+import ConfirmationDialog from './ConfirmationDialog'
 import { api } from '../services/apiClient'
 import styles from './FeedCard.module.css'
 
@@ -28,16 +29,27 @@ function formatPostedTime(value) {
 
 export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, children }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
+  const [confirmingResponse, setConfirmingResponse] = useState(false)
+  const responseBusyRef = useRef(false)
   const detailsId = useId()
   const reasonId = useId()
   const queryClient = useQueryClient()
   const response = useMutation({
     mutationFn: () => api.post(`/api/requests/${request.id}/respond`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['home-feed'] }),
-    onError: () => queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+    onSuccess: () => {
+      setConfirmingResponse(false)
+      queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+    },
+    onError: () => queryClient.invalidateQueries({ queryKey: ['home-feed'] }),
+    onSettled: () => { responseBusyRef.current = false }
   })
   const responded = request.responded || response.isSuccess
   const canRespond = request.can_respond === true && !responded
+  const confirmResponse = () => {
+    if (!canRespond || response.isPending || responseBusyRef.current) return
+    responseBusyRef.current = true
+    response.mutate()
+  }
   const responseReason = responded ? 'Your response has been sent to the requester.' : request.reason_code === 'staff_account' ? null : request.reason_text
   const urgencyVariant = ['emergency', 'critical'].includes(request.urgency)
     ? 'emergency'
@@ -105,7 +117,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                 <footer className={styles.actions}>
                   <Button type="button" variant="primary" disabled={!canRespond || response.isPending}
                     isLoading={response.isPending} aria-describedby={responseReason ? reasonId : undefined}
-                    onClick={() => response.mutate()}>
+                    onClick={() => { response.reset(); setConfirmingResponse(true) }}>
                     {responded ? 'Responded' : 'Respond'}
                   </Button>
                   <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
@@ -117,6 +129,13 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
             {children}
           </div>
         )}
+        <ConfirmationDialog open={confirmingResponse} title="Confirm that you can help"
+          confirmLabel="Confirm I can help" cancelLabel="Not now" busy={response.isPending} confirmDisabled={!canRespond}
+          error={response.isError ? response.error.message : undefined}
+          onConfirm={confirmResponse} onCancel={() => setConfirmingResponse(false)}>
+          <p>Your response will be shared with the requester for this {request.required_blood_type} request at {request.facility_name}. The receiving facility makes the final medical eligibility decision.</p>
+          {!canRespond && <p role="status">{responseReason || 'This request is no longer available for a response.'}</p>}
+        </ConfirmationDialog>
       </article>
     </Card>
   )

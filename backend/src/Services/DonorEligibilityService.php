@@ -109,6 +109,19 @@ final class DonorEligibilityService
             return self::blocked('not_enrolled', 'Enroll as a donor before responding.');
         }
 
+        // Enrollment is historical participation, not proof of current age/consent.
+        // has_parental_consent is projected from member_documents by the repository.
+        $age = AgeEligibilityService::evaluate(
+            isset($donor['date_of_birth']) ? (string) $donor['date_of_birth'] : null,
+            !empty($donor['has_parental_consent'])
+        );
+        if (!$age['donor_path_allowed']) {
+            return self::blocked(
+                $age['requires_parental_consent'] ? 'parental_consent_required' : 'age_ineligible',
+                $age['reason']
+            );
+        }
+
         $lastDonation = isset($donor['last_verified_donation_at'])
             ? (string) $donor['last_verified_donation_at']
             : null;

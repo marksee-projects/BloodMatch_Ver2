@@ -9,6 +9,26 @@ use PDO;
 
 final class DonationReportRepository
 {
+    private static ?bool $hasRejectionReasonColumn = null;
+
+    private static function supportsRejectionReason(): bool
+    {
+        if (self::$hasRejectionReasonColumn === null) {
+            $stmt = Database::pdo()->prepare(
+                "SELECT DATA_TYPE, CHARACTER_MAXIMUM_LENGTH, IS_NULLABLE FROM information_schema.COLUMNS
+                 WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'donation_reports'
+                   AND COLUMN_NAME = 'rejection_reason' LIMIT 1"
+            );
+            $stmt->execute();
+            $column = $stmt->fetch(PDO::FETCH_ASSOC);
+            self::$hasRejectionReasonColumn = $column !== false
+                && (string) $column['DATA_TYPE'] === 'varchar'
+                && (int) $column['CHARACTER_MAXIMUM_LENGTH'] === 500
+                && (string) $column['IS_NULLABLE'] === 'YES';
+        }
+        return self::$hasRejectionReasonColumn;
+    }
+
     public function insert(int $matchId, int $donorId, ?string $note, string $reportedAtUtc): int
     {
         $stmt = Database::pdo()->prepare(
@@ -41,11 +61,7 @@ final class DonationReportRepository
     private function findByIdLocked(int $id): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT dr.*, m.request_id, br.request_chapter_id, br.status AS request_status, br.quantity_units
-             FROM donation_reports dr
-             JOIN matches m ON m.id = dr.match_id
-             JOIN blood_requests br ON br.id = m.request_id
-             WHERE dr.id = ? LIMIT 1
+            'SELECT * FROM donation_reports WHERE id = ? LIMIT 1
              FOR UPDATE'
         );
         $stmt->execute([$id]);
@@ -70,12 +86,24 @@ final class DonationReportRepository
         $stmt->execute([$officerId, $nowUtc, $id]);
     }
 
-    public function markRejected(int $id, int $officerId, string $nowUtc): void
+    public function pendingExistsForMatchForUpdate(int $matchId): bool
     {
         $stmt = Database::pdo()->prepare(
-            "UPDATE donation_reports SET status = 'REJECTED', confirmed_by = ?, confirmed_at = ? WHERE id = ?"
+            "SELECT id FROM donation_reports WHERE match_id = ? AND status = 'PENDING' LIMIT 1 FOR UPDATE"
         );
-        $stmt->execute([$officerId, $nowUtc, $id]);
+        $stmt->execute([$matchId]);
+        return $stmt->fetchColumn() !== false;
+    }
+
+    public function markRejected(int $id, int $officerId, string $nowUtc, string $reason): void
+    {
+        if (!self::supportsRejectionReason()) {
+            throw new \RuntimeException('Rejection reason storage is temporarily unavailable. Contact an administrator.', 503);
+        }
+        $stmt = Database::pdo()->prepare(
+            "UPDATE donation_reports SET status = 'REJECTED', confirmed_by = ?, confirmed_at = ?, rejection_reason = ? WHERE id = ?"
+        );
+        $stmt->execute([$officerId, $nowUtc, $reason, $id]);
     }
 
     public function listPendingByChapter(?int $chapterId): array
@@ -86,7 +114,7 @@ final class DonationReportRepository
         $stmt = Database::pdo()->prepare(
             "SELECT dr.id, dr.match_id, dr.donor_id, dr.report_note, dr.reported_at,
                     u.full_name AS donor_name, br.required_blood_type, br.facility_name,
-                    br.request_chapter_id
+                    br.request_chapter_id, br.status AS request_status, m.status AS match_status
              FROM donation_reports dr
              JOIN users u ON u.id = dr.donor_id
              JOIN matches m ON m.id = dr.match_id
@@ -100,8 +128,9 @@ final class DonationReportRepository
 
     public function listByDonor(int $donorId): array
     {
+        $reasonColumn = self::supportsRejectionReason() ? 'dr.rejection_reason' : 'NULL AS rejection_reason';
         $stmt = Database::pdo()->prepare(
-            'SELECT dr.id, dr.match_id, dr.report_note, dr.status, dr.reported_at, dr.confirmed_at,
+            'SELECT dr.id, dr.match_id, dr.report_note, dr.status, dr.reported_at, dr.confirmed_at, ' . $reasonColumn . ',
                     br.required_blood_type, br.facility_name
              FROM donation_reports dr
              JOIN matches m ON m.id = dr.match_id

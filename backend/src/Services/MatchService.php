@@ -21,8 +21,20 @@ final class MatchService
         ?int $onlyDonorId = null
     ): array
     {
+        return WorkflowLockService::transaction(fn (): array => $this->generateLockedForRequest(
+            $requestId, $bumpGeneration, $trigger, $actorId, $onlyDonorId
+        ));
+    }
+
+    private function generateLockedForRequest(
+        int $requestId,
+        bool $bumpGeneration,
+        string $trigger,
+        ?int $actorId,
+        ?int $onlyDonorId
+    ): array {
         $repo = new BloodRequestRepository();
-        $request = $repo->findById($requestId);
+        $request = $repo->findByIdForUpdate($requestId);
 
         if ($request === null) {
             throw new RuntimeException('Request not found.', 404);
@@ -47,8 +59,10 @@ final class MatchService
         $stmt = $pdo->prepare(
             "SELECT id, full_name, role, chapter_id, account_status, verification_status,
                     email_verified_at, donor_enrolled_at, donor_availability,
-                    last_verified_donation_at, blood_type, latitude, longitude
-             FROM users
+                    last_verified_donation_at, blood_type, latitude, longitude, date_of_birth,
+                    EXISTS (SELECT 1 FROM member_documents consent
+                            WHERE consent.user_id = u.id AND consent.doc_type = 'parental_consent') AS has_parental_consent
+             FROM users u
              WHERE blood_type IN ($placeholders){$donorScopeSql}"
         );
         $poolParams = $compatibleTypes;

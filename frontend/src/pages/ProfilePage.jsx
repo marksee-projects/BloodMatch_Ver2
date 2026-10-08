@@ -444,7 +444,9 @@ export default function ProfilePage() {
                   {reports.map((report) => (
                     <article key={report.id} className={styles.historyRow}>
                       <div className={styles.historyBlood}>{report.required_blood_type}</div>
-                      <div><h4>{report.facility_name}</h4><p>{formatDate(report.reported_at)}</p></div>
+                      <div><h4>{report.facility_name}</h4><p>{formatDate(report.reported_at)}</p>
+                        {report.status === 'REJECTED' && <p className={styles.rejectionReason}>Rejection reason: {report.rejection_reason || 'No reason recorded'}</p>}
+                      </div>
                       <Badge variant={report.status === 'CONFIRMED' ? 'success' : report.status === 'REJECTED' ? 'emergency' : 'urgent'}>{titleCase(report.status)}</Badge>
                     </article>
                   ))}

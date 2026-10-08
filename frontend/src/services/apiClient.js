@@ -102,6 +102,8 @@ async function request(path, options = {}, isRetry = false) {
     const error = new Error(message)
     error.status = res.status
     error.details = body?.error?.details || {}
+    error.code = body?.error?.code || error.details.code
+    error.eligibleAgainAt = body?.error?.eligible_again_at || error.details.eligible_again_at
     throw error
   }
 
@@ -134,6 +136,8 @@ export const api = {
       const error = new Error(message)
       error.status = res.status
       error.details = body?.error?.details || {}
+      error.code = body?.error?.code || error.details.code
+      error.eligibleAgainAt = body?.error?.eligible_again_at || error.details.eligible_again_at
       throw error
     }
     return body?.data ?? null
