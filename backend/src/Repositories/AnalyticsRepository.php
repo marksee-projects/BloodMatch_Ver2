@@ -6,6 +6,7 @@ namespace BloodMatch\Repositories;
 
 use BloodMatch\Config\Database;
 use BloodMatch\Services\DonorEligibilityService;
+use BloodMatch\Services\AuthService;
 use PDO;
 
 final class AnalyticsRepository
@@ -19,6 +20,7 @@ final class AnalyticsRepository
     public function getDemandMap(array $filters = [], ?int $scopedChapterId = null): array
     {
         $pdo = Database::pdo();
+        $nowUtc = AuthService::nowUtc();
 
         // 1. Fetch target chapters
         if ($scopedChapterId !== null) {
@@ -33,8 +35,8 @@ final class AnalyticsRepository
         $chapters = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         // 2. Fetch OPEN blood requests aggregated by chapter, blood type, and urgency
-        $where = ["br.status = 'OPEN'"];
-        $params = [];
+        $where = ["br.status = 'OPEN'", 'br.needed_datetime >= ?'];
+        $params = [$nowUtc];
 
         if ($scopedChapterId !== null) {
             $where[] = 'br.request_chapter_id = ?';
@@ -127,6 +129,7 @@ final class AnalyticsRepository
     public function getOfficerDashboard(int $chapterId): array
     {
         $pdo = Database::pdo();
+        $nowUtc = AuthService::nowUtc();
 
         // 1. Chapter info
         $stmt = $pdo->prepare('SELECT id, code, name, municipality FROM chapters WHERE id = ? LIMIT 1');
@@ -165,9 +168,9 @@ final class AnalyticsRepository
                     COALESCE(SUM(quantity_units), 0) AS units_needed,
                     COALESCE(SUM(CASE WHEN urgency IN (\'urgent\', \'emergency\') THEN 1 ELSE 0 END), 0) AS urgent_count
              FROM blood_requests
-             WHERE request_chapter_id = ? AND status = \'OPEN\''
+             WHERE request_chapter_id = ? AND status = \'OPEN\' AND needed_datetime >= ?'
         );
-        $reqStmt->execute([$chapterId]);
+        $reqStmt->execute([$chapterId, $nowUtc]);
         $reqSummary = $reqStmt->fetch(PDO::FETCH_ASSOC);
 
         $activeOpenRequests = (int) ($reqSummary['open_count'] ?? 0);
@@ -178,10 +181,10 @@ final class AnalyticsRepository
         $btStmt = $pdo->prepare(
             'SELECT required_blood_type, COALESCE(SUM(quantity_units), 0) AS units
              FROM blood_requests
-             WHERE request_chapter_id = ? AND status = \'OPEN\'
+             WHERE request_chapter_id = ? AND status = \'OPEN\' AND needed_datetime >= ?
              GROUP BY required_blood_type'
         );
-        $btStmt->execute([$chapterId]);
+        $btStmt->execute([$chapterId, $nowUtc]);
         $btRows = $btStmt->fetchAll(PDO::FETCH_ASSOC);
 
         $demandByBloodType = [];
@@ -242,6 +245,7 @@ final class AnalyticsRepository
     public function getAdminDashboard(?int $filterChapterId = null): array
     {
         $pdo = Database::pdo();
+        $nowUtc = AuthService::nowUtc();
 
         // 1. Total users
         $totalUsers = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
@@ -259,14 +263,14 @@ final class AnalyticsRepository
 
         $reqStmt = $pdo->prepare(
             "SELECT COUNT(id) AS total_requests,
-                    COALESCE(SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END), 0) AS open_count,
+                    COALESCE(SUM(CASE WHEN status = 'OPEN' AND needed_datetime >= ? THEN 1 ELSE 0 END), 0) AS open_count,
                     COALESCE(SUM(CASE WHEN status = 'FULFILLED' THEN 1 ELSE 0 END), 0) AS fulfilled_count,
                     COALESCE(SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS cancelled_count,
                     COALESCE(SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END), 0) AS expired_count,
-                    COALESCE(SUM(CASE WHEN status = 'OPEN' THEN quantity_units ELSE 0 END), 0) AS open_units
+                    COALESCE(SUM(CASE WHEN status = 'OPEN' AND needed_datetime >= ? THEN quantity_units ELSE 0 END), 0) AS open_units
              FROM blood_requests {$whereSql}"
         );
-        $reqStmt->execute($reqParams);
+        $reqStmt->execute(array_merge([$nowUtc, $nowUtc], $reqParams));
         $reqAgg = $reqStmt->fetch(PDO::FETCH_ASSOC);
 
         $totalReqs = (int) ($reqAgg['total_requests'] ?? 0);
@@ -339,8 +343,8 @@ final class AnalyticsRepository
             $chId = (int) $ch['id'];
 
             // Open requests
-            $chReqStmt = $pdo->prepare('SELECT COUNT(id), COALESCE(SUM(quantity_units), 0) FROM blood_requests WHERE request_chapter_id = ? AND status = \'OPEN\'');
-            $chReqStmt->execute([$chId]);
+            $chReqStmt = $pdo->prepare('SELECT COUNT(id), COALESCE(SUM(quantity_units), 0) FROM blood_requests WHERE request_chapter_id = ? AND status = \'OPEN\' AND needed_datetime >= ?');
+            $chReqStmt->execute([$chId, $nowUtc]);
             [$chOpenReqs, $chOpenUnits] = $chReqStmt->fetch(PDO::FETCH_NUM);
 
             // Enrolled donors
@@ -398,6 +402,7 @@ final class AnalyticsRepository
     public function getAnalyticsSummary(array $filters, ?int $scopedChapterId = null): array
     {
         $pdo = Database::pdo();
+        $nowUtc = AuthService::nowUtc();
 
         // 1. Determine effective chapter filter
         $targetChapterId = $scopedChapterId ?? (isset($filters['chapter_id']) && is_numeric($filters['chapter_id']) ? (int) $filters['chapter_id'] : null);
@@ -424,14 +429,14 @@ final class AnalyticsRepository
 
         $reqStmt = $pdo->prepare(
             "SELECT COUNT(id) AS total_requests,
-                    COALESCE(SUM(CASE WHEN status = 'OPEN' THEN 1 ELSE 0 END), 0) AS open_count,
+                    COALESCE(SUM(CASE WHEN status = 'OPEN' AND needed_datetime >= ? THEN 1 ELSE 0 END), 0) AS open_count,
                     COALESCE(SUM(CASE WHEN status = 'FULFILLED' THEN 1 ELSE 0 END), 0) AS fulfilled_count,
                     COALESCE(SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END), 0) AS cancelled_count,
                     COALESCE(SUM(CASE WHEN status = 'EXPIRED' THEN 1 ELSE 0 END), 0) AS expired_count,
                     COALESCE(SUM(quantity_units), 0) AS total_units
              FROM blood_requests WHERE {$whereSql}"
         );
-        $reqStmt->execute($reqParams);
+        $reqStmt->execute(array_merge([$nowUtc], $reqParams));
         $reqAgg = $reqStmt->fetch(PDO::FETCH_ASSOC);
 
         $totalReqs = (int) ($reqAgg['total_requests'] ?? 0);

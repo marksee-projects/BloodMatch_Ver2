@@ -2,7 +2,127 @@
 
 Marker: `BM-SAFETY-FIX-PROGRESS-2026-10-08`. Updated 2026-10-09, Asia/Manila.
 
-Latest checkpoint: **Phase 3B2 request edit/cancel/expiry locking and closure cleanup only**. Marker `BM-SAFETY-PHASE3B2-LIFECYCLE-2026-10-09`. Source changes and lightweight checks are complete; new database/concurrency results await user execution. Earlier changes were preserved. Migration 020 execution/status has not been independently verified; no new migration was added.
+Latest checkpoint: **Phase 5 email outbox and lifecycle notification proposal prepared; approval pending**. Marker `BM-SAFETY-PHASE5-PROPOSAL`. Phase 4B is complete on bloodmatch_test:3306, including 16 safety assertions, cleanup and migration 020 read-only confirmation. Scheduling remains test-only; no application/deployed preparation. Earlier entries below remain historical records.
+
+## Phase 5 checkpoint — proposal only
+
+User selected email outbox/notification proposal as the next point; the brief availability investigation made no edits and is deferred. Read only current progress, relevant NotificationService/Repository/Mailer, creation/matching/response/lifecycle/donation/verification/account call sites, migration 013 and finalized notification-channel rules. Used database skill for schema/dependency review. No completed audit/test was repeated; no .env values were read.
+
+Source verified: Emergency matching can send synchronously inside its request transaction; response email occurs after commit; duplicate notification insertion suppresses failed-mail retries; unconfigured/rate-limited mail has no durable delivery state. Several status events notify after business writes, so durable coverage needs appropriate transaction wiring. Missing lifecycle events and the current 500-opportunity recipient cap remain. Original request creation commits before matching; email queueing alone does not repair failed matching generation. Routine/Urgent and material-edit/rematch opportunity email remain disabled unless explicitly approved otherwise.
+
+Concrete review artifact: [EMAIL_OUTBOX_NOTIFICATION_PROPOSAL.md](EMAIL_OUTBOX_NOTIFICATION_PROPOSAL.md), marker BM-SAFETY-PHASE5-PROPOSAL. Includes proposed additive outbox columns/indexes/uniqueness/FK, references-only payload/privacy, leases/retries/normal rate accounting/Emergency priority/TTL/supersession, honest SMTP acceptance/crash/closure-race limits, no historical backfill, and current-versus-proposed event/recipient/channel table. Proposed stages: 5A queues existing coverage and needed transaction wiring; user validates that checkpoint before 5B approved lifecycle expansion/all-compatible-recipient fan-out. OTP/reset, standby/window-ended transitions, offer-treatment policy and management UI remain separate.
+
+Approval decisions pending: A) implement 5A using existing MySQL/PHP with six attempts/backoff 1/5/15/60/240 minutes, normal TTL 72h, one-minute signed-in test worker, bounded claims/leases, no backfill; prepare migration and commands but user applies/runs only. B) approve proposed 5B event/recipient/channel table and remove total 500 cap using bounded persistence batches, or keep existing coverage only. C) actual-transition notifications on withdrawal/re-response (recommended) versus lifetime response suppression. Material-edit opportunity email stays off by default. No answer or elapsed time is treated as approval.
+
+Implementation status: **NOT IMPLEMENTED**; no migration SQL, outbox worker/test/helper, schedule install, database mutation, email send or notification coverage change. Planned future offline/mock and user-run migration/API/worker/failure/scope/cleanup checks are specified in the proposal; runnable new commands will be provided after approved implementation, not fabricated now. Phase 4B evidence is preserved; no Phase 5 tests are marked passed.
+
+Checks this checkpoint: proposal-to-call-site/transaction review and documentation diff whitespace check only; no syntax/build/tests needed for documentation-only changes. Time consumed primarily by investigation of transaction/dedup boundaries and drafting the concrete schema/channel/default choices; tool waits were brief. Only this latest progress entry and the new proposal document changed.
+
+| File | What changed | Distinctive string to search for | Found? |
+|---|---|---|---|
+| docs/EMAIL_OUTBOX_NOTIFICATION_PROPOSAL.md | Concrete design, current behavior, stages and approval choices | Approval A: outbox design | Yes |
+| docs/BLOODMATCH_SAFETY_FIX_PROGRESS.md | Current proposal checkpoint and preserved test-only boundary | BM-SAFETY-PHASE5-PROPOSAL | Yes |
+
+## Phase 4B checkpoint — test schedule preparation, 2026-10-09
+
+Approved scope: prepare a Windows one-minute signed-in schedule for bloodmatch_test on port 3306, with overlap protection and secret-free logs. Agent must not register/start the task, execute database tests, or target application/deployed data. Inspected the expiry CLI/lifecycle, connection/environment and audit dependencies, existing test wrapper and local runtime convention only. Completed audits and unrelated code were not repeated.
+
+Phase 4A result: **USER-REPORTED PASS**, including phase12; agent did not execute it or receive full assertion output. Previous scheduler inventory was not repeated. Test schedule dispatch is now verified by the user's supplied metadata and log output below.
+
+Prepared behavior:
+
+| Item | Implementation / impact |
+|---|---|
+| Target | Fixed 127.0.0.1 / bloodmatch_test / 3306; process overrides before .env load, then actual database/port verification on the same cached PDO before expiry writes. Connector fallback to 3307 is refused |
+| Schedule | Every minute indefinitely, current Windows user Interactive/Limited, hidden action; machine awake and user signed in. No task credentials |
+| Worker | Dedicated run_test_expiry.php calls the existing atomic lifecycle; generic run_expiry.php and .env untouched. --verify reads target/due count only |
+| Overlap | Task IgnoreNew plus nonblocking file lock for manual/scheduled dedicated-worker runs. Generic CLI is outside that file lock; do not run competing workers during verification |
+| Results | logs/test-expiry.jsonl: fixed target, UTC, invocation/status, counts, duration and numeric exit code only. Raw errors discarded. Partial committed count retained; next tick retries remaining requests |
+| Data effects | Existing expiry rules only: due OPEN becomes EXPIRED, unfinished offers CLOSED, completed donations/pending reports preserved, pending confirmation blocked, no donation cooldown. Existing requester in-app notification and batch audit retained |
+| Setup/removal | User-only Preview/Setup/Verify/Remove helper; no overwrite of existing tasks; ownership/action guard; removal disables first and refuses to kill a running transaction. Logs retained |
+| Boundary | No migration, queue, standby, notification expansion or production target; separate approval required after successful testing |
+
+Checks actually run once after code edits: PHP syntax for run_test_expiry.php PASS; PowerShell parse-only for both task scripts PASS, no script/task/database execution. Diff whitespace review PASS (existing line-ending warnings only). Windows task registration, actual repetition/identity/overlap, log writes and target/expiry SQL remain NOT RUN by agent.
+
+Exact readiness/setup/verification/removal commands and expected results: [TEST_EXPIRY_SCHEDULER.md](TEST_EXPIRY_SCHEDULER.md). Prerequisites: current disposable test schema/reference data on 3306, PHP pdo_mysql, existing .env database credentials, signed-in Windows account and available Task Scheduler. Do not run fixture regression suites concurrently with the installed timer.
+
+User sequence: run test runner --verify, Preview, Setup, wait awake/signed in for at least two ticks, Verify plus new sanitized scheduled records, final --verify, then Remove. Require actual recent Task Scheduler runs and at least two new completed records approximately one minute apart; zero-count runs prove dispatch only. Existing workflow_atomicity regression is documented as optional before installation, not marked passed by agent. Report safe metadata/results before any application/deployed target approval.
+
+User result received: test target verification PASSED (bloodmatch_test:3306, invocation verify, status verified, exit_code 0, due_count 0 at 2026-10-09T11:03:12Z). Task registration/configuration and removal succeeded per supplied output: PT1M, Interactive, Limited, IgnoreNew. At inspection it had not run: LastTaskResult 267011 = 0x41303 (SCHED_S_TASK_HAS_NOT_RUN), sentinel LastRunTime 1999-11-30, next trigger 2026-10-09 19:04:18 local. No scheduled invocation record was supplied. This proves readiness/setup/removal, not automatic execution. [Microsoft status reference](https://learn.microsoft.com/windows/win32/taskschd/task-scheduler-error-and-success-constants).
+
+Subsequent user verification: **PASS for automatic dispatch on the approved test target**. LastRunTime 2026-10-09 19:17:26 local, LastTaskResult 0; PT1M / Interactive / Limited / IgnoreNew. Sanitized scheduled records at 2026-10-09T11:16:26Z and 11:17:27Z (61 seconds apart) both show bloodmatch_test:3306, completed, exit_code 0, expired_count 0 (16/15 ms). User then successfully removed the task. These zero-count runs prove scheduled execution/target checks, not closure of an overdue fixture or contention behavior.
+
+Remaining gaps: real overdue-fixture closure by the timer and forced-overlap behavior were not demonstrated by this output; existing lifecycle suites remain separately user-reported passed. Application/deployed target, signed-out availability and log retention policy require a separate decision. Next approval question: recommend preparing the same one-minute signed-in schedule for the Windows local application DB after confirming its exact name/port and expiry-write effects; alternatively keep scheduling test-only or prepare a deployed-server plan after OS/runtime details. Agent ran no task/database test, sent no email and changed no implementation in this result follow-up.
+
+Summary-review steering: user requested a plan/status summary before proceeding; no implementation or application/deployed scheduler preparation is authorized by this review. Recommended next narrow checkpoint is now a test-only overdue-fixture scheduling/closure check on bloodmatch_test:3306, before any non-test target decision. Existing evidence remains two automatic runs 61 seconds apart, exit_code 0, both expired_count 0, successful task removal; scheduled overdue-request closure is still UNVERIFIED. The outstanding target approval question concerns preparing a local application schedule (exact DB name/port required), a deployed-server plan (OS/runtime/target required), or staying test-only; it is deferred, not a prerequisite to this summary. Migration 020 is prepared and agent-unapplied; user-reported suite passes do not independently establish its application/deployed migration state.
+
+Current approved follow-up: **stay test-only** and prepare one disposable-fixture scheduled expiry check. Added tests/scheduled_expiry_fixture.php with fixed actual-target verification, SELECT-only check of migration 020's column shape plus ledger presence, and separate setup/assert/cleanup actions. No worker is invoked by this helper. Setup refuses preexisting overdue OPEN rows, creates one overdue request, four unfinished offers, a pending report and a historical completed donation in one transaction; saves exact token-owned IDs and synthetic safety/donation baselines plus scheduler-log offset, without credentials/password hashes. Existing worker file lock prevents setup/assert/cleanup races.
+
+Assertions require fresh successful scheduled-run evidence with expired_count >= 1, correlate expiry time, then check EXPIRED, four CLOSED offers, unchanged pending report and completed records/safety anchors. Scoped officer queue retains the pending report; confirmation must return 409, blank reason must fail, and explicit reasoned rejection must persist into own history/audit without a new donation/cooldown. Corrected cleanup validates ownership and removes exact fixture rows while retaining all audit history and scheduler logs. No schema/backfill/application behavior changes.
+
+Exact separate setup/scheduler/assertion/cleanup commands: [SCHEDULED_EXPIRY_FIXTURE_CHECK.md](SCHEDULED_EXPIRY_FIXTURE_CHECK.md). User first runs `php tests/scheduled_expiry_fixture.php check` (read-only); both column_ready and migration_020_recorded must be true before proceeding. Then Remove prior task, setup fixtures, Setup task, wait three minutes signed in/awake, capture Verify/log output, Remove task, assert once, cleanup. Expected 16 assertions passed / 0 failed, manifest removed and task absent. If any command fails, stop, remove the task and run the dedicated cleanup block; do not reset data or apply migration automatically.
+
+Checks actually run for this follow-up: PHP syntax PASS on new fixture helper; git diff --check PASS with existing line-ending warnings only. No database check, fixture setup/assertion/cleanup, PowerShell suite or task installation/start was run by the agent. Migration 020 presence and scheduled overdue closure remain **UNVERIFIED until user output**. Forced overlap and browser rendering are outside this focused experiment. Application/deployed preparation and unrelated work remain deferred. Time spent chiefly on fixture ownership, baseline preservation and fresh scheduling evidence; lightweight checks/tool waits were brief. Report this checkpoint's outcome after the user's results.
+
+User fixture result received: **16 assertions passed, 0 failed**. Scheduled run at 2026-10-09T11:55:53Z completed with expired_count 1, exit_code 0; following runs at 11:56:54Z and 11:57:54Z completed with zero expirations. Supplied metadata shows LastTaskResult 0, PT1M / Interactive / Limited / IgnoreNew. Task removal succeeded. Scheduled overdue closure, unfinished-offer cleanup, pending report retention/confirmation blocking/reasoned rejection, history/audit reason persistence and unchanged completed donations/safety anchors are now verified by supplied user output. Migration column readiness is supported by setup and rejection success, but the standalone read-only migration-check JSON/ledger result was not supplied explicitly.
+
+Cleanup failed before fixture deletion: PDOException code 45000 at cleanup, matching migration 004's audit_log_block_delete trigger. The helper incorrectly attempted audit deletion. Removed that statement; all audit records are now retained, existing ON DELETE SET NULL clears fixture actor references, and cleanup asserts preservation of audit action/target/context/timestamps. No audit trigger, FK, permission or schema is changed. [MySQL foreign-key reference](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html) documents that cascaded FK actions do not activate triggers. Cleanup transaction rollback retains fixture IDs/manifest for safe retry. User should run only check (if supplying migration JSON) and cleanup; do not rerun setup/assertions/scheduling. Cleanup remains **PENDING USER RETRY**, not passed. Forced overlap, browser rendering and application/deployed scheduling remain outside this checkpoint. Agent executed no database test/task.
+
+Final user results received: **cleanup PASS** — exact fixture rows removed; fixture audit history retained with cleared actor references; scheduler logs/all audit history retained; manifest Test-Path returned False. Standalone SELECT-only check returned database bloodmatch_test, port 3306, column_ready true, migration_020_recorded true. Migration 020's expected column and ledger presence are now **CONFIRMED ON THE TEST DATABASE by user-run read-only output**; the agent has not applied any migration. Earlier cleanup retry/migration uncertainty above is superseded by this result. All requested focused checks are complete; no rerun is required. Forced overlap and actual browser rendering were outside this experiment and remain unverified; application/deployed scheduling and unrelated safety fixes remain deferred. No code change, database test or task action was performed by the agent in this result follow-up.
+
+Time consumed: this correction focused on tracing the audit trigger/FK and preserving audit history, then updating cleanup assertions/instructions; lightweight checks and tool waits were brief. Final result follow-up updated only this current progress entry. Earlier edits were preserved.
+
+| File | What changed | Distinctive string to search for | Found? |
+|---|---|---|---|
+| database/run_test_expiry.php | Strict test target guard, overlap lock and sanitized results | BM-TEST-EXPIRY | Yes |
+| scripts/run_test_expiry_task.ps1 | Hidden task worker wrapper, raw output discarded | Scheduler LastTaskResult | Yes |
+| scripts/manage_test_expiry_task.ps1 | User-controlled task preparation/setup/inspection/removal | BM-TEST-EXPIRY-v1 | Yes |
+| docs/TEST_EXPIRY_SCHEDULER.md | Exact user commands/setup/expected results and boundaries | bloodmatch_test | Yes |
+| tests/scheduled_expiry_fixture.php | User-only read-only migration check and transactional fixture setup/assert/cleanup | BM-SCHEDULED-EXPIRY-FIXTURE | Yes |
+| docs/SCHEDULED_EXPIRY_FIXTURE_CHECK.md | Focused scheduled-closure experiment and exact user commands | 16 assertions passed | Yes |
+| docs/BLOODMATCH_SAFETY_FIX_PROGRESS.md | Only current checkpoint updated | BM-SAFETY-PHASE4B-TEST-SCHEDULE | Yes |
+
+## Phase 4A checkpoint — 2026-10-09
+
+Narrow scope: active request demand in the existing map, officer/admin dashboards, chapter comparisons and analytics OPEN count. Inspected AnalyticsRepository, DemandMapController and phase12 fixtures/dependencies only. No completed audit was repeated and no frontend, migration, expiry writer, standby, queue, notification or permission changes were made.
+
+Implemented in AnalyticsRepository:
+
+- Active demand requires stored OPEN and needed_datetime >= the current UTC cutoff, matching the established Home/deadline boundary. Each repository response captures one application UTC cutoff for all its active queries.
+- Map counts, units, blood/urgency breakdowns, officer active metrics/blood demand, scoped/global admin active counts/units/chapter comparisons and analytics active OPEN counts exclude overdue OPEN rows even before the expiry writer runs.
+- Historical totals, recorded terminal statuses, resolved-rate formulas, historical blood/urgency demand and date windows are preserved. Readouts do not mark a row EXPIRED or modify donations/offers/reports.
+- Existing approved member map access, officer chapter scope, aggregate-only privacy, blood substitutions and chapter/distance donor ranking are untouched.
+
+Tests: existing phase12 fixtures now mark their reserved accounts email verified, satisfying the established request-creation gate. Assertions were retained. Added D01-D12: move one two-unit routine/A+ fixture past its deadline while leaving it OPEN; check map/member/filter breakdowns and all affected active counters drop appropriately; historical totals/status remain unchanged; restore its future deadline in finally and verify demand returns. No expiry CLI/database suite was executed by the agent.
+
+Checks actually run once after code edits:
+
+| Check | Result |
+|---|---|
+| PHP syntax on AnalyticsRepository | PASS |
+| PowerShell parse-only on phase12.ps1 | PASS; no suite execution |
+| Diff/parameter-order review and git diff --check | PASS; line-ending warnings only |
+| Local Windows scheduler metadata (read-only) | No matching BloodMatch/expiry-named or direct run_expiry.php action found. Wrapper/external scheduling remains UNVERIFIED. No task was installed or started; no action arguments/credentials were printed |
+| Actual aggregate SQL/API/database assertions | NOT RUN by agent; user execution required |
+| Frontend build / unrelated regressions | Not repeated; no frontend source changed |
+
+User command from repository root, existing disposable bloodmatch_test/reference data on **3306**, XAMPP paths installed and **8001 free**:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests\run_isolated.ps1 -DbPort 3306 -Suite phase12.ps1
+```
+
+Expected: zero failures, including D01-D12. The isolated runner writes only test fixtures and suppresses real SMTP. Return the summary/errors; the current changes are not marked database-verified based on earlier suite passes. No new migration is required.
+
+Remaining: live SQL/binding and endpoint results await this test. Automatic expiry still needs proven scheduler execution; adding a task requires the existing infrastructure approval step. Map refresh cadence, donor-availability statistics, other analytics display mismatches, historical cleanup, non-response standby persistence and queued mail remain outside this checkpoint. No independent work from those phases was started.
+
+Time consumed: primarily investigation of active-vs-historical query scopes and bound-parameter order, then implementation and focused regression authoring. Syntax/parse checks and scheduler metadata were brief; one sandbox startup failure required the already working execution fallback.
+
+| File | What changed | Distinctive string to search for | Found? |
+|---|---|---|---|
+| backend/src/Repositories/AnalyticsRepository.php | Deadline-aware active readouts; historical totals preserved | needed_datetime >= ? | Yes |
+| tests/phase12.ps1 | Valid email fixtures and 12 deadline regression assertions | D12 future OPEN fixture | Yes |
+| docs/BLOODMATCH_SAFETY_FIX_PROGRESS.md | Current checkpoint, user-reported prior passes, checks and test command | BM-SAFETY-PHASE4A-ACTIVE-DEMAND | Yes |
 
 ## Phase 3B2 checkpoint — 2026-10-09
 

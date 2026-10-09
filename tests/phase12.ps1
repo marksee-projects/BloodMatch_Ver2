@@ -53,8 +53,9 @@ function New-FixtureUser($email, $name, $role, $chapterId, $vs, $bloodType, $lat
     $lngSql = 'NULL';  if ($null -ne $lng) { $lngSql = "$lng" }
     $enrSql = 'NULL';  if ($enrolled) { $enrSql = 'UTC_TIMESTAMP()' }
     $avSql = 'NULL';   if ($null -ne $avail) { $avSql = "'$avail'" }
-    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth)
-             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15');"
+    # These request/demand fixtures represent email-verified accounts under current rules.
+    DbQuery "INSERT INTO users (email, password_hash, first_name, last_name, role, chapter_id, verification_status, account_status, blood_type, blood_type_source, latitude, longitude, donor_enrolled_at, donor_availability, date_of_birth, email_verified_at)
+             VALUES ('$email', '$hash', '$name', 'Doe', '$role', $chapSql, '$vs', 'active', $btCols, $srcCols, $latSql, $lngSql, $enrSql, $avSql, '1995-06-15', UTC_TIMESTAMP());"
     return (DbQuery "SELECT id FROM users WHERE email='$email';")
 }
 
@@ -402,6 +403,52 @@ if ($admDash.chapters_summary.Count -eq 3 -and $admDash.overview.total_users -ge
 } else {
     Bad 'T31 admin dashboard chapters summary' "count=$($admDash.chapters_summary.Count), total_users=$($admDash.overview.total_users)"
 }
+
+# Deadline regression: readouts must not rely on the expiry writer running first.
+function Active-DemandSnapshot {
+    $map = Invoke-Json $admAuth.s 'Get' '/api/demand-map?chapter_id=1' $null $null
+    $memberMap = Invoke-Json $mem1Auth.s 'Get' '/api/demand-map?chapter_id=1' $null $null
+    $filtered = Invoke-Json $admAuth.s 'Get' '/api/demand-map?chapter_id=1&blood_type=A%2B&urgency=routine&days=7' $null $null
+    $officer = Invoke-Json $off1Auth.s 'Get' '/api/officer/dashboard' $null $null
+    $adminScoped = Invoke-Json $admAuth.s 'Get' '/api/admin/dashboard?chapter_id=1' $null $null
+    $adminGlobal = Invoke-Json $admAuth.s 'Get' '/api/admin/dashboard' $null $null
+    $summary = Invoke-Json $off1Auth.s 'Get' '/api/analytics/summary' $null $null
+    foreach ($reply in @($map,$memberMap,$filtered,$officer,$adminScoped,$adminGlobal,$summary)) {
+        if ($reply.status -ne 200) { throw "Demand snapshot failed with HTTP $($reply.status)." }
+    }
+    return @{
+        map = $map.body.data.chapters[0]; memberMap = $memberMap.body.data.chapters[0]
+        filtered = $filtered.body.data.chapters[0]; officer = $officer.body.data
+        scoped = $adminScoped.body.data; global = $adminGlobal.body.data; summary = $summary.body.data
+    }
+}
+$beforeDeadline = Active-DemandSnapshot
+try {
+    # Keep the fixture OPEN; only its needed-by time becomes overdue.
+    DbQuery "UPDATE blood_requests SET needed_datetime=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY) WHERE id=$req1Id;" | Out-Null
+    $afterDeadline = Active-DemandSnapshot
+    if ($afterDeadline.map.open_requests_count -eq ($beforeDeadline.map.open_requests_count - 1) -and $afterDeadline.map.total_units_needed -eq ($beforeDeadline.map.total_units_needed - 2)) { Ok 'D01 map excludes overdue OPEN count/units' } else { Bad 'D01 map deadline' 'count/units did not drop by one request/two units' }
+    if ($afterDeadline.map.blood_type_counts.'A+' -eq ($beforeDeadline.map.blood_type_counts.'A+' - 2) -and $afterDeadline.map.urgency_counts.routine -eq ($beforeDeadline.map.urgency_counts.routine - 1)) { Ok 'D02 map blood/urgency breakdown excludes overdue fixture' } else { Bad 'D02 map breakdown' 'breakdown mismatch' }
+    if ($afterDeadline.memberMap.open_requests_count -eq ($beforeDeadline.memberMap.open_requests_count - 1)) { Ok 'D03 approved member aggregate access retains deadline safety' } else { Bad 'D03 member map' 'member aggregate mismatch' }
+    if ($afterDeadline.officer.metrics.active_open_requests -eq ($beforeDeadline.officer.metrics.active_open_requests - 1) -and $afterDeadline.officer.metrics.total_units_needed -eq ($beforeDeadline.officer.metrics.total_units_needed - 2) -and $afterDeadline.officer.demand_by_blood_type.'A+' -eq ($beforeDeadline.officer.demand_by_blood_type.'A+' - 2)) { Ok 'D04 officer active metrics exclude overdue demand' } else { Bad 'D04 officer deadline' 'metrics mismatch' }
+    if ($afterDeadline.scoped.overview.active_open_requests -eq ($beforeDeadline.scoped.overview.active_open_requests - 1) -and $afterDeadline.scoped.overview.open_units_needed -eq ($beforeDeadline.scoped.overview.open_units_needed - 2)) { Ok 'D05 scoped admin active metrics exclude overdue demand' } else { Bad 'D05 scoped admin' 'metrics mismatch' }
+    if ($afterDeadline.global.overview.active_open_requests -eq ($beforeDeadline.global.overview.active_open_requests - 1) -and $afterDeadline.global.overview.open_units_needed -eq ($beforeDeadline.global.overview.open_units_needed - 2)) { Ok 'D06 global admin active metrics exclude overdue demand' } else { Bad 'D06 global admin' 'metrics mismatch' }
+    $beforeChapter = @($beforeDeadline.global.chapters_summary | Where-Object { $_.id -eq 1 })[0]
+    $afterChapter = @($afterDeadline.global.chapters_summary | Where-Object { $_.id -eq 1 })[0]
+    if ($afterChapter.open_requests -eq ($beforeChapter.open_requests - 1) -and $afterChapter.total_units_needed -eq ($beforeChapter.total_units_needed - 2)) { Ok 'D07 chapter comparison excludes overdue demand' } else { Bad 'D07 chapter comparison' 'metrics mismatch' }
+    if ($afterDeadline.summary.request_volume.open_requests -eq ($beforeDeadline.summary.request_volume.open_requests - 1)) { Ok 'D08 analytics active OPEN count follows deadline' } else { Bad 'D08 analytics active' 'count mismatch' }
+    $historySame = $afterDeadline.global.overview.total_requests_all_time -eq $beforeDeadline.global.overview.total_requests_all_time
+    foreach ($key in @('total_requests','resolved_requests','fulfilled_requests','cancelled_requests','expired_requests','total_units_requested')) {
+        if ($afterDeadline.summary.request_volume.$key -ne $beforeDeadline.summary.request_volume.$key) { $historySame = $false }
+    }
+    if ($historySame) { Ok 'D09 recorded history/totals are not rewritten by deadline filtering' } else { Bad 'D09 historical totals' 'historical totals changed' }
+    if ($afterDeadline.filtered.open_requests_count -eq ($beforeDeadline.filtered.open_requests_count - 1) -and $afterDeadline.filtered.total_units_needed -eq ($beforeDeadline.filtered.total_units_needed - 2)) { Ok 'D10 chapter/blood/urgency/day filters retain correct bindings' } else { Bad 'D10 combined filters' 'filtered metrics mismatch' }
+    if (("$(DbQuery "SELECT status FROM blood_requests WHERE id=$req1Id;")").Trim() -eq 'OPEN') { Ok 'D11 readouts do not mutate overdue request status' } else { Bad 'D11 read-only projection' 'request status changed' }
+} finally {
+    DbQuery "UPDATE blood_requests SET needed_datetime='$future' WHERE id=$req1Id;" | Out-Null
+}
+$restoredDeadline = Active-DemandSnapshot
+if ($restoredDeadline.map.open_requests_count -eq $beforeDeadline.map.open_requests_count -and $restoredDeadline.officer.metrics.active_open_requests -eq $beforeDeadline.officer.metrics.active_open_requests) { Ok 'D12 future OPEN fixture returns to active aggregates' } else { Bad 'D12 restored deadline' 'restored metrics mismatch' }
 
 # -------------------------------------------
 # SECTION F -- Response Envelope & Privacy
