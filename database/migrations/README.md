@@ -1,5 +1,11 @@
 Schema migrations are applied once by `php run_migrations.php` and tracked in `schema_migrations`.
 
+Prepared 021 schema/shared-accounting checkpoint creates `email_outbox` and
+`email_attempts`, without backfill or worker integration. Agent has not applied it.
+Use the fixed-test-target single-file helper for this checkpoint, not the generic
+all-pending runner. Exact review/apply/test commands:
+[`EMAIL_SCHEMA_ACCOUNTING_CHECKPOINT.md`](../../docs/EMAIL_SCHEMA_ACCOUNTING_CHECKPOINT.md).
+
 Rules:
 - One numbered file per change: `001_create_users.sql`, `002_...`
 - Use only statements supported inside a transaction (InnoDB DDL is fine on MySQL 8; avoid mixing engines)

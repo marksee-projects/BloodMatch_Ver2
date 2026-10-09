@@ -14,8 +14,9 @@ final class Mailer
         return \BloodMatch\Config\Env::get('MAIL_HOST', '') !== '';
     }
 
-    public static function send(string $toEmail, string $subject, string $htmlBody): bool
+    public static function send(string $toEmail, string $subject, string $htmlBody, string $mailClass = EmailAttemptBudget::NORMAL): bool
     {
+        if (filter_var($toEmail, FILTER_VALIDATE_EMAIL) === false) { return false; }
         $domain = strtolower((string) substr(strrchr($toEmail, '@') ?: '', 1));
         if (preg_match('/(^|\.)(local|test|invalid)$/', $domain) === 1) {
             error_log('[mailer] skipped: reserved domain (' . $domain . ')');
@@ -37,7 +38,7 @@ final class Mailer
         try {
             $host = (string) \BloodMatch\Config\Env::get('MAIL_HOST');
             if ($host === '' || $host === 'mock') {
-                return true;
+                return EmailAttemptBudget::reserve($mailClass)['allowed'];
             }
             $mail->isSMTP();
             $mail->Host = $host;
@@ -58,10 +59,14 @@ final class Mailer
             $mail->Subject = $subject;
             $mail->isHTML(true);
             $mail->Body = $htmlBody;
+            if (!EmailAttemptBudget::reserve($mailClass)['allowed']) {
+                error_log('[mailer] deferred: shared attempt budget');
+                return false;
+            }
             $mail->send();
             return true;
         } catch (\Throwable $e) {
-            error_log('[mailer] send failed: ' . $e->getMessage());
+            error_log('[mailer] send unavailable: transport or accounting failure');
             return false;
         }
     }

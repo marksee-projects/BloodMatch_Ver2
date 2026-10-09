@@ -39,9 +39,9 @@ final class EmailVerificationService
                     . '<p style="color: #666; font-size: 14px;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>'
                     . '</div>';
 
-                Mailer::send($email, $subject, $body);
+                Mailer::send($email, $subject, $body, EmailAttemptBudget::ACCOUNT);
             } catch (Throwable $e) {
-                error_log(sprintf('[mailer] verification email failed for user %d: %s', $userId, $e->getMessage()));
+                error_log('[mailer] verification email unavailable');
             }
         }
     }

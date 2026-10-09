@@ -210,7 +210,10 @@ final class NotificationService
         $sent = Mailer::send(
             $user['email'],
             '[BloodMatch] ' . $subject,
-            '<p>' . htmlspecialchars($body, ENT_QUOTES, 'UTF-8') . '</p>'
+            '<p>' . htmlspecialchars($body, ENT_QUOTES, 'UTF-8') . '</p>',
+            $priority === self::EMAIL_EMERGENCY ? EmailAttemptBudget::EMERGENCY
+                : (in_array((string) ($repo->findMailType($notificationId) ?? ''), ['verification.decision', 'account.status_changed'], true)
+                    ? EmailAttemptBudget::ACCOUNT : EmailAttemptBudget::NORMAL)
         );
 
         if ($sent) {

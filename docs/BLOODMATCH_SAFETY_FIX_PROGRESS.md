@@ -2,7 +2,29 @@
 
 Marker: `BM-SAFETY-FIX-PROGRESS-2026-10-08`. Updated 2026-10-09, Asia/Manila.
 
-Latest checkpoint: **Phase 5 email outbox and lifecycle notification proposal prepared; approval pending**. Marker `BM-SAFETY-PHASE5-PROPOSAL`. Phase 4B is complete on bloodmatch_test:3306, including 16 safety assertions, cleanup and migration 020 read-only confirmation. Scheduling remains test-only; no application/deployed preparation. Earlier entries below remain historical records.
+Latest checkpoint: **Phase 5A schema/shared accounting prepared; migration and DB validation await user execution**. Marker `BM-SAFETY-PHASE5A-SCHEMA`. Phase 4B remains complete on bloodmatch_test:3306, including 16 safety assertions, cleanup and migration 020 read-only confirmation. Scheduling remains test-only. Earlier entries below remain historical records.
+
+## Phase 5A schema/shared-accounting checkpoint — 2026-10-09
+
+User authorized only this checkpoint: 100 total attempts/rolling hour, 10 protected account slots, 90 Emergency/hour; 450/day total, 50 protected slots, 400 Emergency/day. Account emails may use remaining total capacity. Minimal read succeeded on this retry after the previous setup error. Current instructions/context/progress/proposal and relevant schema/mail paths read; database skill and folder guide used. No broad audit repeated or `.env` values read.
+
+Prepared additive migration 021 creates notification-reference-only outbox structure and category/time-only shared attempt ledger, with no backfill. Single-file helper defaults to SELECT-only review and requires actual bloodmatch_test:3306. It verifies full column/index/FK shape and ledger, retains valid partial DDL objects and refuses drift/drop/reset. No migration applied by the agent.
+
+Mailer reserves a committed attempt on a separate same-target connection; database-scoped cross-process lock releases before transport. Failures/crashes retain reservations; rate/configuration/reserved-recipient skips do not consume attempts. Accounting/schema failure prevents transport with sanitized errors. Windows are rolling one hour/24 hours, database UTC microseconds. All non-account mail shares 90/hour and 400/24h to protect slots from normal traffic too. Direct OTP/reset and existing verification/account-status email use account class, which has no separate 10/50 maximum. Existing per-recipient normal policy remains.
+
+OTP/reset remain direct, with existing hash/TTL storage and no queued secrets. Outbox is schema only: no enqueue integration, worker, retries/leases, schedule or lifecycle/recipient expansion. Existing synchronous mail/workflow blocking and durable retries are deferred. Configured mail fails closed without the accounting schema; application/deployed use needs separate schema preparation. Only test-target commands are provided.
+
+Checks run: PHP syntax PASS on all 12 new/changed PHP files; 19 connectionless policy/PDO checks PASS; git diff --check PASS. Real schema/concurrency/fake-transport DB assertions NOT RUN by agent. [Exact review/apply/verify/database-test commands](EMAIL_SCHEMA_ACCOUNTING_CHECKPOINT.md); expected 34 DB checks and fixture cleanup, with no SMTP sockets. Return user results before dependent queue work. No database execution, migration, task, real email, dependency or environment-file change.
+
+| File | What changed | Distinctive string to search for | Found? |
+|---|---|---|---|
+| database/migrations/021_email_outbox_accounting.sql | Two additive structures | BM-SAFETY-PHASE5A-SCHEMA | Yes |
+| database/apply_email_checkpoint_migration.php / email_checkpoint_support.php | Fixed target, default review, complete shape verification | Review only; no writes | Yes |
+| backend/src/Services/EmailAttemptBudget.php / Config/Database.php | Independent atomic reservations | independentPdo | Yes |
+| backend/src/Services/Mailer.php / EmailVerificationService.php / AuthService.php | Direct shared accounting, secrets unchanged | EmailAttemptBudget::ACCOUNT | Yes |
+| backend/src/Services/NotificationService.php / Repositories/NotificationRepository.php | Classify existing notification email | findMailType | Yes |
+| tests/email_accounting_offline.php / email_accounting.php / helpers/fake_mail_transport.php | Offline checks and deferred focused DB suite | no SMTP/socket implementation | Yes |
+| docs/EMAIL_SCHEMA_ACCOUNTING_CHECKPOINT.md / database/migrations/README.md | User commands, rollout limits and scope | 021_email_outbox_accounting.sql | Yes |
 
 ## Phase 5 checkpoint — proposal only
 

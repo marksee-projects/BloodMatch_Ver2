@@ -33,6 +33,14 @@ final class NotificationRepository
         return (int) Database::pdo()->lastInsertId();
     }
 
+    public function findMailType(int $id): ?string
+    {
+        $stmt = Database::pdo()->prepare('SELECT type FROM notifications WHERE id = ?');
+        $stmt->execute([$id]);
+        $type = $stmt->fetchColumn();
+        return $type === false ? null : (string) $type;
+    }
+
     public function markEmailed(int $id, string $nowUtc): void
     {
         $stmt = Database::pdo()->prepare('UPDATE notifications SET emailed_at = ? WHERE id = ?');

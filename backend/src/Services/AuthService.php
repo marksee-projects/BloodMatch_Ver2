@@ -254,7 +254,8 @@ final class AuthService
                 '<p>A password reset was requested for your BloodMatch account.</p>'
                 . '<p>Your single-use reset token (valid ~30 minutes):</p>'
                 . '<p><strong>' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '</strong></p>'
-                . '<p>If you did not request this, ignore this email.</p>'
+                . '<p>If you did not request this, ignore this email.</p>',
+                EmailAttemptBudget::ACCOUNT
             );
         }
     }
