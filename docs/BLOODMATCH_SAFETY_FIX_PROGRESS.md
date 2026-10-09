@@ -2,7 +2,7 @@
 
 Marker: `BM-SAFETY-FIX-PROGRESS-2026-10-08`. Updated 2026-10-09, Asia/Manila.
 
-Latest checkpoint: **Phase 5A schema/shared accounting prepared; migration and DB validation await user execution**. Marker `BM-SAFETY-PHASE5A-SCHEMA`. Phase 4B remains complete on bloodmatch_test:3306, including 16 safety assertions, cleanup and migration 020 read-only confirmation. Scheduling remains test-only. Earlier entries below remain historical records.
+Latest checkpoint: **Phase 5A schema/shared accounting passed on bloodmatch_test:3306 by supplied user-run output**. Marker `BM-SAFETY-PHASE5A-SCHEMA`. Migration 021 ready/recorded, 34 database checks passed and fixture cleanup confirmed. Phase 4B remains complete; scheduling remains test-only. Earlier entries below remain historical records.
 
 ## Phase 5A schema/shared-accounting checkpoint — 2026-10-09
 
@@ -15,6 +15,8 @@ Mailer reserves a committed attempt on a separate same-target connection; databa
 OTP/reset remain direct, with existing hash/TTL storage and no queued secrets. Outbox is schema only: no enqueue integration, worker, retries/leases, schedule or lifecycle/recipient expansion. Existing synchronous mail/workflow blocking and durable retries are deferred. Configured mail fails closed without the accounting schema; application/deployed use needs separate schema preparation. Only test-target commands are provided.
 
 Checks run: PHP syntax PASS on all 12 new/changed PHP files; 19 connectionless policy/PDO checks PASS; git diff --check PASS. Real schema/concurrency/fake-transport DB assertions NOT RUN by agent. [Exact review/apply/verify/database-test commands](EMAIL_SCHEMA_ACCOUNTING_CHECKPOINT.md); expected 34 DB checks and fixture cleanup, with no SMTP sockets. Return user results before dependent queue work. No database execution, migration, task, real email, dependency or environment-file change.
+
+User results received: **PASS — 34 database email checkpoint checks passed** on bloodmatch_test:3306. Initial SELECT-only review showed both tables missing and ledger unrecorded; user apply reported 021 ready/recorded, existing notifications/reports unchanged and no backfill/other migration. Subsequent SELECT-only review returned both shapes ready and recorded=true. Supplied suite output confirms parallel Emergency 90/hour and total account 100/hour boundaries, protected hourly/daily slots, 400/24h Emergency and 450 total/day accounting, rolling cutoff/aging, reservation survival across workflow rollback, lock release before transport, failed fake transport consuming an attempt, skips, outbox uniqueness/FK/cascade, report preservation and empty fixture tables after cleanup. The sanitized mailer failure line is expected from the synthetic failure assertion; no real SMTP delivery was tested. The shell exit code was not separately supplied, but the complete success summary and cleanup assertions are present. This supersedes the pending user-validation status above; no rerun is required. This follow-up changes documentation only. Enqueue integration, worker/retry/lease/eligibility/TTL behavior, lifecycle expansion and application/deployed rollout remain deferred; this result does not authorize those steps.
 
 | File | What changed | Distinctive string to search for | Found? |
 |---|---|---|---|
