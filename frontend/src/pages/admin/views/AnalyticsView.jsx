@@ -158,7 +158,7 @@ export default function AnalyticsView() {
           )}
 
           <div>
-            <a className="btn btn-secondary btn-sm" href={`/api/analytics/export.csv?${new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...(user?.role === 'admin' && chapterId ? { chapter_id: chapterId } : {}) })}`} download>Export aggregate CSV</a>
+            <a className="btn btn-secondary btn-sm" href={`/api/analytics/export?${new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...(user?.role === 'admin' && chapterId ? { chapter_id: chapterId } : {}) })}`} download>Export aggregate CSV</a>
             <button
               type="button"
               className="btn btn-secondary btn-sm"

@@ -66,6 +66,6 @@ try {
   const app = readFileSync(`${root}/src/App.jsx`, 'utf8')
   assert(app.includes('path="users" element={<UsersView />}') && app.includes('path="confirmations" element={<OfficerConfirmationsView admin />}'))
   const analytics = readFileSync(`${root}/src/pages/admin/views/AnalyticsView.jsx`, 'utf8')
-  assert(analytics.includes('/api/analytics/export.csv') && analytics.includes('Export aggregate CSV'))
+  assert(analytics.includes('/api/analytics/export?') && analytics.includes('Export aggregate CSV'))
   console.log('PASS 8 offline management/confirmation/export UI checks; no API or database.')
 } finally { React.useState = original }

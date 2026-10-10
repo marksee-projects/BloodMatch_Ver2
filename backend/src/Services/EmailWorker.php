@@ -109,6 +109,18 @@ final class EmailWorker
     }
 
     private function now(): string { return (string)Database::pdo()->query('SELECT UTC_TIMESTAMP(6)')->fetchColumn(); }
+
+    /** Policy preview only: no claim, attempt reservation, status write or transport. */
+    public function review(array $job): array
+    {
+        $now=$this->now();[$context,$reason]=$this->context($job,$now);
+        $claimable=($job['status']==='pending' && $job['next_attempt_at']<=$now)
+            || ($job['status']==='leased' && $job['lease_expires_at']!==null && $job['lease_expires_at']<=$now);
+        return ['job_id'=>(int)$job['id'],'notification_type'=>$job['notification_type']??null,'status'=>$job['status'],
+            'priority'=>$job['priority'],'attempts'=>(int)$job['attempts'],'created_at'=>$job['created_at'],'expires_at'=>$job['expires_at'],
+            'claimable_now'=>$claimable,'policy_block'=>$reason,'mail_class'=>$context['mail_class']??null,
+            'grouping_ready_at'=>$job['priority']==='emergency'?EmailWorkerPolicy::digestReadyAt($job['created_at']):null];
+    }
     private function later(string $now,int $seconds): string { return gmdate('Y-m-d H:i:s',strtotime($now.' UTC')+$seconds); }
 
     private function context(array $job,string $now): array

@@ -6,7 +6,7 @@ use BloodMatch\Config\Env;
 /** Already-accounted transport only. Never call Mailer::send here (would reserve twice). */
 final class QueuedSmtpTransport
 {
-    public function __construct()
+    public function __construct(private ?string $expectedRecipient=null)
     {
         foreach (['Exception','SMTP','PHPMailer'] as $class) {
             if (!class_exists('PHPMailer\\PHPMailer\\'.$class)) { require_once \BloodMatch\Config\AppConfig::basePath().'/backend/lib/phpmailer/'.$class.'.php'; }
@@ -20,6 +20,7 @@ final class QueuedSmtpTransport
             $s=Database::pdo()->prepare("SELECT n.user_id,n.title,n.body,n.type,u.email,u.email_verified_at FROM email_outbox e JOIN notifications n ON n.id=e.notification_id JOIN users u ON u.id=n.user_id WHERE e.id IN ($marks) ORDER BY e.id");
             $s->execute($ids);$rows=$s->fetchAll(\PDO::FETCH_ASSOC);
             if (count($rows)!==count($ids) || count(array_unique(array_column($rows,'user_id')))!==1) { return ['outcome'=>'rejected']; }
+            if ($this->expectedRecipient!==null && strtolower($rows[0]['email'])!==strtolower($this->expectedRecipient)) { return ['outcome'=>'rejected']; }
             foreach ($rows as $row) {
                 if (empty($row['email_verified_at']) || !in_array($row['type'],['match.new','verification.decision'],true)) { return ['outcome'=>'rejected']; }
                 $domain=strtolower((string)substr(strrchr($row['email'],'@')?:'',1));

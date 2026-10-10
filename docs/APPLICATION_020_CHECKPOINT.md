@@ -1,5 +1,7 @@
 # Application 020-only checkpoint
 
+Status: user supplied “020-only checkpoint passed; existing reports preserved; no backfill.” Accepted as user-reported success for the fixed application target and guarded commands below. Full JSON/backup path/numeric exit were not supplied separately. Do not rerun DDL, review or cleanup just to repeat completed evidence; commands remain a record.
+
 User approval: **bloodmatch at 127.0.0.1:3306**, only `020_donation_report_rejection_reason.sql`, structure only. Adds nullable `rejection_reason VARCHAR(500)`; no report/status/reason backfill. Agent has not applied it. Current source SHA-256: `d2669a60ee8826f1db0a06eeafbc16cbae772c125ead1e538e2332e65b21c9d0`.
 
 Prerequisites: repository root in PowerShell; PHP/XAMPP MySQL running; stop application, schedule and database writers. Keep writers stopped through final preservation verification. Existing local root connection follows the previous setup; if it requires a password, use interactive `-p` for mysqldump, never put a password in the command. No real-email/suite/task/conversion command is involved.

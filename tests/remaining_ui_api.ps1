@@ -7,13 +7,20 @@ function Query($sql) {
     if ($LASTEXITCODE -ne 0) { throw 'Fixed-target SQL failed.' }
     return $result
 }
-function Check($valid, $name) { if ($valid) { $script:passed++; Write-Host "PASS $name" } else { $script:failed++; throw "FAIL $name" } }
+function Check($valid, $name) { if ($valid) { $script:passed++; Write-Host "PASS $name" } else { throw "FAIL $name" } }
 function Call($session, $method, $path, $body = $null, $csrf = $null) {
-    $args = @{ Uri = "$BaseUrl$path"; Method = $method; WebSession = $session; UseBasicParsing = $true; TimeoutSec = 15 }
-    if ($csrf) { $args.Headers = @{ 'X-CSRF-Token' = $csrf } }
-    if ($null -ne $body) { $args.ContentType = 'application/json'; $args.Body = $body | ConvertTo-Json }
-    try { $response = Invoke-WebRequest @args; return @{ status = [int]$response.StatusCode; raw = $response.Content } }
-    catch { if ($null -eq $_.Exception.Response) { throw }; return @{ status = [int]$_.Exception.Response.StatusCode; raw = '' } }
+    $requestArgs = @{ Uri = "$BaseUrl$path"; Method = $method; WebSession = $session; UseBasicParsing = $true; TimeoutSec = 15 }
+    if ($csrf) { $requestArgs.Headers = @{ 'X-CSRF-Token' = $csrf } }
+    if ($null -ne $body) { $requestArgs.ContentType = 'application/json'; $requestArgs.Body = $body | ConvertTo-Json }
+    try {
+        $response = Invoke-WebRequest @requestArgs
+        $text = if ($response.Content -is [byte[]]) { [Text.Encoding]::UTF8.GetString($response.Content) } else { [string]$response.Content }
+        return @{ status = [int]$response.StatusCode; raw = $text; content_type = [string]$response.Headers['Content-Type'] }
+    }
+    catch {
+        if ($null -eq $_.Exception.Response) { throw }
+        return @{ status = [int]$_.Exception.Response.StatusCode; raw = ''; content_type = [string]$_.Exception.Response.Headers['Content-Type'] }
+    }
 }
 function Login($email) {
     $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -35,9 +42,9 @@ try {
         $fixtureIds += [int](Query "SELECT id FROM users WHERE email='$email';")
     }
     $admin = Login $ownedEmails[0]; $officer = Login $ownedEmails[1]; $member = Login $ownedEmails[2]
-    $export = '/api/analytics/export.csv?date_from=2026-01-01&date_to=2026-12-31'
+    $export = '/api/analytics/export?date_from=2026-01-01&date_to=2026-12-31'
     $csv = Call $admin.session 'GET' $export
-    Check ($csv.status -eq 200 -and $csv.raw.StartsWith('section,metric,value,date_from,date_to,chapter_id')) 'admin aggregate CSV'
+    Check ($csv.status -eq 200 -and $csv.content_type -like 'text/csv*' -and $csv.raw.StartsWith('section,metric,value,date_from,date_to,chapter_id')) "admin aggregate CSV (HTTP $($csv.status); content-type $($csv.content_type))"
     Check (-not ($ownedEmails | Where-Object { $csv.raw.Contains($_) })) 'CSV excludes fixture contact fields'
     Check ((Call $member.session 'GET' $export).status -eq 403) 'member export forbidden'
     $csv = Call $officer.session 'GET' $export
