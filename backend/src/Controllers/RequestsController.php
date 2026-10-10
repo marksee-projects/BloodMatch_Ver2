@@ -84,7 +84,7 @@ final class RequestsController
             $matchSummary = (new \BloodMatch\Services\MatchService())
                 ->generateForRequest($id, true, 'request_created', (int) $actor['id']);
         } catch (\Throwable $e) {
-            error_log('[matches] auto-generation failed for request ' . $id . ': ' . $e->getMessage());
+            error_log('[matches] auto-generation failed; request remains saved; notifications not committed');
         }
 
         $fresh = $repo->findById($id);
@@ -92,6 +92,7 @@ final class RequestsController
         Response::success([
             'request' => RequestService::publicView($fresh, $requester),
             'matching' => $matchSummary,
+            'matching_status' => $matchSummary === null ? 'failed_retry_required' : 'completed',
         ], 201);
     }
 

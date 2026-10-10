@@ -10,7 +10,6 @@ final class NotificationService
     public const EMAIL_NORMAL = 'normal';
     public const EMAIL_EMERGENCY = 'emergency';
 
-    private const MAX_EMAILS_PER_USER_PER_HOUR = 5;
     private const MAX_EMAIL_RECIPIENTS_PER_BATCH = 500;
 
     public static function dedupMatch(int $requestId, int $donorId): string
@@ -86,6 +85,15 @@ final class NotificationService
         string $body,
         array $options = []
     ): ?int {
+        $priority = EmailEnqueueService::priority($type, (string) ($options['email'] ?? self::EMAIL_NONE));
+        if ($priority !== null) {
+            return EmailEnqueueService::transaction(fn () => self::insertNotification($userId, $type, $title, $body, $options, $priority));
+        }
+        return self::insertNotification($userId, $type, $title, $body, $options, null);
+    }
+
+    private static function insertNotification(int $userId, string $type, string $title, string $body, array $options, ?string $priority): ?int
+    {
         $repo = new \BloodMatch\Repositories\NotificationRepository();
         $id = $repo->insert([
             'user_id' => $userId,
@@ -102,9 +110,17 @@ final class NotificationService
             return null;
         }
 
-        $emailPriority = $options['email'] ?? self::EMAIL_NONE;
-        if ($emailPriority !== self::EMAIL_NONE) {
-            self::attemptEmail($userId, $id, $title, $body, $emailPriority);
+        if ($priority !== null) {
+            $user = (new \BloodMatch\Repositories\UserRepository())->findById($userId);
+            if ($user !== null && !empty($user['email_verified_at'])
+                && filter_var($user['email'], FILTER_VALIDATE_EMAIL) !== false) {
+                $expiresAt = $priority === 'emergency' ? ($options['email_expires_at'] ?? null)
+                    : gmdate('Y-m-d H:i:s', time() + 72 * 3600);
+                if (!is_string($expiresAt) || strtotime($expiresAt . ' UTC') === false) {
+                    throw new \LogicException('Queued notification expiry is required.');
+                }
+                (new \BloodMatch\Repositories\EmailOutboxRepository())->insert($id, $priority, $expiresAt);
+            }
         }
 
         return $id;
@@ -129,11 +145,8 @@ final class NotificationService
         string $body,
         string $priority
     ): void {
-        try {
-            self::attemptEmail($userId, $notificationId, $subject, $body, $priority);
-        } catch (\Throwable $e) {
-            error_log('[notifications] best-effort email failed: ' . $e->getMessage());
-        }
+        // Legacy response caller retained as an explicit no-op: response and
+        // other lifecycle email are outside the approved queued coverage.
     }
 
     public static function notifyMatchGeneration(
@@ -169,6 +182,7 @@ final class NotificationService
                     'dedup_key' => self::dedupMatch($requestId, (int) $donorId),
                     'generation' => $generation,
                     'email' => $emailPriority,
+                    'email_expires_at' => $request['needed_datetime'],
                 ]
             );
             if ($id !== null) {
@@ -179,45 +193,4 @@ final class NotificationService
         return $notifiedDonorIds;
     }
 
-    private static function attemptEmail(
-        int $userId,
-        int $notificationId,
-        string $subject,
-        string $body,
-        string $priority
-    ): void {
-        if (!Mailer::isConfigured()) {
-            return;
-        }
-
-        $repo = new \BloodMatch\Repositories\NotificationRepository();
-
-        if ($priority !== self::EMAIL_EMERGENCY) {
-            if ($repo->emailCountInLastHour($userId, AuthService::nowUtc()) >= self::MAX_EMAILS_PER_USER_PER_HOUR) {
-                return;
-            }
-        }
-
-        $user = (new \BloodMatch\Repositories\UserRepository())->findById($userId);
-        if ($user === null || !is_string($user['email']) || filter_var($user['email'], FILTER_VALIDATE_EMAIL) === false) {
-            return;
-        }
-
-        if (empty($user['email_verified_at'])) {
-            return;
-        }
-
-        $sent = Mailer::send(
-            $user['email'],
-            '[BloodMatch] ' . $subject,
-            '<p>' . htmlspecialchars($body, ENT_QUOTES, 'UTF-8') . '</p>',
-            $priority === self::EMAIL_EMERGENCY ? EmailAttemptBudget::EMERGENCY
-                : (in_array((string) ($repo->findMailType($notificationId) ?? ''), ['verification.decision', 'account.status_changed'], true)
-                    ? EmailAttemptBudget::ACCOUNT : EmailAttemptBudget::NORMAL)
-        );
-
-        if ($sent) {
-            $repo->markEmailed($notificationId, AuthService::nowUtc());
-        }
-    }
 }

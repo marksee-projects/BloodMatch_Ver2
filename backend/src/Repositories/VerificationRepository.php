@@ -9,13 +9,14 @@ use PDO;
 
 final class VerificationRepository
 {
-    public function addDecision(int $targetUserId, ?int $officerId, string $decision, ?string $reason, string $nowUtc): void
+    public function addDecision(int $targetUserId, ?int $officerId, string $decision, ?string $reason, string $nowUtc): int
     {
         $stmt = Database::pdo()->prepare(
             'INSERT INTO verification_decisions (target_user_id, officer_id, decision, reason, created_at)
              VALUES (?, ?, ?, ?, ?)'
         );
         $stmt->execute([$targetUserId, $officerId, $decision, $reason, $nowUtc]);
+        return (int) Database::pdo()->lastInsertId();
     }
 
     public function historyFor(int $targetUserId): array

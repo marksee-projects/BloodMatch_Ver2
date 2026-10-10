@@ -18,12 +18,66 @@ final class VerificationService
         ?string $reason,
         bool $acceptDonorCard
     ): array {
+        try {
+            return $this->decideTransaction($actor, $targetId, $decision, $reason, $acceptDonorCard);
+        } catch (RuntimeException $e) {
+            if ($e->getCode() === 403) {
+                // Denial logs inside the failed business transaction roll back;
+                // retain the denial after rollback without exposing document data.
+                AuditLogger::log((int) $actor['id'], 'authz.denied', 'user', (string) $targetId, [
+                    'endpoint' => 'officer.verifications.decide',
+                    'reason' => (int) $actor['id'] === $targetId ? 'self_verification_forbidden' : 'verification_authorization_denied',
+                ]);
+            }
+            throw $e;
+        }
+    }
+
+    private function decideTransaction(array $actor, int $targetId, string $decision, ?string $reason, bool $acceptDonorCard): array
+    {
+        $work = fn () => $this->decideLocked($actor, $targetId, $decision, $reason, $acceptDonorCard);
+        if (\BloodMatch\Config\Database::pdo()->inTransaction()) {
+            $pdo = \BloodMatch\Config\Database::pdo();
+            $pdo->exec('SAVEPOINT bm_verification_decision');
+            try {
+                $result = $work();
+                $pdo->exec('RELEASE SAVEPOINT bm_verification_decision');
+            } catch (\Throwable $e) {
+                if ($pdo->inTransaction()) {
+                    $pdo->exec('ROLLBACK TO SAVEPOINT bm_verification_decision');
+                    $pdo->exec('RELEASE SAVEPOINT bm_verification_decision');
+                }
+                throw $e;
+            }
+        } else {
+            $result = WorkflowLockService::transaction($work);
+        }
+        // Reconciliation locks requests before donors. Never start it while
+        // verification holds donor locks; a nested owner controls its own commit.
+        if ($decision === 'verified' && !\BloodMatch\Config\Database::pdo()->inTransaction()) {
+            (new MatchService())->refreshMatchesForDonor($targetId, 'donor_verified', (int) $actor['id']);
+        }
+        return $result;
+    }
+
+    private function decideLocked(array $actor, int $targetId, string $decision, ?string $reason, bool $acceptDonorCard): array
+    {
+        $locked = [];
+        $ids = array_values(array_unique([(int) $actor['id'], $targetId])); sort($ids, SORT_NUMERIC);
+        foreach ($ids as $id) {
+            $user = (new UserRepository())->findByIdForUpdate($id);
+            if ($user === null) { throw new RuntimeException('User not found.', $id === $targetId ? 404 : 403); }
+            $locked[$id] = $user;
+        }
+        $actor = $locked[(int) $actor['id']];
+        WorkflowLockService::assertActiveActor($actor);
+        if (!in_array((string) $actor['role'], ['officer', 'admin'], true)) { throw new RuntimeException('Forbidden.', 403); }
         $users = new UserRepository();
         $docs = new DocumentRepository();
         $ver = new VerificationRepository();
         $nowUtc = AuthService::nowUtc();
 
-        $target = $users->findById($targetId);
+        $target = $locked[$targetId];
         if ($target === null) {
             throw new RuntimeException('User not found.', 404);
         }
@@ -62,7 +116,7 @@ final class VerificationService
                 throw new RuntimeException('A National ID is required before this account can be approved.', 409);
             }
             $ver->setVerificationStatus($targetId, $decision);
-            $ver->addDecision($targetId, (int) $actor['id'], $decision, $reason, $nowUtc);
+            $decisionId = $ver->addDecision($targetId, (int) $actor['id'], $decision, $reason, $nowUtc);
             $auditId = AuditLogger::log(
                 (int) $actor['id'],
                 $decision === 'verified' ? 'verification.approved' : 'verification.rejected',
@@ -82,7 +136,7 @@ final class VerificationService
                 [
                     'related_type' => 'verification',
                     'related_id' => $targetId,
-                    'dedup_key' => \BloodMatch\Services\NotificationService::dedupVerification($targetId, $decision, $auditId),
+                    'dedup_key' => "verification:{$targetId}:{$decision}:decision:{$decisionId}",
                     'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
                 ]
             );
@@ -97,14 +151,6 @@ final class VerificationService
                         'note' => 'administrative provenance; not medical confirmation',
                     ]);
                 }
-            }
-
-            if ($decision === 'verified') {
-                (new MatchService())->refreshMatchesForDonor(
-                    $targetId,
-                    'donor_verified',
-                    (int) $actor['id']
-                );
             }
 
             return [

@@ -163,6 +163,9 @@ final class OfficerVerificationController
                 $reason,
                 $acceptDonorCard
             );
+        } catch (\BloodMatch\Services\Exceptions\EmailEnqueueException $e) {
+            Response::error($e->getMessage(), 503);
+            return;
         } catch (\RuntimeException $e) {
             $code = $e->getCode();
             Response::error($e->getMessage(), $code >= 400 && $code <= 499 ? $code : 500);

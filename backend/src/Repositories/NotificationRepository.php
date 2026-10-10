@@ -12,11 +12,11 @@ final class NotificationRepository
     public function insert(array $n): ?int
     {
         $stmt = Database::pdo()->prepare(
-            'INSERT IGNORE INTO notifications
+            'INSERT INTO notifications
                 (user_id, type, title, body, related_type, related_id, dedup_key, generation)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
-        $stmt->execute([
+        try { $stmt->execute([
             $n['user_id'],
             $n['type'],
             $n['title'],
@@ -25,7 +25,17 @@ final class NotificationRepository
             $n['related_id'] ?? null,
             $n['dedup_key'] ?? null,
             $n['generation'] ?? 0,
-        ]);
+        ]); } catch (\PDOException $e) {
+            // Ignore only a proven duplicate event; FK/length/SQL failures propagate.
+            if ((int) ($e->errorInfo[1] ?? 0) !== 1062 || empty($n['dedup_key'])) { throw $e; }
+            $duplicate = Database::pdo()->prepare('SELECT user_id,type,related_type,related_id FROM notifications WHERE dedup_key=? AND generation=? FOR UPDATE');
+            $duplicate->execute([$n['dedup_key'], $n['generation'] ?? 0]);
+            $row = $duplicate->fetch(PDO::FETCH_ASSOC);
+            if ($row === false || (int) $row['user_id'] !== (int) $n['user_id'] || $row['type'] !== $n['type']
+                || $row['related_type'] !== ($n['related_type'] ?? null)
+                || ($row['related_id'] === null ? null : (int) $row['related_id']) !== ($n['related_id'] ?? null)) { throw $e; }
+            return null;
+        }
 
         if ($stmt->rowCount() === 0) {
             return null;
