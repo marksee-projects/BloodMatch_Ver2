@@ -214,13 +214,15 @@ final class DocumentController
             return;
         }
 
+        try { $bytes=DocumentStorageService::read($doc); }
+        catch (\RuntimeException $e) { Response::error('Document unavailable. Ask an administrator to check storage and encryption readiness.',503);return; }
         header('Content-Type: ' . (string) $doc['mime_type']);
-        header('Content-Length: ' . (string) filesize($path));
+        header('Content-Length: ' . (string) strlen($bytes));
         header('Content-Disposition: inline; filename="document-' . (int) $doc['id'] . '.' . (string) $doc['original_ext'] . '"');
         header('Cache-Control: private, no-store, max-age=0');
         header('Pragma: no-cache');
         header('Expires: 0');
-        readfile($path);
+        echo $bytes;
         exit;
     }
 }

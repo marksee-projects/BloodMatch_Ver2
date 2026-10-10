@@ -7,7 +7,7 @@ import ConfirmationDialog from '../../../components/ConfirmationDialog'
 import { normalizeRejectionReason, rejectionReasonError } from '../../../services/rejectionReason'
 import styles from './ConfirmationsView.module.css'
 
-export default function ConfirmationsView() {
+export default function ConfirmationsView({ admin = false }) {
   const [queue, setQueue] = useState(null)
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
@@ -67,7 +67,7 @@ export default function ConfirmationsView() {
     <div className="container">
       <header className="app-header">
         <div>
-          <h1>Donation Confirmations: Chapter Queue</h1>
+          <h1>{admin ? 'Donation Confirmations' : 'Donation Confirmations: Chapter Queue'}</h1>
         </div>
       </header>
 
@@ -77,8 +77,8 @@ export default function ConfirmationsView() {
       {queue.length === 0 ? (
         <div className="empty-state">
           <h3>No Pending Confirmations</h3>
-          <p>There are no completed donation reports waiting for officer confirmation in your chapter.</p>
-          <Link to="/officer/dashboard" className="btn btn-secondary">
+          <p>{admin ? 'There are no donation reports awaiting review.' : 'There are no completed donation reports waiting for officer confirmation in your chapter.'}</p>
+          <Link to={admin ? '/admin/dashboard' : '/officer/dashboard'} className="btn btn-secondary">
             Return to Dashboard
           </Link>
         </div>

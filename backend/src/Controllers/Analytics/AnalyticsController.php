@@ -15,6 +15,21 @@ final class AnalyticsController
 
     public function summary(): void
     {
+        Response::success($this->data());
+    }
+
+    public function csv(): void
+    {
+        $csv=\BloodMatch\Utils\AggregateCsv::render($this->data());
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="bloodmatch-aggregate-analytics.csv"');
+        header('Cache-Control: private, no-store, max-age=0');
+        header('X-Content-Type-Options: nosniff');
+        echo $csv;
+    }
+
+    private function data(): array
+    {
         $actor = AuthMiddleware::requireRoles(['admin', 'officer'], self::ENDPOINT);
 
         $scopedChapterId = null;
@@ -22,13 +37,13 @@ final class AnalyticsController
             $ownChapter = $actor['chapter_id'] === null ? null : (int) $actor['chapter_id'];
             if ($ownChapter === null) {
                 AuthMiddleware::requireChapterScope($actor, -1, self::ENDPOINT);
-                return;
+                return [];
             }
 
             $requestedChapter = Request::int('chapter_id');
             if ($requestedChapter !== null && $requestedChapter !== $ownChapter) {
                 AuthMiddleware::requireChapterScope($actor, $requestedChapter, self::ENDPOINT);
-                return;
+                return [];
             }
 
             $scopedChapterId = $ownChapter;
@@ -42,6 +57,6 @@ final class AnalyticsController
 
         $data = (new AnalyticsRepository())->getAnalyticsSummary($filters, $scopedChapterId);
 
-        Response::success($data);
+        return $data;
     }
 }

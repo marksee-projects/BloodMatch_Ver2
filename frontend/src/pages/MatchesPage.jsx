@@ -230,7 +230,7 @@ export default function MatchesPage() {
 
       {isRequesterView && (
         <section className={styles.matchesSurface} aria-labelledby="matches-heading">
-          <div className={styles.sectionHeading}><div><h2 id="matches-heading">Potential donors</h2><p>{matches.length} eligible {matches.length === 1 ? 'match' : 'matches'}, ordered using eligibility and approximate proximity.</p></div></div>
+          <div className={styles.sectionHeading}><div><h2 id="matches-heading">Potential donors</h2><p>{matches.length} {matches.length === 1 ? 'donor match' : 'donor matches'}. Current offers and completed donations are shown alongside potential donors; chapter and approximate proximity determine matching order.</p></div></div>
           <div className={styles.matchFilters} role="search" aria-label="Filter potential donors">
             <div className={styles.filterField}>
               <label htmlFor="matches-search">Search donors</label>
@@ -259,7 +259,7 @@ export default function MatchesPage() {
           </div>
           <p className={styles.filterCount} role="status">Showing {visibleMatches.length} of {matches.length} donors</p>
           {matches.length === 0 ? (
-            <div className={styles.emptyState}><h3>No eligible donors yet</h3><p>This list updates when compatible members become eligible and available.</p></div>
+            <div className={styles.emptyState}><h3>No donor matches yet</h3><p>This list updates when compatible members become eligible and available.</p></div>
           ) : visibleMatches.length === 0 ? (
             <div className={styles.emptyState}><h3>No donors match your filters</h3><p>Try another name, response status or chapter, or reset the filters.</p></div>
           ) : (
@@ -268,7 +268,7 @@ export default function MatchesPage() {
                 <article key={match.match_id} className={styles.matchRow}>
                   <div className={styles.rank}>{index + 1}</div>
                   <div className={styles.donorIdentity}><h3>{match.display_name}</h3><p>{match.chapter_name || 'Chapter not assigned'}</p></div>
-                  <div className={styles.matchMetric}><span>Availability</span><strong>{match.availability || 'Not provided'}</strong></div>
+                  <div className={styles.matchMetric}><span>Donor preference</span><strong>{match.availability || 'Not provided'}</strong></div>
                   <div className={styles.matchMetric}><span>Distance</span><strong>{match.approximate_distance_km !== null ? `About ${match.approximate_distance_km} km` : 'Not available'}</strong></div>
                   <Badge variant={match.status === 'COMPLETED' ? 'success' : match.status === 'RESPONDED' ? 'brand' : 'neutral'}>{match.status}</Badge>
                   {match.profile_user_id && <Button to={`/profile/${match.profile_user_id}`} variant="secondary" size="sm">View profile</Button>}

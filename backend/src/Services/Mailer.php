@@ -17,14 +17,25 @@ final class Mailer
     /** Shared reservation gateway. Test workers supply a transport with no sockets.
      * A deferred result consumes no transport attempt; failures after reservation do.
      */
-    public static function attemptWithTransport(string $mailClass, callable $transport): array
+    public static function attemptWithTransport(string $mailClass, callable $transport, ?int $donorId = null): array
     {
-        try { $reservation = EmailAttemptBudget::reserve($mailClass); }
+        try { $reservation = EmailAttemptBudget::reserve($mailClass, null, $donorId); }
         catch (\Throwable $e) { return ['status' => 'deferred', 'code' => 'accounting_unavailable']; }
-        if (!$reservation['allowed']) { return ['status' => 'deferred', 'code' => 'shared_budget']; }
-        try { $sent = $transport(); }
-        catch (\Throwable $e) { $sent = false; }
-        return ['status' => $sent ? 'sent' : 'failed', 'code' => $sent ? null : 'transport_failure'];
+        if (!$reservation['allowed']) { return ['status' => 'deferred', 'code' => $reservation['reason']==='emergency_recipient_limit' ? $reservation['reason'] : 'shared_budget']; }
+        try { $outcome = self::transportOutcome($transport()); }
+        catch (\Throwable $e) { $outcome = 'uncertain'; }
+        if ($donorId !== null) {
+            try { EmailAttemptBudget::recordDonorOutcome((int)$reservation['attempt_id'],$outcome==='rejected'?'released':$outcome); }
+            catch (\Throwable $e) { /* Outcome-write failure leaves outstanding capacity counted. */ }
+        }
+        return ['status' => $outcome==='accepted' ? 'sent' : 'failed', 'code' => $outcome==='accepted' ? null : 'transport_failure', 'outcome'=>$outcome];
+    }
+
+    public static function transportOutcome(mixed $result): string
+    {
+        if ($result === true) { return 'accepted'; }
+        if (is_array($result) && in_array($result['outcome'] ?? null,['accepted','rejected','uncertain'],true)) { return $result['outcome']; }
+        return 'uncertain';
     }
 
     public static function send(string $toEmail, string $subject, string $htmlBody, string $mailClass = EmailAttemptBudget::NORMAL): bool

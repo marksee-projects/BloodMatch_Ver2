@@ -60,7 +60,16 @@ final class DocumentStorageService
         $storedName = bin2hex(random_bytes(32));
         $target = $dir . '/' . $storedName;
 
-        if (!move_uploaded_file($tmpPath, $target) && !rename($tmpPath, $target)) {
+        if (DocumentCipher::mode() !== 'legacy') {
+            $plain=file_get_contents($tmpPath);$id=DocumentCipher::activeId();
+            if ($plain===false || strlen($plain)!==$size) { throw new RuntimeException('Uploaded file changed while reading.'); }
+            $encrypted=DocumentCipher::seal($plain,DocumentCipher::context($storedName,$mime,$size),DocumentCipher::key($id),$id);
+            $handle=@fopen($target,'xb');
+            if ($handle===false) { throw new RuntimeException('Could not persist encrypted document.'); }
+            try { if (fwrite($handle,$encrypted)!==strlen($encrypted) || !fflush($handle)) { throw new RuntimeException('Encrypted document write failed.'); } }
+            catch (\Throwable $e) { fclose($handle);@unlink($target);throw $e; }
+            fclose($handle);
+        } elseif (!move_uploaded_file($tmpPath, $target) && !rename($tmpPath, $target)) {
             throw new RuntimeException('Could not persist uploaded file.');
         }
         chmod($target, 0640);
@@ -79,5 +88,16 @@ final class DocumentStorageService
             throw new RuntimeException('Invalid document reference.');
         }
         return self::baseDir() . '/' . $storedName;
+    }
+
+    public static function read(array $document): string
+    {
+        $path=self::pathFor((string)$document['stored_name']);
+        if (is_link($path) || !is_file($path) || filesize($path)>self::MAX_BYTES+68) { throw new RuntimeException('Document file unavailable.'); }
+        $bytes=file_get_contents($path);
+        if ($bytes===false) { throw new RuntimeException('Document file unavailable.'); }
+        $plain=DocumentCipher::decode($bytes,DocumentCipher::context((string)$document['stored_name'],(string)$document['mime_type'],(int)$document['size_bytes']));
+        if (strlen($plain)!==(int)$document['size_bytes']) { throw new RuntimeException('Document size verification failed.'); }
+        return $plain;
     }
 }

@@ -110,6 +110,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/admin/dashboard', [new AdminDashboardController(), 'index']);
     $router->add('GET', '/api/demand-map', [new DemandMapController(), 'index']);
     $router->add('GET', '/api/analytics/summary', [new AnalyticsController(), 'summary']);
+    $router->add('GET', '/api/analytics/export.csv', [new AnalyticsController(), 'csv']);
 
     $router->add('GET', '/api/notifications', [new NotificationsController(), 'index']);
     $router->add('GET', '/api/notifications/unread-count', [new NotificationsController(), 'unreadCount']);

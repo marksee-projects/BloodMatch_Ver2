@@ -1,0 +1,5 @@
+.filters { display: flex; align-items: end; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-5); }
+.filters > div { flex: 1; min-width: 160px; }
+.list { display: grid; gap: var(--space-4); margin-bottom: var(--space-5); }
+.list h2 { margin-top: 0; font-size: var(--text-h3); }
+.actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }

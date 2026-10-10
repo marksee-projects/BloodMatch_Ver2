@@ -37,9 +37,10 @@ final class EmailAttemptBudget
      * An optional independent PDO is for focused tests, never a workflow PDO.
      * @return array{allowed: bool, reason: ?string, attempt_id: ?int}
      */
-    public static function reserve(string $class, ?PDO $pdo = null): array
+    public static function reserve(string $class, ?PDO $pdo = null, ?int $donorId = null): array
     {
         self::denial($class, 0, 0, 0, 0);
+        if ($donorId !== null && ($class !== self::EMERGENCY || $donorId < 1)) { throw new \InvalidArgumentException('Invalid donor reservation.'); }
         $pdo ??= Database::independentPdo();
         if ($pdo->inTransaction()) {
             throw new \LogicException('Mail accounting requires an independent connection.');
@@ -62,10 +63,18 @@ final class EmailAttemptBudget
             $counts->execute([$now, $now, $now]);
             $row = $counts->fetch(PDO::FETCH_ASSOC);
             $reason = self::denial($class, (int) $row['hour_total'], (int) $row['day_total'], (int) $row['hour_other'], (int) $row['day_other']);
+            if ($donorId !== null) {
+                $donor = $pdo->prepare("SELECT COUNT(*) FROM email_donor_reservations WHERE donor_id=? AND reserved_at>DATE_SUB(?,INTERVAL 30 MINUTE) AND outcome<>'released'");
+                $donor->execute([$donorId,$now]);
+                if ((int)$donor->fetchColumn() >= 2) { $reason = 'emergency_recipient_limit'; }
+            }
             $id = null;
             if ($reason === null) {
                 $pdo->prepare('INSERT INTO email_attempts (mail_class, attempted_at) VALUES (?, ?)')->execute([$class, $now]);
                 $id = (int) $pdo->lastInsertId();
+                if ($donorId !== null) {
+                    $pdo->prepare('INSERT INTO email_donor_reservations(attempt_id,donor_id,reserved_at,updated_at) VALUES (?,?,?,?)')->execute([$id,$donorId,$now,$now]);
+                }
             }
             $pdo->commit();
             return ['allowed' => $reason === null, 'reason' => $reason, 'attempt_id' => $id];
@@ -75,5 +84,11 @@ final class EmailAttemptBudget
         } finally {
             $pdo->prepare('SELECT RELEASE_LOCK(?)')->execute([$name]);
         }
+    }
+    public static function recordDonorOutcome(int $attemptId, string $outcome): void
+    {
+        if (!in_array($outcome,['accepted','uncertain','released'],true)) { throw new \InvalidArgumentException('Invalid reservation outcome.'); }
+        Database::independentPdo()->prepare("UPDATE email_donor_reservations SET outcome=?,updated_at=UTC_TIMESTAMP(6) WHERE attempt_id=? AND outcome='outstanding'")
+            ->execute([$outcome,$attemptId]);
     }
 }

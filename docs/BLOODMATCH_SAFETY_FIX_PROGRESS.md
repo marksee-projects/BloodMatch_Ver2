@@ -2,7 +2,19 @@
 
 Marker: `BM-SAFETY-FIX-PROGRESS-2026-10-08`. Updated 2026-10-10, Asia/Manila.
 
-Latest checkpoint: **accepted prior test-target evidence retained; one specific Emergency material-edit browser scenario user-verified; focused card/notification/registration-location database checkpoint user-reported passed; remaining browser checks pending**. Operational scheduling, real emails and application/deployed rollout remain deferred. The previously identified real-transport donor-cap gap remains open.
+## Approved remaining scope - 2026-10-10
+
+**Application 020 approval received:** user approves user-run application of only 020 to bloodmatch:3306, nullable rejection_reason VARCHAR(500), structure only; preserve reports/statuses/NULL reasons, no backfill. Agent applies nothing. Current next checkpoint is the separately reviewed/backed-up 020 operation, not a combined pending-migration run. [Exact 020-only commands](APPLICATION_020_CHECKPOINT.md). No repeat approval is needed for this target/file.
+
+Approved: donor-cap hardening then real queued transport and one-minute scheduling preparation. Outstanding/accepted/uncertain reservations count for 30 minutes; release only proven non-acceptance, never refund shared attempts. Preserve grouping/retries/stale cancellation/budgets/channels. Confirmed local application: bloodmatch, 127.0.0.1:3306. Prepare coordinated one-minute expiry/standby and email schedules with logging/overlap protection; no installation/execution. Review application 022 readiness separately from test evidence.
+
+Documents: maintained authenticated encryption, external keys, backup/recovery/staged rollout and a separately reviewable historical conversion command, never executed. Existing OpenSSL AES-256-GCM is available; no dependency addition needed. Admin UI: existing role/chapter/activation APIs and donation permissions/no-self-review; aggregate analytics CSV with existing access scope/formula protection and no new personal fields or bulk destructive actions. Finish misleading eligibility wording. No live chat.
+
+User applies migrations, runs database/PowerShell suites, installs schedules, converts historical files and executes real-email experiments. Agent runs lightweight/fake checks only. Preparation continues without per-phase questions; save a checkpoint and end when required user results block all remaining work. These approvals supersede earlier preparation deferrals for this scope, not testing/deployment evidence.
+
+Latest checkpoint: **approved remaining code prepared; application 020-only migration is the current user-run checkpoint**. Donor-cap reservation hardening/shared worker/TLS adapter, local safety/email task preparation, staged document encryption/conversion recovery, admin management/confirmation/aggregate CSV and misleading-wording corrections are prepared; their new database/HTTP/browser/operational results remain unverified. Prior accepted test results and the one Emergency invalidation browser result are retained. No agent-run DDL, fixture suite, schedule, real email or historical conversion.
+
+Read-only application metadata review at 2026-10-10T12:22:32Z: bloodmatch at 127.0.0.1:3306, 021 tables ready, rejection_reason and both 022 tables missing; 023 missing/unrecorded. Preparation does not mark migrations applied. Agent lightweight evidence: PHP syntax checks passed for the prepared paths; 28 remaining-fix crypto/outcome/CSV checks, 21 worker-policy checks, 19 shared-budget checks, 8 management UI checks and 21 request UI static checks passed; 3 PowerShell files parsed without execution; frontend build passed with existing >500 kB warning. Synthetic offline key removed. New 65-check fake-worker DB suite, 8-check synthetic storage DB suite and focused API suite are prepared/not run. [Later independent/gated commands](REMAINING_FIXES_CHECKPOINT.md); application DDL is now split into individual checkpoints.
 
 ## Request matches display filters - 2026-10-10
 

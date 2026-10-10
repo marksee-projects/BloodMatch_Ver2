@@ -5,6 +5,7 @@ import {
   CaretRight,
   ChartBar,
   ChartLineUp,
+  CheckCircle,
   House,
   List,
   MapPin,
@@ -48,6 +49,8 @@ export default function AdminLayout() {
   const adminNavItems = [
     { label: 'Dashboard', path: '/admin/dashboard', icon: ChartBar },
     { label: 'Account Verifications', path: '/admin/verifications', icon: ShieldCheck },
+    { label: 'User Management', path: '/admin/users', icon: User },
+    { label: 'Donation Confirmations', path: '/admin/confirmations', icon: CheckCircle },
     { label: 'Demand Map', path: '/admin/demand-map', icon: MapPin },
     { label: 'Analytics', path: '/admin/analytics', icon: ChartLineUp },
     { label: 'Audit Logs', path: '/admin/audit-logs', icon: Scroll }

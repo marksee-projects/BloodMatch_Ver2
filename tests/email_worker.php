@@ -4,6 +4,7 @@ if(PHP_SAPI!=='cli'){http_response_code(403);exit;}
 define('BASE_PATH',dirname(__DIR__));
 require BASE_PATH.'/backend/src/autoload.php';
 require BASE_PATH.'/database/email_checkpoint_support.php';
+require BASE_PATH.'/database/operational_checkpoint_support.php';
 use BloodMatch\Config\Database;
 use BloodMatch\Repositories\BloodRequestRepository;
 use BloodMatch\Repositories\EmailOutboxRepository;
@@ -54,7 +55,7 @@ function runFake(array $ids,string $mode='accept',int $limit=20): array{
     try{return $worker->run($ids,$mode!=='unconfigured',$limit);}
     finally{$attemptIds=array_map('intval',q('SELECT id FROM email_attempts')->fetchAll(PDO::FETCH_COLUMN));}
 }
-function clearAttempts():void{global $attemptIds;foreach($attemptIds as $id){q('DELETE FROM email_attempts WHERE id=?',[$id]);}$attemptIds=[];}
+function clearAttempts():void{global $attemptIds;foreach($attemptIds as $id){q('DELETE FROM email_donor_reservations WHERE attempt_id=?',[$id]);q('DELETE FROM email_attempts WHERE id=?',[$id]);}$attemptIds=[];}
 function seedBudget(int $count,string $class,string $age='0 SECOND'):void{
     global $attemptIds;
     if(!in_array($age,['0 SECOND','2 HOUR'],true)){throw new LogicException('Invalid fixture age.');}
@@ -85,6 +86,8 @@ try{
     if(count($argv)!==1||!function_exists('proc_open')){throw new LogicException('No arguments and proc_open required.');}
     check(emailCheckpointShape($pdo)===['email_outbox'=>'ready','email_attempts'=>'ready'],'021 shape ready');
     check((int)q('SELECT COUNT(*) FROM schema_migrations WHERE name=?',['021_email_outbox_accounting.sql'])->fetchColumn()===1,'021 recorded');
+    check(donorReservationShape($pdo)==='ready','023 full shape ready');
+    check((int)q('SELECT COUNT(*) FROM schema_migrations WHERE name=?',['023_email_donor_reservations.sql'])->fetchColumn()===1,'023 recorded');
     check((int)q('SELECT COUNT(*) FROM email_attempts')->fetchColumn()===0,'empty attempt ledger required; stop other writers, never reset existing attempts');
     $baseline=q('SELECT id,status,rejection_reason FROM donation_reports ORDER BY id')->fetchAll(PDO::FETCH_NUM);
     $officer=user('officer','officer');$normalUser=user('normal','member','rejected');$donor=user('cross-chapter','member','verified',2);
@@ -105,6 +108,24 @@ try{
     $r=runFake([$waiting]);check($r['sent']===1,'second donor digest allowed inside rolling 30 minutes');
     $capped=emergency($officer,$digestDonor);$r=runFake([$capped]);
     check($r['deferred']===1&&job($capped)['last_error_code']==='emergency_recipient_limit'&&(int)job($capped)['attempts']===0,'third donor digest across requests deferred inside rolling 30 minutes');clearAttempts();
+    $uncertainDonor=user('uncertain-cap');
+    $held=\BloodMatch\Services\EmailAttemptBudget::reserve('emergency',null,$uncertainDonor);
+    check($held['allowed'],'first donor reservation committed before transport');$attemptIds[]=(int)$held['attempt_id'];
+    $unknownJob=emergency($officer,$uncertainDonor);
+    $worker=new TestEmailWorker(static fn(array $meta)=>['outcome'=>'uncertain']);
+    $worker->run([$unknownJob]);$attemptIds=array_map('intval',q('SELECT id FROM email_attempts')->fetchAll(PDO::FETCH_COLUMN));
+    check((int)q("SELECT COUNT(*) FROM email_donor_reservations WHERE donor_id=? AND outcome IN ('outstanding','uncertain')",[$uncertainDonor])->fetchColumn()===2,'outstanding and uncertain attempts retain donor slots');
+    $blockedJob=emergency($officer,$uncertainDonor);$before=count($messages);$r=runFake([$blockedJob]);
+    check($r['deferred']===1&&count($messages)===$before&&job($blockedJob)['last_error_code']==='emergency_recipient_limit','unknown/outstanding outcomes block third donor send without shared attempt');
+    \BloodMatch\Services\EmailAttemptBudget::recordDonorOutcome((int)$held['attempt_id'],'released');
+    check((int)q('SELECT COUNT(*) FROM email_attempts')->fetchColumn()===2,'proven rejection releases donor slot without refunding shared attempts');
+    q('UPDATE email_outbox SET next_attempt_at=UTC_TIMESTAMP(6) WHERE id=?',[$blockedJob]);$r=runFake([$blockedJob],'fail');
+    q('UPDATE email_outbox SET next_attempt_at=UTC_TIMESTAMP(6) WHERE id=?',[$blockedJob]);$r=runFake([$blockedJob],'fail');
+    check((int)q("SELECT COUNT(*) FROM email_donor_reservations WHERE donor_id=? AND outcome='released'",[$uncertainDonor])->fetchColumn()===3,'proven fake rejections release only their donor slots');clearAttempts();
+    $lostDonor=user('accepted-lost-cap');$lostJob=emergency($officer,$lostDonor);
+    $worker=new TestEmailWorker(static function(array $meta):bool { q('UPDATE email_outbox SET lease_token=? WHERE id=?',[str_repeat('c',32),$meta['job_id']]);return true; });
+    $r=$worker->run([$lostJob]);$attemptIds=array_map('intval',q('SELECT id FROM email_attempts')->fetchAll(PDO::FETCH_COLUMN));
+    check($r['lost']===1&&(int)q("SELECT COUNT(*) FROM email_donor_reservations WHERE donor_id=? AND outcome='accepted'",[$lostDonor])->fetchColumn()===1,'accepted send retains donor reservation even when completion ownership is lost');clearAttempts();
     $failure=membership(user('failure','member','rejected'),$officer);$firstMessage=null;
     foreach([1=>60,2=>300,3=>900,4=>3600,5=>14400,6=>0] as $i=>$delay){
         q('UPDATE email_outbox SET next_attempt_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 1 SECOND) WHERE id=?',[$failure]);
