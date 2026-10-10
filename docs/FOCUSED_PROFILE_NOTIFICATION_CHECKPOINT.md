@@ -2,6 +2,8 @@
 
 Target: **bloodmatch_test, 127.0.0.1:3306**. This checkpoint does not use the application database bloodmatch. Existing PHP/MySQL, canonical migration 016 and Bataan location seed, and the previously verified test schema 021/022 are prerequisites. Stop other test/database writers while running the fixture test. No application server, scheduler or SMTP is needed.
 
+Status: user reported "all passed" after the commands below. Accept the focused preflight/database checkpoint as **user-reported passed**. Full output/count/numeric exit and cleanup summaries were not separately supplied. Do not repeat these commands or cleanup merely to obtain those details; commands remain here as a record. This does not verify the remaining browser checklist.
+
 ## Read-only preflight
 
 From the repository root in PowerShell:
@@ -38,4 +40,4 @@ Agent-run passed: 10 offline PHP location selection checks; 16 offline JSON/mult
 2. Inspect new and older notifications in both flyout and Notifications page: relevant names/descriptions, no visible request numbers, correct links. Harmless edits/repeated processing must keep read notifications read and create no extra popup.
 3. Register in the isolated test environment with municipality and barangay, both without and with an ID upload; after login/reload, verify About municipality and Edit profile's selected municipality/barangay. Change municipality before submitting and ensure the previous barangay is cleared. No selection shows “Municipality not provided.” Use disposable test addresses, not a real email delivery experiment.
 
-Only the previously reported Emergency response followed by incompatible blood-type edit notification is user-verified. Other browser checks and this new database suite remain pending. Operational scheduling, real queued transport and deployed rollout remain deferred; the earlier donor-cap reservation/outcome gap is not changed here.
+Only the previously reported Emergency response followed by incompatible blood-type edit notification is browser user-verified. The focused database checkpoint is user-reported passed; other browser checks remain pending. Operational scheduling, real queued transport and deployed rollout remain deferred; the earlier donor-cap reservation/outcome gap is not changed here.

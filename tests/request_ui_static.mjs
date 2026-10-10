@@ -71,7 +71,7 @@ function render(Page, path, requests, data, user = { id: 7, role: 'member' }, pr
 const ownData = { viewer_mode: 'requester', request, matches: [donor] }
 const one = render(MatchesPage, '/requests/45/matches', [request], ownData)
 check('Single request has no selector and no self-profile button', () => {
-  assert.ok(!one.includes('<select')); assert.ok(!one.includes('href="/profile/7"'))
+  assert.ok(!one.includes('id="matches-request"')); assert.ok(!one.includes('href="/profile/7"'))
 })
 check('Donor profile, ranking, availability, proximity and notification status survive', () => {
   for (const value of ['href="/profile/9"', 'Eligible donor', '>1</div>', 'available', 'About 17.9 km', 'NOTIFIED', 'Blood needed', request.facility_name]) assert.ok(one.includes(value), value)
@@ -80,7 +80,8 @@ const second = { ...request, id: 46, required_blood_type: 'A-', facility_name: '
 const multiple = render(MatchesPage, '/requests/45/matches', [request, second], ownData)
 check('Multiple requests have compact labels and real URL values without visible request IDs', () => {
   assert.ok(multiple.includes('<select')); assert.ok(multiple.includes('value="45"')); assert.ok(multiple.includes('value="46"'))
-  const labels = [...multiple.matchAll(/<option[^>]*>(.*?)<\/option>/g)].map((match) => match[1])
+  const requestSelect = multiple.match(/<select[^>]*id="matches-request"[^>]*>(.*?)<\/select>/)?.[1] || ''
+  const labels = [...requestSelect.matchAll(/<option[^>]*>(.*?)<\/option>/g)].map((match) => match[1])
   assert.equal(labels.length, 2); assert.ok(labels.every((label) => !label.includes('Request #') && !label.includes('45') && !label.includes('46')))
   assert.ok(labels[0].includes('…')); assert.ok(labels[1].includes('Another hospital'))
 })
@@ -95,7 +96,30 @@ check('Closed request deep link retains its summary, donors and selection alongs
 })
 check('Staff viewing another requester retains requester profile access without a personal selector', () => {
   const html = render(MatchesPage, '/requests/45/matches', [second], ownData, { id: 99, role: 'officer' })
-  assert.ok(html.includes('href="/profile/7"')); assert.ok(!html.includes('<select'))
+  assert.ok(html.includes('href="/profile/7"')); assert.ok(!html.includes('id="matches-request"'))
+})
+check('Requester donor filters render with result count and preserve returned ordering', () => {
+  for (const text of ['Search donors', 'Response status', 'All statuses', 'Awaiting response', 'All chapters', 'Reset', 'Showing 1 of 1 donors']) assert.ok(one.includes(text), text)
+  const entries = [{ ...donor, match_id: 10, display_name: 'First donor', status: 'NOTIFIED' }, { ...donor, match_id: 11, display_name: 'Responding donor', status: 'RESPONDED' }]
+  const html = render(MatchesPage, '/requests/45/matches', [request], { ...ownData, matches: entries })
+  assert.ok(html.indexOf('First donor') < html.indexOf('Responding donor'))
+})
+check('Combined filters and filtered empty state render without changing source matches', () => {
+  const originalState = React.useState
+  const entries = [{ ...donor, match_id: 10, display_name: 'First donor', status: 'NOTIFIED', chapter_id: 1 }, { ...donor, match_id: 11, display_name: 'Responding donor', status: 'RESPONDED', chapter_id: 2 }]
+  let filters = { search: 'responding', status: 'RESPONDED', chapter: '2' }
+  React.useState = initial => {
+    const state = originalState(initial)
+    return initial && typeof initial === 'object' && 'search' in initial && 'chapter' in initial ? [filters, state[1]] : state
+  }
+  try {
+    let html = render(MatchesPage, '/requests/45/matches', [request], { ...ownData, matches: entries })
+    assert.ok(html.includes('Responding donor') && !html.includes('First donor') && html.includes('Showing 1 of 2 donors'))
+    filters = { ...filters, search: 'no such donor' }
+    html = render(MatchesPage, '/requests/45/matches', [request], { ...ownData, matches: entries })
+    assert.ok(html.includes('No donors match your filters') && html.includes('Showing 0 of 2 donors'))
+    assert.equal(entries.length, 2)
+  } finally { React.useState = originalState }
 })
 check('Donor view retains help, profile and return-to-Home actions', () => {
   const html = render(MatchesPage, '/requests/45/matches', [], { viewer_mode: 'donor', request, matches: [{ ...donor, is_current_user: true }] }, { id: 9, role: 'member' })

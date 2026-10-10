@@ -9,6 +9,7 @@ import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
+import { emptyMatchFilters, filterMatches, matchChapterOptions } from '../services/matchFilters'
 import styles from './MatchesPage.module.css'
 
 function formatDate(value) {
@@ -40,6 +41,7 @@ export default function MatchesPage() {
   const [reportingMatchId, setReportingMatchId] = useState(null)
   const [reportNote, setReportNote] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
+  const [donorFilters, setDonorFilters] = useState(emptyMatchFilters)
 
   const { data: pageData, error: matchError, refetch: load } = useQuery({
     queryKey: ['request-matches', id, user?.id],
@@ -58,6 +60,7 @@ export default function MatchesPage() {
     setConfirmation(null)
     setReportingMatchId(null)
     setReportNote('')
+    setDonorFilters(emptyMatchFilters)
   }, [id])
   useEffect(() => {
     if (!message || location.state?.matchingStatus === 'failed_retry_required') return undefined
@@ -66,6 +69,8 @@ export default function MatchesPage() {
   }, [message])
 
   const matches = pageData?.matches || []
+  const visibleMatches = filterMatches(matches, donorFilters)
+  const chapterOptions = matchChapterOptions(matches)
   const request = pageData?.request
   const viewerMode = pageData?.viewer_mode
   const ownMatch = matches.find((match) => match.is_current_user)
@@ -226,11 +231,40 @@ export default function MatchesPage() {
       {isRequesterView && (
         <section className={styles.matchesSurface} aria-labelledby="matches-heading">
           <div className={styles.sectionHeading}><div><h2 id="matches-heading">Potential donors</h2><p>{matches.length} eligible {matches.length === 1 ? 'match' : 'matches'}, ordered using eligibility and approximate proximity.</p></div></div>
+          <div className={styles.matchFilters} role="search" aria-label="Filter potential donors">
+            <div className={styles.filterField}>
+              <label htmlFor="matches-search">Search donors</label>
+              <input id="matches-search" type="search" placeholder="Search by donor name" value={donorFilters.search}
+                onChange={event => setDonorFilters(current => ({ ...current, search: event.target.value }))} />
+            </div>
+            <div className={styles.filterField}>
+              <label htmlFor="matches-status">Response status</label>
+              <select id="matches-status" value={donorFilters.status}
+                onChange={event => setDonorFilters(current => ({ ...current, status: event.target.value }))}>
+                <option value="all">All statuses</option>
+                <option value="RESPONDED">Responded</option>
+                <option value="awaiting">Awaiting response</option>
+                <option value="COMPLETED">Completed</option>
+              </select>
+            </div>
+            <div className={styles.filterField}>
+              <label htmlFor="matches-chapter">Chapter</label>
+              <select id="matches-chapter" value={donorFilters.chapter}
+                onChange={event => setDonorFilters(current => ({ ...current, chapter: event.target.value }))}>
+                <option value="all">All chapters</option>
+                {chapterOptions.map(chapter => <option key={chapter.value} value={chapter.value}>{chapter.label}</option>)}
+              </select>
+            </div>
+            <Button type="button" variant="secondary" onClick={() => setDonorFilters(emptyMatchFilters)}>Reset</Button>
+          </div>
+          <p className={styles.filterCount} role="status">Showing {visibleMatches.length} of {matches.length} donors</p>
           {matches.length === 0 ? (
             <div className={styles.emptyState}><h3>No eligible donors yet</h3><p>This list updates when compatible members become eligible and available.</p></div>
+          ) : visibleMatches.length === 0 ? (
+            <div className={styles.emptyState}><h3>No donors match your filters</h3><p>Try another name, response status or chapter, or reset the filters.</p></div>
           ) : (
             <div className={styles.matchList}>
-              {matches.map((match, index) => (
+              {visibleMatches.map((match, index) => (
                 <article key={match.match_id} className={styles.matchRow}>
                   <div className={styles.rank}>{index + 1}</div>
                   <div className={styles.donorIdentity}><h3>{match.display_name}</h3><p>{match.chapter_name || 'Chapter not assigned'}</p></div>

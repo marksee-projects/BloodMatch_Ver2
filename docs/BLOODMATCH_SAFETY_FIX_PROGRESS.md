@@ -2,7 +2,15 @@
 
 Marker: `BM-SAFETY-FIX-PROGRESS-2026-10-08`. Updated 2026-10-10, Asia/Manila.
 
-Latest checkpoint: **accepted prior test-target evidence retained; one specific Emergency material-edit browser scenario user-verified; focused card/notification/registration-location improvements prepared; their database and remaining browser checks pending**. Operational scheduling, real emails and application/deployed rollout remain deferred. The previously identified real-transport donor-cap gap remains open.
+Latest checkpoint: **accepted prior test-target evidence retained; one specific Emergency material-edit browser scenario user-verified; focused card/notification/registration-location database checkpoint user-reported passed; remaining browser checks pending**. Operational scheduling, real emails and application/deployed rollout remain deferred. The previously identified real-transport donor-cap gap remains open.
+
+## Request matches display filters - 2026-10-10
+
+User approved filters only and explicitly withdrew the proposed Responded-first ordering. Implemented donor-name search (trimmed/case-insensitive), response status (All, Responded, Awaiting response covering POTENTIAL/NOTIFIED, Completed), chapter options from the already-authorized returned list including Not assigned where present, Reset, visible/total count, and a distinct filtered-empty state. Filters reset when switching requests and stack on narrow screens. Row numbers are visible positions. Filtering preserves the returned donor sequence; no Responded-first sorting, backend ranking, eligibility, recipient/privacy projection, timers, email or schema change.
+
+Agent-run: 13 offline filter checks and 21 static rendered-page checks passed; git diff --check passed; frontend build passed with the existing >500 kB bundle warning. Browser interactions remain unverified. No database/PowerShell suite, migration, real email or browser tool retry was run. No database test is required for this display-only change.
+
+Remaining manual check: on the request donor-list page, combine a name search with status and chapter, verify counts/empty state, Reset restores the original ordering, switching requests clears filters, and controls fit a narrow screen. Previously accepted database checks/cleanup must not be repeated for this change.
 
 ## Focused browser and registration-location checkpoint - 2026-10-10
 
@@ -12,9 +20,9 @@ Focused changes: existing Responded state is visible in the collapsed card heade
 
 Registration trace found three missing links: no municipality/barangay selector, neither submission format included a location, and the users INSERT omitted location_id. Registration now uses the existing optional canonical selector, shares JSON/multipart payload preparation, validates active parent municipality and submitted barangay/reference consistency, saves location_id and reference-derived coordinates. Municipality changes clear stale barangay choices. ProfileController's existing own-profile projection resolves the stored reference; its About row has a clear empty state. Other-member profile exposure is unchanged. No new schema, location seed modification, historical correction, donor eligibility rule or email policy is introduced.
 
-Agent lightweight results and exact deferred commands: see [FOCUSED_PROFILE_NOTIFICATION_CHECKPOINT.md](FOCUSED_PROFILE_NOTIFICATION_CHECKPOINT.md). New test-target database checkpoint is prepared, **not agent-run**. New browser presentation/form checks remain manual and unverified until supplied. No database suite, migration, task or real email executed for this checkpoint.
+User subsequently reported "all passed" following the focused read-only preflight and disposable database-test commands for bloodmatch_test:3306. Accept this as **user-reported checkpoint pass**, not agent-run evidence. Full output, individual assertion count, numeric exit and rollback/ledger summaries were not supplied separately; do not invent them or request a rerun solely for details. No additional cleanup is requested. New browser presentation/form checks remain manual and unverified until supplied. See [FOCUSED_PROFILE_NOTIFICATION_CHECKPOINT.md](FOCUSED_PROFILE_NOTIFICATION_CHECKPOINT.md) for scope and remaining manual checks.
 
-Agent-run results: PHP syntax passed for all 10 affected/new PHP files; 10 offline canonical selection checks passed; 16 offline registration payload/notification presentation checks passed; mocked Home/card suite passed with collapsed and expanded Responded assertions and retained confirmation/repeat/stale guards; git diff --check passed. Final frontend build passed via npm.cmd (npm.ps1 was blocked by local execution policy); existing >500 kB bundle warning remains. No browser automation or database checks were run. Prepared focused database suite expects 17 PASS checks and transaction rollback, not a claimed completed result.
+Agent-run results: PHP syntax passed for all 10 affected/new PHP files; 10 offline canonical selection checks passed; 16 offline registration payload/notification presentation checks passed; mocked Home/card suite passed with collapsed and expanded Responded assertions and retained confirmation/repeat/stale guards; git diff --check passed. Final frontend build passed via npm.cmd (npm.ps1 was blocked by local execution policy); existing >500 kB bundle warning remains. No browser automation, database suite, migration, task or real email was run by the agent for this checkpoint. The focused database suite's designed count is 17; the user's aggregate pass report is the supplied evidence.
 
 ## Explicit one-account removal for re-registration - 2026-10-10
 

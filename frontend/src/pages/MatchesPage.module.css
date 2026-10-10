@@ -32,10 +32,16 @@
 .cancelOffer { color: var(--color-emergency-red) !important; }
 
 .matchesSurface { padding: var(--space-6); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-sm); }
-.sectionHeading { margin-bottom: var(--space-5); }
+.sectionHeading { margin-bottom: var(--space-5); text-align: center; }
 .sectionHeading h2 { margin: 0; font-size: var(--text-h2); }
-.sectionHeading p { margin: var(--space-1) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.sectionHeading p { margin: var(--space-1) auto 0; color: var(--color-text-muted); font-size: var(--text-sm); text-align: center; }
 .matchList { display: flex; flex-direction: column; }
+.matchFilters { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); }
+.filterField { min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.filterField label { font-size: var(--text-sm); font-weight: 600; }
+.filterField input, .filterField select { width: 100%; min-height: 44px; padding: var(--space-3); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font: inherit; }
+.filterField input:focus-visible, .filterField select:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.filterCount { margin: var(--space-3) 0 var(--space-5); color: var(--color-text-muted); font-size: var(--text-sm); }
 .matchRow { display: grid; grid-template-columns: auto minmax(160px, 1fr) 130px 150px auto auto; align-items: center; gap: var(--space-4); padding: var(--space-4) 0; border-top: 1px solid var(--color-border-hairline); }
 .matchRow:first-child { padding-top: 0; border-top: 0; }
 .matchRow:last-child { padding-bottom: 0; }
@@ -64,6 +70,7 @@
 }
 
 @media (max-width: 680px) {
+  .matchFilters { grid-template-columns: 1fr; align-items: stretch; }
   .requestHeader { grid-template-columns: auto 1fr auto; }
   .requestStatus { align-items: flex-end; flex-direction: column-reverse; }
   .requestFacts { grid-template-columns: 1fr; }
