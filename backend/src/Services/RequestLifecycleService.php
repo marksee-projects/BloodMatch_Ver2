@@ -45,6 +45,11 @@ final class RequestLifecycleService
                 WorkflowLockService::assertOpenBeforeDeadline(array_replace($request, $fields), $nowUtc);
                 $groups = RequestService::materialChangedFields($request, $fields);
                 (new BloodRequestRepository())->updateFields($requestId, $fields);
+                // Queue-backed matching has no transport here: reconcile before the
+                // edit commits, so confirmation cannot observe an unreconciled edit.
+                if ($groups !== []) {
+                    (new MatchService())->generateForRequest($requestId,true,'material_change',(int)$actor['id']);
+                }
                 AuditLogger::log((int) $actor['id'], $groups === [] ? 'request.updated' : 'request.material_change',
                     'blood_request', (string) $requestId, $groups === [] ? ['material' => false] : ['groups' => $groups]);
                 return $groups;
@@ -53,12 +58,10 @@ final class RequestLifecycleService
             $this->logDenied($actor, $requestId, 'requests.update', $e);
             throw $e;
         }
-        // Generation has its own request lock and refuses a terminal state if closure won meanwhile.
-        if ($groups !== []) {
-            try { (new MatchService())->generateForRequest($requestId, true, 'material_change', (int) $actor['id']); }
-            catch (\Throwable $e) { error_log('[matches] regeneration failed for request ' . $requestId . ': ' . $e->getMessage()); }
-        }
-        return (new BloodRequestRepository())->findById($requestId);
+        $matchingStatus=$groups===[]?'not_required':'completed';
+        $fresh=(new BloodRequestRepository())->findById($requestId);
+        $fresh['matching_status']=$matchingStatus;
+        return $fresh;
     }
 
     public function cancel(array $actor, int $requestId): array
@@ -123,6 +126,7 @@ final class RequestLifecycleService
             throw new RuntimeException('This request is no longer active.', 409);
         }
         // Only offers change here. COMPLETED matches, all reports and donor windows remain intact.
+        NotificationService::notifyRequestClosed($requestId, $status);
         return MatchRepository::closeUnfinishedForRequest($requestId);
     }
 

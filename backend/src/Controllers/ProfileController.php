@@ -253,6 +253,15 @@ final class ProfileController
         ]);
     }
 
+    public function acknowledgeDonorStandby(): void
+    {
+        $actor=AuthMiddleware::requireActiveUser(self::ENDPOINT . '.standby_acknowledge');
+        try { $changed=\BloodMatch\Services\NonResponseStandbyService::acknowledge((int)$actor['id']); }
+        catch (\RuntimeException $e) { Response::error($e->getMessage(),in_array((int)$e->getCode(),[403,503],true)?(int)$e->getCode():409); return; }
+        if ($changed) { (new \BloodMatch\Services\MatchService())->refreshMatchesForDonor((int)$actor['id'],'non_response_acknowledged',(int)$actor['id']); }
+        Response::success(['acknowledged'=>$changed]);
+    }
+
     public static function compose(array $user): array
     {
         $docs = new DocumentRepository();
@@ -300,6 +309,8 @@ final class ProfileController
                 : null,
             'donor_enrolled' => $user['donor_enrolled_at'] !== null,
             'availability' => $user['donor_availability'],
+            'non_response_standby' => $user['non_response_standby'] ?? null,
+            'donor_eligible' => \BloodMatch\Services\DonorEligibilityService::evaluateDonor($user)['eligible'],
             'availability_window' => \BloodMatch\Services\DonorEligibilityService::evaluateWindows(
                 $user['last_verified_donation_at'] !== null ? (string) $user['last_verified_donation_at'] : null
             ),

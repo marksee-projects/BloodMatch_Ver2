@@ -32,6 +32,7 @@ final class MatchResponseService
                     throw new RuntimeException('A completed donation match cannot be changed.', 409);
                 }
                 $wasResponded = $match !== null && (string) $match['status'] === 'RESPONDED';
+                NonResponseStandbyService::resolve($requestId,$actorId,'answered');
                 $created = $match === null;
                 if ($created) {
                     $matchId = $repo->insertResponded($requestId, $actorId, max(1, $repo->maxGenerationForRequest($requestId)));
@@ -43,14 +44,17 @@ final class MatchResponseService
                 }
                 $title = sprintf('A donor responded to request #%d', $requestId);
                 $body = 'A donor has offered to help with your blood request. Open BloodMatch to review the response.';
-                $notificationId = NotificationService::notify(
-                    (int) $request['requester_id'], 'match.responded', $title, $body,
-                    [
-                        'related_type' => 'blood_request', 'related_id' => $requestId,
-                        'dedup_key' => NotificationService::dedupMatchResponse($requestId, $actorId),
-                        'generation' => 0, 'email' => NotificationService::EMAIL_NONE,
-                    ]
-                );
+                $notificationId=null;
+                if (!$wasResponded) {
+                    $base=NotificationService::dedupMatchResponse($requestId,$actorId);
+                    $previous=\BloodMatch\Config\Database::pdo()->prepare("SELECT COALESCE(MAX(id),0) FROM notifications WHERE user_id=? AND type='match.responded' AND (dedup_key=? OR dedup_key LIKE CONCAT(?,':after:%'))");
+                    $previous->execute([(int)$request['requester_id'],$base,$base]);
+                    $previousId=(int)$previous->fetchColumn();
+                    $notificationId=NotificationService::notify((int)$request['requester_id'],'match.responded',$title,$body,[
+                        'related_type'=>'blood_request','related_id'=>$requestId,
+                        'dedup_key'=>$previousId===0?$base:$base.':after:'.$previousId,'generation'=>0,'email'=>NotificationService::EMAIL_NONE,
+                    ]);
+                }
                 if (!$wasResponded) {
                     AuditLogger::log($actorId, 'match.responded', 'blood_request', (string) $requestId, [
                         'match_id' => $matchId, 'source' => $source,
@@ -116,6 +120,16 @@ final class MatchResponseService
                 throw new RuntimeException('This offer cannot be cancelled while its donation report is awaiting review.', 409);
             }
             $repo->setStatus($matchId, 'NOTIFIED');
+            $event = \BloodMatch\Config\Database::pdo()->prepare("SELECT COALESCE(MAX(id),0) FROM notifications WHERE user_id=? AND type='match.withdrawn' AND related_type='blood_request' AND related_id=?");
+            $event->execute([(int)$currentActor['id'], (int)$request['id']]);
+            $previousEvent = (int)$event->fetchColumn();
+            foreach (array_unique([(int)$request['requester_id'], (int)$currentActor['id']]) as $recipientId) {
+                NotificationService::notify($recipientId, 'match.withdrawn', 'Donor offer withdrawn',
+                    'An offer to help with blood request #' . $request['id'] . ' has been withdrawn.', [
+                        'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
+                        'dedup_key'=>"withdrawal:{$matchId}:after:{$previousEvent}:{$recipientId}",
+                    ]);
+            }
             AuditLogger::log((int) $currentActor['id'], 'match.response_withdrawn', 'blood_request', (string) $request['id'], [
                 'match_id' => $matchId,
             ]);

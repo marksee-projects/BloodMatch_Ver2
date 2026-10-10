@@ -140,6 +140,9 @@ final class DonorEligibilityService
         }
 
         $availability = (string) ($donor['donor_availability'] ?? '');
+        if (!empty($donor['non_response_standby'])) {
+            return self::blocked('non_response_standby','Acknowledge the unanswered opportunity in your profile to recover donor availability.');
+        }
         $expiredStoredStandby = $availability === 'standby'
             && $lastDonation !== null
             && $lastDonation !== '';
@@ -195,6 +198,15 @@ final class DonorEligibilityService
             'reason' => $reason,
             'eligible_again_at' => $eligibleAgainAt,
         ];
+    }
+
+    /** Account readiness only; request compatibility and deadlines remain separate. */
+    public static function evaluateDonor(array $donor, ?string $nowUtc = null, ?array $window = null): array
+    {
+        return self::evaluateForRequest($donor, [
+            'requester_id'=>0, 'status'=>'OPEN', 'needed_datetime'=>'9999-12-31 23:59:59',
+            'required_blood_type'=>$donor['blood_type'] ?? '',
+        ], $nowUtc, $window);
     }
 
     public static function assertAvailabilityChangeAllowed(array $user, ?string $nowUtc = null): void

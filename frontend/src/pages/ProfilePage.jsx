@@ -105,14 +105,14 @@ export default function ProfilePage() {
   const showError = (error) => setErrorAlert(error?.message || 'The change could not be saved.')
   const clearNotices = () => { setMessage(null); setErrorAlert(null) }
   const closeRequestForm = useCallback(() => { setEditingRequestId(null) }, [])
-  const handleRequestSaved = async () => {
+  const handleRequestSaved = async (result) => {
     const wasEditing = Boolean(editingRequestId)
     closeRequestForm()
     queryClient.invalidateQueries({ queryKey: ['my-requests'] })
     queryClient.invalidateQueries({ queryKey: ['request-matches', String(editingRequestId)] })
     queryClient.invalidateQueries({ queryKey: ['home-feed'] })
     await refetch()
-    setMessage(wasEditing ? 'Request details updated.' : 'Blood request created and matching started.')
+    setMessage(result?.matching_status === 'failed_retry_required' ? 'Request saved, but matching failed. Ask an officer to retry matching; do not post a duplicate request.' : (wasEditing ? 'Request details updated.' : 'Blood request created and matching completed.'))
   }
 
   const enrollAsDonor = async () => {
@@ -127,6 +127,17 @@ export default function ProfilePage() {
     } finally {
       setEnrolling(false)
     }
+  }
+
+  const acknowledgeStandby = async () => {
+    clearNotices()
+    setEnrolling(true)
+    try {
+      await api.post('/api/profile/acknowledge-standby')
+      await Promise.all([refetch(), refresh()])
+      setMessage('Standby acknowledged. Your current availability and post-donation safety windows still apply.')
+    } catch (error) { showError(error) }
+    finally { setEnrolling(false) }
   }
 
   const onPictureUpload = async (pictureFile) => {
@@ -285,10 +296,10 @@ export default function ProfilePage() {
     .filter((document) => document.doc_type === 'national_id')
     .sort((a, b) => b.id - a.id)
   const availabilityBlocked = Boolean(profile.availability_window?.blocked)
-  const availabilityStatus = availabilityBlocked
+  const availabilityStatus = profile.non_response_standby ? 'Non-response standby: acknowledgment required' : availabilityBlocked
     ? `${titleCase(profile.availability_window.which)} until ${formatDate(profile.availability_window.ends_at_utc)}`
     : profile.donor_enrolled
-      ? (profile.availability === 'available' ? 'Available to donate' : 'Unavailable for donor matches')
+      ? (profile.donor_eligible ? 'Available to donate' : 'Currently unavailable for donor matches')
       : 'Not enrolled as a donor'
 
   return (
@@ -305,6 +316,13 @@ export default function ProfilePage() {
         </div>
       )}
 
+      {profile.non_response_standby && (
+        <div className={styles.alertBox} role="status">
+          <div><strong>Review your donor availability</strong><p>An unanswered opportunity reached 42 hours. Acknowledge standby to resume donor matching when your availability and safety windows allow.</p></div>
+          <Button variant="primary" disabled={enrolling} onClick={acknowledgeStandby}>Acknowledge standby</Button>
+        </div>
+      )}
+
       <header className={styles.profileHeader}>
         <div className={styles.headerInner}>
           <div className={styles.avatarWrapper}>
@@ -316,7 +334,7 @@ export default function ProfilePage() {
             <button type="button" className={styles.avatarCameraOverlay} aria-label="Update profile picture" title="Update profile picture" disabled={pictureUploading} onClick={() => pictureInputRef.current?.click()}>
               {pictureUploading ? <span className="spinner" aria-hidden="true" /> : <Camera size={19} weight="fill" aria-hidden="true" />}
             </button>
-            {profile.role === 'member' && profile.donor_enrolled && profile.availability === 'available' && !availabilityBlocked && (
+            {profile.donor_eligible === true && (
               <span className={styles.availabilityIndicator} title="Available to donate">
                 <span className={styles.visuallyHidden}>Available to donate</span>
               </span>

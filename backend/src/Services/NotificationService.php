@@ -50,7 +50,10 @@ final class NotificationService
         int $documentId,
         bool $resubmitted = false
     ): array {
-        $adminIds = (new \BloodMatch\Repositories\UserRepository())->activeIdsByRole('admin');
+        $users = new \BloodMatch\Repositories\UserRepository();
+        $member = $users->findById($memberId);
+        $adminIds = array_unique(array_merge($users->activeIdsByRole('admin'),
+            self::chapterOfficerIds($member['chapter_id'] ?? null)));
         $notified = [];
         $title = $resubmitted ? 'National ID resubmitted' : 'New account verification request';
         $body = $resubmitted
@@ -76,6 +79,30 @@ final class NotificationService
         }
 
         return $notified;
+    }
+
+    public static function chapterOfficerIds(?int $chapterId): array
+    {
+        if ($chapterId === null) { return []; }
+        $s = \BloodMatch\Config\Database::pdo()->prepare("SELECT id FROM users WHERE role='officer' AND account_status='active' AND chapter_id=? ORDER BY id");
+        $s->execute([$chapterId]);
+        return array_map('intval', $s->fetchAll(\PDO::FETCH_COLUMN));
+    }
+
+    /** Called before unfinished offers are closed, inside the owning transaction. */
+    public static function notifyRequestClosed(int $requestId, string $status): void
+    {
+        $s = \BloodMatch\Config\Database::pdo()->prepare("SELECT DISTINCT m.donor_id FROM matches m WHERE m.request_id=? AND
+            (m.status IN ('POTENTIAL','NOTIFIED','RESPONDED') OR EXISTS
+                (SELECT 1 FROM donation_reports dr WHERE dr.match_id=m.id AND dr.status='PENDING'))");
+        $s->execute([$requestId]);
+        foreach ($s->fetchAll(\PDO::FETCH_COLUMN) as $donorId) {
+            self::notify((int)$donorId, 'request.' . strtolower($status), 'Blood request ' . strtolower($status),
+                "Blood request #{$requestId} is " . strtolower($status) . '. Unfinished offers are closed; pending donation reports remain available for review.', [
+                    'related_type'=>'blood_request', 'related_id'=>$requestId,
+                    'dedup_key'=>"request:{$requestId}:{$status}:donor:{$donorId}",
+                ]);
+        }
     }
 
     public static function notify(
@@ -155,6 +182,10 @@ final class NotificationService
         array $eligibleDonorIds,
         bool $sendEmergencyEmail = false
     ): array {
+        $pdo=\BloodMatch\Config\Database::pdo();
+        if (!$pdo->inTransaction()) {
+            return WorkflowLockService::transaction(fn()=>self::notifyMatchGeneration($request,$generation,$eligibleDonorIds,$sendEmergencyEmail));
+        }
         $requestId = (int) $request['id'];
         $emergency = (string) $request['urgency'] === 'emergency';
         $emailPriority = $emergency && $sendEmergencyEmail
@@ -169,8 +200,22 @@ final class NotificationService
             (string) $request['facility_name']
         );
 
+        $pdo->prepare("UPDATE notifications SET title=?,body=? WHERE type='match.new' AND related_type='blood_request' AND related_id=?")
+            ->execute([$title,mb_substr($body,0,500),$requestId]);
         $notifiedDonorIds = [];
-        foreach (array_slice($eligibleDonorIds, 0, self::MAX_EMAIL_RECIPIENTS_PER_BATCH) as $donorId) {
+        foreach (array_values(array_unique($eligibleDonorIds)) as $position=>$donorId) {
+            $existing=$pdo->prepare("SELECT id,generation FROM notifications WHERE user_id=? AND type='match.new' AND dedup_key=? ORDER BY id LIMIT 1 FOR UPDATE");
+            $existing->execute([$donorId,self::dedupMatch($requestId,(int)$donorId)]);
+            $visible=$existing->fetch(\PDO::FETCH_ASSOC);
+            $visibleId=$visible===false?false:$visible['id'];
+            if ($visibleId!==false) {
+                $pdo->prepare('UPDATE notifications SET title=?,body=?,generation=? WHERE id=?')->execute([$title,mb_substr($body,0,500),$generation,$visibleId]);
+                $pdo->prepare("UPDATE email_outbox SET status='cancelled',cancel_reason='opportunity_refreshed',lease_token=NULL,lease_expires_at=NULL,updated_at=UTC_TIMESTAMP(6)
+                    WHERE notification_id=? AND status IN ('pending','leased') AND ?=0")->execute([$visibleId,(int)((int)$visible['generation']===$generation)]);
+                NonResponseStandbyService::opportunity($requestId,(int)$donorId,$generation,(int)$visibleId);
+                $notifiedDonorIds[]=(int)$donorId;
+                continue;
+            }
             $id = self::notify(
                 (int) $donorId,
                 'match.new',
@@ -181,11 +226,12 @@ final class NotificationService
                     'related_id' => $requestId,
                     'dedup_key' => self::dedupMatch($requestId, (int) $donorId),
                     'generation' => $generation,
-                    'email' => $emailPriority,
+                    'email' => $position<self::MAX_EMAIL_RECIPIENTS_PER_BATCH?$emailPriority:self::EMAIL_NONE,
                     'email_expires_at' => $request['needed_datetime'],
                 ]
             );
             if ($id !== null) {
+                NonResponseStandbyService::opportunity($requestId,(int)$donorId,$generation,$id);
                 $notifiedDonorIds[] = (int) $donorId;
             }
         }

@@ -93,6 +93,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/compatibility-matrix', [new CompatibilityController(), 'show']);
 
     $router->add('POST', '/api/profile/donor-availability', [new ProfileController(), 'setDonorAvailability']);
+    $router->add('POST', '/api/profile/acknowledge-standby', [new ProfileController(), 'acknowledgeDonorStandby']);
      $router->add('GET', '/api/profile/{id}', [new MemberProfileController(), 'show']);
     $router->add('POST', '/api/matches/{matchId}/respond', [new MatchesController(), 'respond']);
     $router->add('POST', '/api/matches/{matchId}/withdraw', [new MatchesController(), 'withdraw']);

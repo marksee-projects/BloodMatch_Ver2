@@ -14,6 +14,13 @@ use Throwable;
 
 final class DonationService
 {
+    public static function offerInvalid(array $match,array $request,array $donor): bool
+    {
+        if (!in_array((string)$donor['blood_type'],BloodCompatibilityService::getCompatibleDonorTypes((string)$request['required_blood_type']),true)) { return true; }
+        $s=\BloodMatch\Config\Database::pdo()->prepare('SELECT 1 FROM notifications WHERE dedup_key=? LIMIT 1');
+        $s->execute(["offer-invalid:{$match['id']}:{$match['generation']}:{$donor['id']}"]);
+        return $s->fetchColumn()!==false && !DonorEligibilityService::evaluateForRequest($donor,$request)['eligible'];
+    }
     public function submit(int $donorId, int $matchId, ?string $note): array
     {
         $repo = new MatchRepository();
@@ -56,6 +63,17 @@ final class DonationService
             $nowUtc = AuthService::nowUtc();
             WorkflowLockService::assertOpenBeforeDeadline($request, $nowUtc);
             $reportId = $reports->insert($matchId, $donorId, $note, $nowUtc);
+            $reviewers = array_diff(NotificationService::chapterOfficerIds($request['request_chapter_id'] === null ? null : (int)$request['request_chapter_id']), [$donorId]);
+            if ($reviewers === []) {
+                $reviewers = array_diff((new UserRepository())->activeIdsByRole('admin'), [$donorId]);
+            }
+            foreach ($reviewers as $reviewerId) {
+                NotificationService::notify((int)$reviewerId, 'donation.reported', 'Donation report awaiting review',
+                    "A donation report for blood request #{$request['id']} is awaiting review.", [
+                        'related_type'=>'donation_report', 'related_id'=>$reportId,
+                        'dedup_key'=>"donation:{$reportId}:submitted:{$reviewerId}",
+                    ]);
+            }
             AuditLogger::log($donorId, 'donation.reported', 'donation_report', (string) $reportId, ['match_id' => $matchId]);
             return ['id' => $reportId, 'status' => 'PENDING'];
         });
@@ -118,6 +136,10 @@ final class DonationService
                 $fulfilledNow = false;
                 if ($confirm) {
                     WorkflowLockService::assertOpenBeforeDeadline($request, $nowUtc);
+                    $donor=$users[(int)$row['donor_id']];
+                    if (self::offerInvalid($match,$request,$donor)) {
+                        throw new RuntimeException('This invalidated offer requires explicit reasoned rejection.',409);
+                    }
                     if ((string) $match['status'] !== 'RESPONDED') {
                         throw new RuntimeException('Only a responded match can be confirmed as a donation.', 409);
                     }
@@ -137,11 +159,44 @@ final class DonationService
                     }
                 } else {
                     (new DonationReportRepository())->markRejected($reportId, (int) $reviewer['id'], $nowUtc, $reason);
+                    if ($match['status']==='RESPONDED' && self::offerInvalid($match,$request,$users[(int)$row['donor_id']])
+                        && !(new DonationReportRepository())->pendingExistsForMatchForUpdate((int)$match['id'])) {
+                        (new MatchRepository())->setStatus((int)$match['id'],'CLOSED');
+                    }
                 }
                 AuditLogger::log((int) $reviewer['id'], $confirm ? 'donation.confirmed' : 'donation.rejected', 'donation_report', (string) $reportId, [
                     'donor_id' => (int) $row['donor_id'], 'match_id' => (int) $row['match_id'],
                     'rejection_reason' => $reason,
                 ]);
+                \BloodMatch\Services\NotificationService::notify(
+                    (int) $pre['donor_id'],
+                    'donation.' . ($confirm ? 'confirmed' : 'rejected'),
+                    $confirm ? 'Donation confirmed — thank you!' : 'Donation report rejected',
+                    $confirm
+                        ? 'Your donation was confirmed. Thank you for saving a life!'
+                        : 'Your donation report could not be confirmed.',
+                    [
+                        'related_type' => 'donation_report',
+                        'related_id' => $reportId,
+                        'dedup_key' => \BloodMatch\Services\NotificationService::dedupDonation($reportId, $confirm ? 'confirmed' : 'rejected'),
+                        'email' => \BloodMatch\Services\NotificationService::EMAIL_NONE,
+                    ]
+                );
+
+                if ($confirm) {
+                    NotificationService::notify((int)$request['requester_id'], 'donation.confirmed', 'Donation confirmed',
+                        "A donation for your blood request #{$request['id']} was confirmed.", [
+                            'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
+                            'dedup_key'=>"donation:{$reportId}:confirmed:requester",
+                        ]);
+                }
+                if ($fulfilledNow) {
+                    NotificationService::notify((int)$request['requester_id'], 'request.fulfilled', 'Blood request fulfilled',
+                        "Your blood request #{$request['id']} has been fulfilled.", [
+                            'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
+                            'dedup_key'=>"request:{$request['id']}:fulfilled",
+                        ]);
+                }
                 return $fulfilledNow;
             });
         } catch (Throwable $e) {
@@ -157,25 +212,9 @@ final class DonationService
             error_log('[donations] decision failed: ' . $e->getMessage());
             throw new RuntimeException('Could not process the donation report.', 500);
         }
-
-        \BloodMatch\Services\NotificationService::notify(
-            (int) $pre['donor_id'],
-            'donation.' . ($confirm ? 'confirmed' : 'rejected'),
-            $confirm ? 'Donation confirmed — thank you!' : 'Donation report rejected',
-            $confirm
-                ? 'Your donation was confirmed. Thank you for saving a life!'
-                : 'Your donation report could not be confirmed.',
-            [
-                'related_type' => 'donation_report',
-                'related_id' => $reportId,
-                'dedup_key' => \BloodMatch\Services\NotificationService::dedupDonation($reportId, $confirm ? 'confirmed' : 'rejected'),
-                'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
-            ]
-        );
-
         return [
             'decision' => $confirm ? 'CONFIRMED' : 'REJECTED',
-            'request_fulfilled_now' => $fulfilledNow ?? false,
+            'request_fulfilled_now' => $fulfilledNow,
         ];
     }
 }

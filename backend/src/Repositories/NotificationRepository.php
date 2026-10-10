@@ -62,7 +62,7 @@ final class NotificationRepository
         $cutoff = gmdate('Y-m-d H:i:s', strtotime($nowUtc . ' UTC') - 3600);
         $stmt = Database::pdo()->prepare(
             'SELECT COUNT(*) FROM notifications
-             WHERE user_id = ? AND emailed_at IS NOT NULL AND created_at > ?'
+             WHERE user_id = ? AND emailed_at IS NOT NULL AND emailed_at > ?'
         );
         $stmt->execute([$userId, $cutoff]);
         return (int) $stmt->fetchColumn();

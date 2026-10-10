@@ -16,7 +16,7 @@ export default function AnalyticsView() {
 
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date()
-    d.setDate(d.getDate() - 30)
+    d.setUTCDate(d.getUTCDate() - 29)
     return d.toISOString().slice(0, 10)
   })
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10))
@@ -49,11 +49,7 @@ export default function AnalyticsView() {
     setActivePreset(presetKey)
     const end = new Date()
     const start = new Date()
-    if (days === 1) {
-      start.setDate(end.getDate() - 1)
-    } else {
-      start.setDate(end.getDate() - days)
-    }
+    start.setUTCDate(end.getUTCDate() - (days - 1))
     setDateFrom(start.toISOString().slice(0, 10))
     setDateTo(end.toISOString().slice(0, 10))
   }
@@ -84,7 +80,7 @@ export default function AnalyticsView() {
             className={`btn btn-sm ${activePreset === 'daily' ? 'btn' : 'btn-secondary'}`}
             onClick={() => applyPreset('daily', 1)}
           >
-            Daily Report
+            Today (UTC)
           </button>
           <button
             type="button"
@@ -93,7 +89,7 @@ export default function AnalyticsView() {
             className={`btn btn-sm ${activePreset === 'weekly' ? 'btn' : 'btn-secondary'}`}
             onClick={() => applyPreset('weekly', 7)}
           >
-            Weekly Report
+            Last 7 days
           </button>
           <button
             type="button"
@@ -102,7 +98,7 @@ export default function AnalyticsView() {
             className={`btn btn-sm ${activePreset === 'monthly' ? 'btn' : 'btn-secondary'}`}
             onClick={() => applyPreset('monthly', 30)}
           >
-            Monthly Report
+            Last 30 days
           </button>
           <button
             type="button"
@@ -111,7 +107,7 @@ export default function AnalyticsView() {
             className={`btn btn-sm ${activePreset === 'yearly' ? 'btn' : 'btn-secondary'}`}
             onClick={() => applyPreset('yearly', 365)}
           >
-            Yearly Report
+            Last 365 days
           </button>
         </div>
       </div>
@@ -188,25 +184,25 @@ export default function AnalyticsView() {
             <div className="metric-card">
               <span className="metric-label">Total Requests</span>
               <span className="metric-value">{reqVolume.total_requests || 0}</span>
-              <span className="metric-sub">{reqVolume.total_units_needed || 0} units requested</span>
+              <span className="metric-sub">{reqVolume.total_units_requested || 0} units requested</span>
             </div>
 
             <div className="metric-card">
               <span className="metric-label">Fulfillment Rate</span>
-              <span className="metric-value">{reqVolume.fulfillment_rate !== undefined ? `${reqVolume.fulfillment_rate}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.fulfilled || 0} of {reqVolume.resolved_denominator || 0} resolved</span>
+              <span className="metric-value">{reqVolume.fulfillment_rate_percent !== undefined ? `${reqVolume.fulfillment_rate_percent}%` : '0%'}</span>
+              <span className="metric-sub">{reqVolume.fulfilled_requests || 0} of {reqVolume.resolved_requests || 0} resolved</span>
             </div>
 
             <div className="metric-card">
               <span className="metric-label">Cancellation Rate</span>
-              <span className="metric-value">{reqVolume.cancellation_rate !== undefined ? `${reqVolume.cancellation_rate}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.cancelled || 0} cancelled</span>
+              <span className="metric-value">{reqVolume.cancellation_rate_percent !== undefined ? `${reqVolume.cancellation_rate_percent}%` : '0%'}</span>
+              <span className="metric-sub">{reqVolume.cancelled_requests || 0} cancelled</span>
             </div>
 
             <div className="metric-card">
               <span className="metric-label">Expiration Rate</span>
-              <span className="metric-value">{reqVolume.expiration_rate !== undefined ? `${reqVolume.expiration_rate}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.expired || 0} expired</span>
+              <span className="metric-value">{reqVolume.expiration_rate_percent !== undefined ? `${reqVolume.expiration_rate_percent}%` : '0%'}</span>
+              <span className="metric-sub">{reqVolume.expired_requests || 0} expired</span>
             </div>
           </section>
 
@@ -215,7 +211,7 @@ export default function AnalyticsView() {
             <div className="card-header">
               <div>
                 <h3>Request Volume &amp; Fulfillment Trend</h3>
-                <span className="muted" style={{ fontSize: '0.75rem' }}>Daily timeline activity curve</span>
+                <span className="muted" style={{ fontSize: '0.75rem' }}>Requests grouped by creation date; outcomes reflect their current status</span>
               </div>
             </div>
             <DailyTrendChart trend={chartTrend} />
@@ -251,7 +247,7 @@ export default function AnalyticsView() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
                   <span className="muted">Urgent Category Demand:</span>
-                  <strong>{demandByUrg.urgent?.requests_count || 0} req ({demandByUrg.urgent?.units_needed || 0}u)</strong>
+                  <strong>{demandByUrg.urgent?.requests || 0} req ({demandByUrg.urgent?.units || 0}u)</strong>
                 </div>
               </div>
             </section>

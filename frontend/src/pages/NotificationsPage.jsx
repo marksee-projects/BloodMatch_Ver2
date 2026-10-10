@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
 import { formatNotificationTime, notificationDeepLink as deepLink } from '../services/notifications'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 export default function NotificationsPage() {
+  const { user } = useAuth()
   const [data, setData] = useState(null)
   const [page, setPage] = useState(1)
   const [errorAlert, setErrorAlert] = useState(null)
@@ -128,7 +130,7 @@ export default function NotificationsPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-3)' }}>
           {data.notifications.map((n) => {
-            const link = deepLink(n)
+            const link = deepLink(n, user?.role)
             return (
               <button
                 key={n.id}

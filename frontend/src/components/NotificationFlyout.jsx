@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Bell, X, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
 import { formatNotificationTime, notificationDeepLink } from '../services/notifications'
 
 const PREVIEW_SIZE = 10
@@ -19,6 +20,7 @@ function formatBadge(count) {
  * `mobile` (bottom sheet inside the mobile navigation panel).
  */
 export default function NotificationFlyout({ unread = 0, setUnread = () => {}, variant = 'desktop', onNavigate }) {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('all')
   const [data, setData] = useState(null)
@@ -97,7 +99,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   }, [setUnread])
 
   const openItem = async (n) => {
-    const link = notificationDeepLink(n)
+    const link = notificationDeepLink(n, user?.role)
     if (!n.read_at) {
       try {
         const r = await api.post(`/api/notifications/${n.id}/read`)
@@ -173,7 +175,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
         {data && data.notifications.length > 0 && (
           <div className="notif-items">
             {data.notifications.map((n) => {
-              const link = notificationDeepLink(n)
+              const link = notificationDeepLink(n, user?.role)
               const isUnread = !n.read_at
               return (
                 <button

@@ -14,6 +14,19 @@ final class Mailer
         return \BloodMatch\Config\Env::get('MAIL_HOST', '') !== '';
     }
 
+    /** Shared reservation gateway. Test workers supply a transport with no sockets.
+     * A deferred result consumes no transport attempt; failures after reservation do.
+     */
+    public static function attemptWithTransport(string $mailClass, callable $transport): array
+    {
+        try { $reservation = EmailAttemptBudget::reserve($mailClass); }
+        catch (\Throwable $e) { return ['status' => 'deferred', 'code' => 'accounting_unavailable']; }
+        if (!$reservation['allowed']) { return ['status' => 'deferred', 'code' => 'shared_budget']; }
+        try { $sent = $transport(); }
+        catch (\Throwable $e) { $sent = false; }
+        return ['status' => $sent ? 'sent' : 'failed', 'code' => $sent ? null : 'transport_failure'];
+    }
+
     public static function send(string $toEmail, string $subject, string $htmlBody, string $mailClass = EmailAttemptBudget::NORMAL): bool
     {
         if (filter_var($toEmail, FILTER_VALIDATE_EMAIL) === false) { return false; }
@@ -38,7 +51,7 @@ final class Mailer
         try {
             $host = (string) \BloodMatch\Config\Env::get('MAIL_HOST');
             if ($host === '' || $host === 'mock') {
-                return EmailAttemptBudget::reserve($mailClass)['allowed'];
+                return self::attemptWithTransport($mailClass, static fn () => true)['status'] === 'sent';
             }
             $mail->isSMTP();
             $mail->Host = $host;
@@ -59,12 +72,9 @@ final class Mailer
             $mail->Subject = $subject;
             $mail->isHTML(true);
             $mail->Body = $htmlBody;
-            if (!EmailAttemptBudget::reserve($mailClass)['allowed']) {
-                error_log('[mailer] deferred: shared attempt budget');
-                return false;
-            }
-            $mail->send();
-            return true;
+            $result = self::attemptWithTransport($mailClass, static fn () => $mail->send());
+            if ($result['status'] !== 'sent') { error_log('[mailer] unavailable: ' . $result['code']); }
+            return $result['status'] === 'sent';
         } catch (\Throwable $e) {
             error_log('[mailer] send unavailable: transport or accounting failure');
             return false;

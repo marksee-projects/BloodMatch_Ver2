@@ -283,6 +283,7 @@ try {
     if ($pdo->inTransaction()) { $pdo->rollBack(); }
     if ($requestIds !== []) {
         $ph = implode(',', array_fill(0, count($requestIds), '?'));
+        write("DELETE n FROM notifications n JOIN donation_reports dr ON n.related_type='donation_report' AND n.related_id=dr.id JOIN matches m ON m.id=dr.match_id WHERE m.request_id IN ($ph)", $requestIds);
         write("DELETE FROM notifications WHERE related_type = 'blood_request' AND related_id IN ($ph)", $requestIds);
         write("DELETE FROM blood_requests WHERE id IN ($ph)", $requestIds);
     }

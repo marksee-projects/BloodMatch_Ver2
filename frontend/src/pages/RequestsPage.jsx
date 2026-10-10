@@ -42,11 +42,11 @@ export default function RequestsPage() {
     setEditingId(null)
   }, [])
 
-  const handleSaved = async () => {
+  const handleSaved = async (result) => {
     const wasEditing = Boolean(editingId)
     closeForm()
     await refetch()
-    setMessage(wasEditing ? 'Request details updated.' : 'Blood request created and matching started.')
+    setMessage(result?.matching_status === 'failed_retry_required' ? 'Request saved, but matching failed. Ask an officer to retry matching; do not post a duplicate request.' : (wasEditing ? 'Request details updated.' : 'Blood request created and matching completed.'))
   }
 
   const onCancel = async () => {

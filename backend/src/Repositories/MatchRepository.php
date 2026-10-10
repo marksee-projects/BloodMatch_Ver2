@@ -126,6 +126,7 @@ final class MatchRepository
 
     public static function closeUnfinishedForRequest(int $requestId): int
     {
+        \BloodMatch\Services\NonResponseStandbyService::resolve($requestId,null,'invalidated');
         $close = Database::pdo()->prepare(
             "UPDATE matches SET status = 'CLOSED'
              WHERE request_id = ? AND status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED')"
@@ -139,6 +140,7 @@ final class MatchRepository
         if (!(new BloodRequestRepository())->setStatus($requestId, 'FULFILLED')) {
             throw new \RuntimeException('This request is no longer active.', 409);
         }
+        \BloodMatch\Services\NotificationService::notifyRequestClosed($requestId, 'FULFILLED');
         return self::closeUnfinishedForRequest($requestId);
     }
 }

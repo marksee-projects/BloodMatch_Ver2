@@ -247,7 +247,7 @@ function AppShell() {
                     >
                       <div className="nav-avatar-status-wrap">
                         <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
-                        {user.role === 'member' && user.donor_enrolled && user.availability === 'available' && !user.availability_window?.blocked && (
+                        {user.role === 'member' && user.donor_enrolled && user.donor_eligible === true && (
                           <span className="nav-availability-dot" role="img" aria-label="Available to donate" title="Available to donate" />
                         )}
                         <div style={{

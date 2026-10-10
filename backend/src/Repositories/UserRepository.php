@@ -43,7 +43,9 @@ final class UserRepository
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row === false ? null : $row;
+        if ($row===false) { return null; }
+        $row['non_response_standby']=\BloodMatch\Services\NonResponseStandbyService::state($id)['standby_started_at'];
+        return $row;
     }
 
     public function findByIdForUpdate(int $id): ?array
@@ -56,7 +58,9 @@ final class UserRepository
         );
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return $row === false ? null : $row;
+        if ($row===false) { return null; }
+        $row['non_response_standby']=\BloodMatch\Services\NonResponseStandbyService::state($id)['standby_started_at'];
+        return $row;
     }
 
     public function findByEmail(string $email): ?array

@@ -5,18 +5,19 @@
  */
 
 /** Resolve the in-app destination for a notification, if it is actionable. */
-export function notificationDeepLink(n) {
+export function notificationDeepLink(n, role = 'admin') {
   if (!n) return null
   if (n.related_type === 'blood_request' && n.related_id) {
     return `/requests/${n.related_id}/matches`
   }
   if (n.type === 'verification.requested' && n.related_id) {
-    return `/admin/verifications?user=${n.related_id}`
+    return `/${role === 'officer' ? 'officer' : 'admin'}/verifications?user=${n.related_id}`
   }
   if (n.type === 'verification.decision') return '/profile'
   if (n.type === 'verification.resubmitted') return '/profile'
   if (n.type === 'account.status_changed') return '/profile'
   if (n.type === 'donation.confirmed' || n.type === 'donation.rejected') return '/profile'
+  if (n.type === 'donation.reported' && role === 'officer') return '/officer/confirmations'
   return null
 }
 

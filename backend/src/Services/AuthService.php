@@ -300,6 +300,8 @@ final class AuthService
 
     public function publicUser(array $user): array
     {
+        $window = DonorEligibilityService::evaluateWindows($user['last_verified_donation_at'] ?? null);
+        $eligibility = DonorEligibilityService::evaluateDonor($user, null, $window);
         return [
             'id' => (int) $user['id'],
             'email' => (string) $user['email'],
@@ -310,6 +312,9 @@ final class AuthService
             'blood_type' => $user['blood_type'] ?? null,
             'donor_enrolled' => !empty($user['donor_enrolled_at']),
             'availability' => $user['donor_availability'] ?? null,
+            'availability_window' => $window,
+            'donor_eligible' => $eligibility['eligible'],
+            'non_response_standby' => $user['non_response_standby'] ?? null,
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
             'profile_picture_url' => ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),

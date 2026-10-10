@@ -213,7 +213,7 @@ final class RequestsController
             }
             return;
         }
-        Response::success(['request' => RequestService::publicView($fresh, $actor)]);
+        Response::success(['request' => RequestService::publicView($fresh, $actor), 'matching_status'=>$fresh['matching_status'] ?? 'not_required']);
     }
 
     public function matches(array $params): void

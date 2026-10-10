@@ -90,19 +90,13 @@ final class UserAdminController
         }
 
         try {
-            $repo->setRoleAndChapter($targetId, $role, $role === 'officer'
-                ? ($chapterId ?? (int) $target['chapter_id'])
-                : ($chapterId ?? ($target['chapter_id'] !== null ? (int) $target['chapter_id'] : null)));
+            \BloodMatch\Services\AccountLifecycleService::change($actorId,$targetId,[
+                'role'=>$role,
+            ] + ($chapterId===null?[]:['chapter_id'=>$chapterId]));
         } catch (\Throwable $e) {
-            Response::error('Could not update role.', 500);
+            Response::error('Could not update role.', $e instanceof \RuntimeException && in_array((int)$e->getCode(),[400,403,422],true)?(int)$e->getCode():500);
             return;
         }
-
-        AuditLogger::log($actorId, 'admin.user.role_changed', 'user', (string) $targetId, [
-            'from_role' => (string) $target['role'],
-            'to_role' => $role,
-            'chapter_id' => $chapterId,
-        ]);
 
         Response::success(['user' => (new AuthService())->publicUser($repo->findById($targetId))]);
     }
@@ -154,12 +148,10 @@ final class UserAdminController
             return;
         }
 
-        $repo->setChapter($targetId, $chapterId);
-
-        AuditLogger::log($actorId, 'admin.user.chapter_assigned', 'user', (string) $targetId, [
-            'from_chapter_id' => $target['chapter_id'],
-            'to_chapter_id' => $chapterId,
-        ]);
+        try { \BloodMatch\Services\AccountLifecycleService::change($actorId,$targetId,['chapter_id'=>$chapterId]); }
+        catch (\Throwable $e) {
+            Response::error('Could not update chapter.', $e instanceof \RuntimeException && in_array((int)$e->getCode(),[400,403,422],true)?(int)$e->getCode():500); return;
+        }
 
         Response::success(['user' => (new AuthService())->publicUser($repo->findById($targetId))]);
     }
@@ -197,37 +189,8 @@ final class UserAdminController
             return;
         }
 
-        $nowUtc = AuthService::nowUtc();
-        $deactivatedAt = $status === 'deactivated' ? $nowUtc : null;
-
-        $alreadyInState =
-            ($status === 'deactivated' && (string) $target['account_status'] === 'deactivated')
-            || ($status === 'active' && (string) $target['account_status'] === 'active');
-        if (!$alreadyInState) {
-            $repo->setStatus($targetId, $status, $deactivatedAt);
-            $auditId = AuditLogger::log(
-                $actorId,
-                $status === 'deactivated' ? 'admin.user.deactivated' : 'admin.user.reactivated',
-                'user',
-                (string) $targetId,
-                ['previous_status' => (string) $target['account_status']]
-            );
-
-            \BloodMatch\Services\NotificationService::notify(
-                $targetId,
-                'account.status_changed',
-                $status === 'deactivated' ? 'Your account has been deactivated' : 'Your account has been reactivated',
-                $status === 'deactivated'
-                    ? 'A BloodMatch officer deactivated your account. Contact an officer for details.'
-                    : 'Your account was reactivated. Welcome back!',
-                [
-                    'related_type' => 'account',
-                    'related_id' => $targetId,
-                    'dedup_key' => \BloodMatch\Services\NotificationService::dedupAccount($targetId, $status, $auditId),
-                    'email' => \BloodMatch\Services\NotificationService::EMAIL_NORMAL,
-                ]
-            );
-        }
+        try { \BloodMatch\Services\AccountLifecycleService::change($actorId,$targetId,['account_status'=>$status]); }
+        catch (\Throwable $e) { Response::error('Could not update account status.',500); return; }
 
         $fresh = $repo->findById($targetId);
         Response::success([

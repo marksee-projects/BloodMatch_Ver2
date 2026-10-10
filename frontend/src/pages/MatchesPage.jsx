@@ -54,13 +54,13 @@ export default function MatchesPage() {
   })
   useEffect(() => {
     setErrorAlert(null)
-    setMessage(location.state?.requestCreated ? 'Blood request created. Potential donors are shown below when available.' : null)
+    setMessage(location.state?.requestCreated ? (location.state.matchingStatus === 'failed_retry_required' ? 'Your request is saved, but matching failed and donor alerts were not created. Ask an officer to retry matching; do not post a duplicate request.' : 'Your request is saved and matching completed. Potential donors are shown below when available.') : null)
     setConfirmation(null)
     setReportingMatchId(null)
     setReportNote('')
   }, [id])
   useEffect(() => {
-    if (!message) return undefined
+    if (!message || location.state?.matchingStatus === 'failed_retry_required') return undefined
     const timeoutId = window.setTimeout(() => setMessage(null), 5000)
     return () => window.clearTimeout(timeoutId)
   }, [message])

@@ -16,7 +16,7 @@ export function RequestCreationProvider({ children }) {
     queryClient.invalidateQueries({ queryKey: ['my-requests'] })
     queryClient.invalidateQueries({ queryKey: ['profile'] })
     queryClient.invalidateQueries({ queryKey: ['home-feed'] })
-    navigate(`/requests/${result.request.id}/matches`, { state: { requestCreated: true } })
+    navigate(`/requests/${result.request.id}/matches`, { state: { requestCreated: true, matchingStatus: result.matching_status } })
   }
   return (
     <RequestCreationContext.Provider value={openCreateRequest}>

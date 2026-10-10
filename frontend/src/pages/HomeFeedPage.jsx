@@ -104,7 +104,7 @@ export default function HomeFeedPage() {
                 ) : (
                   <div className={styles.profileAvatar} />
                 )}
-                {user?.availability === 'available' && (
+                {user?.donor_eligible === true && (
                   <div className={styles.statusIndicator} title="Available donor" />
                 )}
               </div>

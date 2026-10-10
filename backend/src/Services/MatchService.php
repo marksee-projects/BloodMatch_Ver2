@@ -42,6 +42,7 @@ final class MatchService
         if ((string) $request['status'] !== 'OPEN') {
             throw new RuntimeException("Matching runs only against OPEN requests (current: {$request['status']}).", 409);
         }
+        WorkflowLockService::assertOpenBeforeDeadline($request);
 
         $compatibleTypes = BloodCompatibilityService::getCompatibleDonorTypes(
             (string) $request['required_blood_type']
@@ -76,6 +77,7 @@ final class MatchService
 
         $scored = [];
         foreach ($pool as $donor) {
+            $donor['non_response_standby']=NonResponseStandbyService::state((int)$donor['id'])['standby_started_at'];
             $eligibility = DonorEligibilityService::evaluateForRequest($donor, $request, $nowUtc);
             if (!$eligibility['eligible']) {
                 continue;
@@ -110,7 +112,7 @@ final class MatchService
 
         $generation = $bumpGeneration ? $currentGen + 1 : max(1, $currentGen);
 
-        $existingSql = 'SELECT id, donor_id, status FROM matches WHERE request_id = ?';
+        $existingSql = 'SELECT id, donor_id, status, generation FROM matches WHERE request_id = ?';
         $existingParams = [$requestId];
         if ($onlyDonorId !== null) {
             $existingSql .= ' AND donor_id = ?';
@@ -131,6 +133,7 @@ final class MatchService
             if (isset($existingByDonor[$donorId])) {
                 $existing = $existingByDonor[$donorId];
                 $status = (string) $existing['status'];
+                if ($status === 'COMPLETED') { continue; }
                 if ($onlyDonorId !== null && in_array($status, ['CLOSED', 'RESPONDED', 'COMPLETED'], true)) {
                     continue;
                 }
@@ -149,7 +152,7 @@ final class MatchService
                     $upd->execute([$generation, $entry['distance'], $entry['rank_score'], $status, $existing['id']]);
                 }
                 $updated++;
-                if ($onlyDonorId === null) {
+                if ($onlyDonorId === null && in_array($status, ['POTENTIAL','NOTIFIED'], true)) {
                     $notificationCandidateIds[] = $donorId;
                 }
             } else {
@@ -173,10 +176,28 @@ final class MatchService
         $closed = 0;
         foreach ($existingByDonor as $donorId => $existing) {
             $status = (string) $existing['status'];
+            if (!isset($scored[$donorId]) && $status==='RESPONDED' && $onlyDonorId===null && $trigger==='material_change') {
+                $pending=(new \BloodMatch\Repositories\DonationReportRepository())->pendingExistsForMatchForUpdate((int)$existing['id']);
+                if (!$pending) {
+                    $pdo->prepare("UPDATE matches SET status='CLOSED' WHERE id=? AND status='RESPONDED'")->execute([$existing['id']]);
+                    $closed++;
+                }
+                foreach (array_unique([$donorId,(int)$request['requester_id']]) as $recipient) {
+                    NotificationService::notify((int)$recipient,'match.invalidated','Donor offer needs review',
+                        "An offer for blood request #{$requestId} no longer meets the current compatibility or eligibility requirements." . ($pending?' Its pending report requires explicit review.':' The offer has been closed.'),[
+                            'related_type'=>'blood_request','related_id'=>$requestId,
+                            'dedup_key'=>"offer-invalid:{$existing['id']}:{$existing['generation']}:{$recipient}",
+                        ]);
+                }
+                continue;
+            }
             if (!isset($scored[$donorId]) && in_array($status, ['POTENTIAL', 'NOTIFIED'], true)) {
                 $cls = $pdo->prepare("UPDATE matches SET status = 'CLOSED' WHERE id = ?");
                 $cls->execute([$existing['id']]);
                 $closed++;
+                NonResponseStandbyService::resolve($requestId,$donorId,'invalidated');
+                $pdo->prepare("UPDATE email_outbox e JOIN notifications n ON n.id=e.notification_id SET e.status='cancelled',e.cancel_reason='donor_ineligible',e.lease_token=NULL,e.lease_expires_at=NULL,e.updated_at=UTC_TIMESTAMP(6)
+                    WHERE n.user_id=? AND n.related_type='blood_request' AND n.related_id=? AND e.status IN ('pending','leased')")->execute([$donorId,$requestId]);
             }
         }
 
@@ -223,7 +244,7 @@ final class MatchService
     }
 
     /**
-     * Reconcile one donor against at most 100 current OPEN requests.
+     * Reconcile one donor across current OPEN requests in bounded batches of 100.
      * Each request is isolated in its own transaction. Generation is never
      * bumped, notification email is disabled, and only this donor's unanswered
      * matches may change. CLOSED, RESPONDED and COMPLETED rows are preserved.
@@ -238,40 +259,23 @@ final class MatchService
     {
         $pdo = Database::pdo();
         $nowUtc = AuthService::nowUtc();
-        $stmt = $pdo->prepare(
-            "SELECT id
-               FROM blood_requests
-              WHERE status = 'OPEN'
-                AND needed_datetime >= ?
-              ORDER BY id DESC
-              LIMIT " . self::DONOR_RECONCILE_LIMIT
-        );
-        $stmt->execute([$nowUtc]);
-        $requestIds = array_map(
-            static fn ($r): int => (int) $r['id'],
-            $stmt->fetchAll(PDO::FETCH_ASSOC)
-        );
-
-        $refreshed = [];
-        foreach ($requestIds as $requestId) {
-            try {
-                $pdo->beginTransaction();
-                $this->generateForRequest(
-                    $requestId,
-                    false,
-                    $trigger,
-                    $actorId ?? $donorId,
-                    $donorId
-                );
-                $pdo->commit();
-                $refreshed[] = $requestId;
-            } catch (\Throwable $e) {
-                if ($pdo->inTransaction()) {
-                    $pdo->rollBack();
+        $bound=$pdo->prepare("SELECT COALESCE(MAX(id),0) FROM blood_requests WHERE status='OPEN' AND needed_datetime>=?");
+        $bound->execute([$nowUtc]);$lastId=(int)$bound->fetchColumn();$cursor=0;$refreshed=[];
+        do {
+            $stmt=$pdo->prepare("SELECT id FROM blood_requests WHERE status='OPEN' AND needed_datetime>=? AND id>? AND id<=? ORDER BY id LIMIT " . self::DONOR_RECONCILE_LIMIT);
+            $stmt->execute([$nowUtc,$cursor,$lastId]);$requestIds=array_map('intval',$stmt->fetchAll(PDO::FETCH_COLUMN));
+            foreach ($requestIds as $requestId) {
+                $cursor=$requestId;
+                try {
+                    $pdo->beginTransaction();
+                    $this->generateForRequest($requestId,false,$trigger,$actorId??$donorId,$donorId);
+                    $pdo->commit();$refreshed[]=$requestId;
+                } catch (\Throwable $e) {
+                    if ($pdo->inTransaction()) { $pdo->rollBack(); }
+                    error_log('[matches] donor reconciliation failed; request can be retried');
                 }
-                error_log('[matches] donor reconciliation failed for request ' . $requestId . ': ' . $e->getMessage());
             }
-        }
+        } while ($requestIds!==[]);
 
         return $refreshed;
     }

@@ -90,7 +90,9 @@ final class DonationReportController
             'can_reject' => (int) $r['donor_id'] !== (int) $actor['id'],
             'can_confirm' => (int) $r['donor_id'] !== (int) $actor['id']
                 && (string) $r['request_status'] === 'OPEN' && (string) $r['match_status'] === 'RESPONDED'
-                && !\BloodMatch\Services\RequestService::hasDeadlinePassed($r),
+                && !\BloodMatch\Services\RequestService::hasDeadlinePassed($r)
+                && !DonationService::offerInvalid(['id'=>$r['match_id'],'generation'=>$r['match_generation']],
+                    array_replace($r,['status'=>$r['request_status']]),(new \BloodMatch\Repositories\UserRepository())->findById((int)$r['donor_id'])),
         ], $rows)]);
     }
 

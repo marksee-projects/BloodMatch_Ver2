@@ -200,7 +200,9 @@ final class AnalyticsRepository
 
         // 6. Donor pool availability evaluated via DonorEligibilityService
         $donorStmt = $pdo->prepare(
-            'SELECT id, blood_type, donor_availability, last_verified_donation_at
+            'SELECT id, blood_type, donor_availability, last_verified_donation_at,
+                    role, account_status, verification_status, email_verified_at, donor_enrolled_at, date_of_birth,
+                    EXISTS (SELECT 1 FROM member_documents consent WHERE consent.user_id=users.id AND consent.doc_type=\'parental_consent\') AS has_parental_consent
              FROM users
              WHERE chapter_id = ? AND role = \'member\' AND verification_status = \'verified\'
                AND account_status = \'active\' AND donor_enrolled_at IS NOT NULL'
@@ -326,7 +328,9 @@ final class AnalyticsRepository
             $donorParams[] = $filterChapterId;
         }
         $donorStmt = $pdo->prepare(
-            'SELECT id, blood_type, donor_availability, last_verified_donation_at
+            'SELECT id, blood_type, donor_availability, last_verified_donation_at,
+                    role, account_status, verification_status, email_verified_at, donor_enrolled_at, date_of_birth,
+                    EXISTS (SELECT 1 FROM member_documents consent WHERE consent.user_id=users.id AND consent.doc_type=\'parental_consent\') AS has_parental_consent
              FROM users WHERE ' . implode(' AND ', $donorWhere)
         );
         $donorStmt->execute($donorParams);
@@ -500,9 +504,12 @@ final class AnalyticsRepository
 
         // 6. Daily request trend
         $trendStmt = $pdo->prepare(
-            "SELECT DATE(created_at) AS req_date, COUNT(id) AS req_count
+            "SELECT DATE(created_at) AS date, COUNT(id) AS requests_created,
+                    COALESCE(SUM(quantity_units),0) AS units_requested,
+                    SUM(status='FULFILLED') AS fulfilled, SUM(status='CANCELLED') AS cancelled, SUM(status='EXPIRED') AS expired,
+                    DATE(created_at) AS req_date, COUNT(id) AS req_count
              FROM blood_requests WHERE {$whereSql}
-             GROUP BY DATE(created_at) ORDER BY req_date ASC"
+             GROUP BY DATE(created_at) ORDER BY date ASC"
         );
         $trendStmt->execute($reqParams);
         $dailyTrend = $trendStmt->fetchAll(PDO::FETCH_ASSOC);
@@ -520,7 +527,9 @@ final class AnalyticsRepository
             $donorParams[] = $targetChapterId;
         }
         $donorStmt = $pdo->prepare(
-            'SELECT id, blood_type, donor_availability, last_verified_donation_at
+            'SELECT id, blood_type, donor_availability, last_verified_donation_at,
+                    role, account_status, verification_status, email_verified_at, donor_enrolled_at, date_of_birth,
+                    EXISTS (SELECT 1 FROM member_documents consent WHERE consent.user_id=users.id AND consent.doc_type=\'parental_consent\') AS has_parental_consent
              FROM users WHERE ' . implode(' AND ', $donorWhere)
         );
         $donorStmt->execute($donorParams);
@@ -588,8 +597,8 @@ final class AnalyticsRepository
         }
 
         // Completed matches in window
-        $matchWhere = ['m.status = \'COMPLETED\''];
-        $matchParams = [];
+        $matchWhere = ['m.status = \'COMPLETED\'', "EXISTS (SELECT 1 FROM donation_reports completed_report WHERE completed_report.match_id=m.id AND completed_report.status='CONFIRMED' AND completed_report.confirmed_at BETWEEN ? AND ?)"];
+        $matchParams = [$dateFrom, $dateTo];
         if ($targetChapterId !== null) {
             $matchWhere[] = 'br.request_chapter_id = ?';
             $matchParams[] = $targetChapterId;
@@ -652,6 +661,7 @@ final class AnalyticsRepository
         }
 
         foreach ($donors as $d) {
+            $d['non_response_standby']=\BloodMatch\Services\NonResponseStandbyService::state((int)$d['id'])['standby_started_at'];
             $bt = (string) ($d['blood_type'] ?? '');
             if (isset($byBloodType[$bt])) {
                 $byBloodType[$bt]++;
@@ -677,7 +687,10 @@ final class AnalyticsRepository
                     $unavailable++;
                 }
             } else {
-                $available++;
+                $eligibility = DonorEligibilityService::evaluateDonor($d, null, $window);
+                if ($eligibility['eligible']) { $available++; }
+                elseif ($avail === 'standby' || !empty($d['non_response_standby'])) { $standby++; }
+                else { $unavailable++; }
             }
         }
 
