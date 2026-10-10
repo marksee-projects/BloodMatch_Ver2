@@ -416,21 +416,21 @@ Availability statuses: `Available`, `Unavailable`, `Standby`, `Deactivated`.
 | Post-donation standby | Officer-confirmed donation | ~**42 hours** (temporary) | Donor temporarily excluded from matching |
 | Inter-donation cooldown | Officer-confirmed donation (`last_verified_donation_at`) | Configurable, ≈**3 months** per Philippine guidance | Donor ineligible for new matches until lapsed |
 
-- **Non-response to a request does NOT trigger any standby.**
+- **Current chat amendment (2026-10-10):** non-response creates a separate standby after 42 hours from a committed in-app opportunity event. Per-opportunity/generation timer history must survive quiet notification reuse; closed/overdue requests do not count. Donor acknowledgment retires elapsed timers and preserves fresh ones. This does not change either post-donation window. Additive migration preparation is approved; no migration/backfill is executed by the agent. Older-generation supersession is being aligned in the current progress record.
 - Both rules are administrative platform rules; actual medical eligibility remains with the donating facility.
 - Cooldowns **cannot be bypassed** by self-reactivation; they are enforced automatically by the backend.
 - **Reactivation:** donors may toggle ordinary availability themselves, but only where no system-enforced state blocks them (post-donation standby, cooldown). Administrative deactivation requires an authorized Chapter Officer or System Administrator to lift.
 - Verification status and donor availability are **independent states**; reactivation never resets verification status.
-- > **Resolved conflict note:** early drafts described the 42-hour rule as a *non-response penalty*. Ruled out 2026-08-26: the 42-hour period is exclusively post-donation standby.
+- > **Historical conflict note:** the 2026-08-26 exclusion of non-response standby is superseded by the user?s 2026-10-08 approval and current chat reaffirmation. Independent post-donation windows remain.
 
 ### 9.7 Notifications & Channels (FR-16, FR-17)
 
-**Deduplication rule:** at most **one match notification per donor per request per matching generation**. A new generation is created only when a material change could alter the match set: required blood type, location, chapter/outreach scope, urgency, needed date/time, or other eligibility-affecting conditions. Re-runs without material change generate nothing; a donor becoming newly eligible for an existing request is a new match event and may be notified.
+**Current deduplication/display rule:** reuse one visible opportunity notification per donor/request. Quiet edits preserve read/unread and creation timestamps. Persist separate per-generation timer history; genuine material events create their timer without restarting harmless/repeated processing. A new generation is created only when a material change could alter the match set: required blood type, location, chapter/outreach scope, urgency, needed date/time, or other eligibility-affecting conditions. Re-runs without material change generate nothing; a donor becoming newly eligible for an existing request is a new match event and may be notified.
 
 **Channels:**
 
 - **In-app notification center:** dedicated notification records with read/unread status and timestamps.
-- **Email:** separate channel for defined important events — emergency matches, verification decisions, request/account-status changes.
+- **Email:** only direct OTP/password reset through shared accounting, queued initial Emergency donor opportunities, and membership verification decisions. Other lifecycle events use in-app alerts; material-edit/rematch/response email stays off.
 
 **Emergency-request outreach:** notify all currently eligible compatible donors within the defined outreach scope (cross-chapter included). No arbitrary small recipient cap; dedup + rate-limiting prevent duplicates from repeated events/runs. Emergency notifications may send immediately, including off-hours, respecting user settings and platform delivery limits. Outreach stops when the request is FULFILLED, CANCELLED, or EXPIRED.
 
@@ -589,3 +589,7 @@ Full working-tree inspection found (on 2026-08-26):
 5. **Enforce authorization on the backend.** Never rely solely on hiding buttons in React — a user must not reach an admin endpoint by manually entering its URL. Backend routes must verify: authentication, session, role, verification status (where required), and authorization.
 6. **Keep compatibility/matching logic centralized on the backend** — never duplicated in frontend components, page scripts, or SQL queries.
 7. **Preserve historical data** — prefer soft-deactivation over deletion.
+
+### Current safety execution boundary ? 2026-10-10
+
+The current chat approvals in docs/BLOODMATCH_SAFETY_FIX_PROGRESS.md override conflicting historical proposals. Actual withdrawal/re-response transitions notify once in-app; retries remain silent. Routine/Urgent/Emergency material edits close invalid RESPONDED offers without pending reports, preserve pending reports for explicit reasoned rejection, block invalid confirmation, preserve completed donations and notify the responding donor/requester once per actual invalidation. Valid offers receive no invalidation alert. Shared email limits are 100 attempts/hour with 10 protected account slots and 450/24h with 50 protected; account mail may use remaining global capacity. Emergency grouping is five minutes, with two donor-alert emails per rolling 30 minutes across requesters. Migration 022 is prepared only; no applied/deployed claim follows from source code or old roadmap percentages.

@@ -112,6 +112,15 @@ try {
     AccountLifecycleService::change($admin['id'],$donor['id'],['chapter_id'=>2]);
     AccountLifecycleService::change($admin['id'],$donor['id'],['chapter_id'=>2]);
     check(notices($donor['id'],'account.status_changed',$donor['id'])===1,'duplicate account change creates one in-app alert');
+    $resubmit=fixture('resubmit');q("UPDATE users SET verification_status='rejected' WHERE id=?",[$resubmit['id']]);
+    q("INSERT INTO member_documents(user_id,doc_type,stored_name,mime_type,size_bytes) VALUES (?,'national_id',?,'image/png',1)",[$resubmit['id'],bin2hex(random_bytes(32))]);
+    $resubmit=(new UserRepository())->findById($resubmit['id']);
+    $pdo->beginTransaction();(new \BloodMatch\Services\VerificationService())->resubmit($resubmit);$pdo->rollBack();
+    check(q('SELECT verification_status FROM users WHERE id=?',[$resubmit['id']])->fetchColumn()==='rejected'&&notices($resubmit['id'],'verification.resubmitted',$resubmit['id'])===0,'resubmission notification/status rollback together');
+    (new \BloodMatch\Services\VerificationService())->resubmit($resubmit);
+    check(notices($resubmit['id'],'verification.resubmitted',$resubmit['id'])===1&&(int)q('SELECT COUNT(*) FROM email_outbox e JOIN notifications n ON n.id=e.notification_id WHERE n.user_id=?',[$resubmit['id']])->fetchColumn()===0,'resubmission acknowledgment is in-app only');
+    try { (new \BloodMatch\Services\VerificationService())->resubmit($resubmit);check(false,'repeat resubmission denied'); }
+    catch (RuntimeException $e) { check($e->getCode()===409&&notices($resubmit['id'],'verification.resubmitted',$resubmit['id'])===1,'repeat resubmission creates no duplicate alert'); }
     $bulk=[];for($i=0;$i<101;$i++) { $bulk[]=requestFixture($owner['id']); }
     $refreshed=$matcher->refreshMatchesForDonor($donor['id'],'fixture_refresh');
     check(array_diff($bulk,$refreshed)===[],'donor reconciliation drains more than 100 active requests in bounded batches');

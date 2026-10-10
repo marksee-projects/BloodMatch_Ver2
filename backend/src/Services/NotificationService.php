@@ -203,7 +203,8 @@ final class NotificationService
         $pdo->prepare("UPDATE notifications SET title=?,body=? WHERE type='match.new' AND related_type='blood_request' AND related_id=?")
             ->execute([$title,mb_substr($body,0,500),$requestId]);
         $notifiedDonorIds = [];
-        foreach (array_values(array_unique($eligibleDonorIds)) as $position=>$donorId) {
+        foreach (array_chunk(array_values(array_unique($eligibleDonorIds)),self::MAX_EMAIL_RECIPIENTS_PER_BATCH) as $batch) {
+        foreach ($batch as $donorId) {
             $existing=$pdo->prepare("SELECT id,generation FROM notifications WHERE user_id=? AND type='match.new' AND dedup_key=? ORDER BY id LIMIT 1 FOR UPDATE");
             $existing->execute([$donorId,self::dedupMatch($requestId,(int)$donorId)]);
             $visible=$existing->fetch(\PDO::FETCH_ASSOC);
@@ -226,7 +227,7 @@ final class NotificationService
                     'related_id' => $requestId,
                     'dedup_key' => self::dedupMatch($requestId, (int) $donorId),
                     'generation' => $generation,
-                    'email' => $position<self::MAX_EMAIL_RECIPIENTS_PER_BATCH?$emailPriority:self::EMAIL_NONE,
+                    'email' => $emailPriority,
                     'email_expires_at' => $request['needed_datetime'],
                 ]
             );
@@ -234,6 +235,7 @@ final class NotificationService
                 NonResponseStandbyService::opportunity($requestId,(int)$donorId,$generation,$id);
                 $notifiedDonorIds[] = (int) $donorId;
             }
+        }
         }
 
         return $notifiedDonorIds;

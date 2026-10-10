@@ -39,9 +39,14 @@ final class NonResponseStandbyService
     {
         if (!self::ready()) { return; } // Explicitly inactive until the user's 022 rollout.
         if (!Database::pdo()->inTransaction()) { throw new \LogicException('Opportunity requires its notification transaction.'); }
+        $s=Database::pdo()->prepare('SELECT generation FROM donor_opportunities WHERE request_id=? AND donor_id=? ORDER BY generation DESC LIMIT 1 FOR UPDATE');
+        $s->execute([$requestId,$donorId]);$latest=$s->fetchColumn();
+        if ($latest!==false && (int)$latest>$generation) { return; }
         Database::pdo()->prepare("INSERT INTO donor_opportunities(request_id,donor_id,generation,notification_id,notified_at,due_at)
             VALUES (?,?,?,?,UTC_TIMESTAMP(6),DATE_ADD(UTC_TIMESTAMP(6),INTERVAL 42 HOUR))
             ON DUPLICATE KEY UPDATE id=id")->execute([$requestId,$donorId,$generation,$notificationId]);
+        Database::pdo()->prepare("UPDATE donor_opportunities SET status='superseded' WHERE request_id=? AND donor_id=? AND generation<? AND status='pending'")
+            ->execute([$requestId,$donorId,$generation]);
     }
 
     public static function resolve(int $requestId,?int $donorId,string $status): void
@@ -67,11 +72,12 @@ final class NonResponseStandbyService
                     $request=WorkflowLockService::request((int)$row['request_id']);
                     $donor=WorkflowLockService::users([(int)$row['donor_id']])[(int)$row['donor_id']];
                     $s=$pdo->prepare('SELECT * FROM donor_opportunities WHERE id=? FOR UPDATE'); $s->execute([$row['id']]); $timer=$s->fetch(\PDO::FETCH_ASSOC);
-                    $s=$pdo->prepare('SELECT status FROM matches WHERE request_id=? AND donor_id=?'); $s->execute([$row['request_id'],$row['donor_id']]); $status=$s->fetchColumn();
+                    $s=$pdo->prepare('SELECT status,generation FROM matches WHERE request_id=? AND donor_id=?'); $s->execute([$row['request_id'],$row['donor_id']]); $match=$s->fetch(\PDO::FETCH_ASSOC);
                     $state=self::state((int)$donor['id']);
                     if (!$timer || $timer['status']!=='pending' || $timer['due_at']>$cutoff
                         || self::consumed($timer['due_at'],$state['consumed_through'])) { return false; }
-                    if ($request['status']!=='OPEN' || RequestService::hasDeadlinePassed($request) || !in_array($status,['POTENTIAL','NOTIFIED'],true)) { return false; }
+                    if ($request['status']!=='OPEN' || RequestService::hasDeadlinePassed($request) || !$match
+                        || !in_array($match['status'],['POTENTIAL','NOTIFIED'],true) || (int)$match['generation']!==(int)$timer['generation']) { return false; }
                     if ($state['standby_started_at']!==null) { return false; }
                     if ($donor['role']!=='member' || $donor['account_status']!=='active' || empty($donor['donor_enrolled_at'])) { return false; }
                     $now=(string)$pdo->query('SELECT UTC_TIMESTAMP(6)')->fetchColumn();

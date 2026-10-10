@@ -1,6 +1,6 @@
 # Email outbox and lifecycle notification proposal
 
-Marker: BM-SAFETY-PHASE5-PROPOSAL. Approval required; no application code, migration SQL or worker has been implemented in this checkpoint. Initial validation target remains bloodmatch_test:3306; no application/deployed scheduler, real-email experiment or historical backfill is authorized.
+Marker: BM-SAFETY-PHASE5-PROPOSAL. Historical proposal; current chat approvals and the current alignment in BLOODMATCH_SAFETY_FIX_PROGRESS.md supersede pending gates and conflicting channel/timer suggestions below. Outbox/accounting/enqueue and a manual fake worker are now prepared; 020/021 have user-supplied test-target evidence. This document is not current completion evidence.
 
 ## Source-verified current behavior
 
@@ -99,7 +99,7 @@ No new test command is runnable yet: there is no outbox schema/helper/worker/tes
 
 Lightweight future checks: PHP syntax, pure fake-transport/clock tests and PowerShell parse-only once after edits. No frontend build unless that phase actually changes UI.
 
-## Requested decisions
+## Historical requested decisions ? resolved items must not be asked again
 
 A. Approve 5A implementation/preparation of this additive outbox schema, operating defaults, test-only worker/task commands and no-backfill policy; migration application/task execution stay user-only. Alternatives: revise worker/retry/lifetime settings, or defer infrastructure.
 
@@ -108,3 +108,7 @@ B. Approve the table for later 5B coverage, including all compatible recipients 
 C. Choose actual-transition alerts for withdrawal/re-response (recommended), or retain lifetime response suppression. Keep material-edit/rematch opportunity email off unless explicitly changed.
 
 These choices are required by the user's original infrastructure/schema and notification-coverage approval gate. No user permission is inferred from this document. After answers, implement 5A alone and report its user-test checkpoint before starting 5B.
+
+## Current amendment - 2026-10-10
+
+Actual-transition withdrawal/re-response alerts were already approved and reaffirmed: each genuine transition gets one in-app event; repeated clicks/retries stay silent. Multiple-response permissions do not change. The approved email allowlist is direct OTP/password reset, queued initial Emergency donor opportunities and membership verification decisions only. Response, withdrawal, account, donation, closure and standby updates are in-app; material-edit/rematch email stays off. Quiet visible opportunity reuse is separate from persistent per-generation timeout history. Additive 022 preparation and donor acknowledgment are approved; application/backfill/database tests remain user-only. Only older-generation timeout supersession and removal of the retained 500-email-job cap are currently awaiting answers. Worker validation, operational targets and new infrastructure/data changes remain execution gates.

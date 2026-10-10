@@ -7,7 +7,7 @@ function nonResponseShape(PDO $pdo): array
         'donor_response_state'=>['user_id'=>['bigint unsigned','NO'],'standby_started_at'=>['datetime(6)','YES'],'consumed_through'=>['datetime(6)','YES']],
         'donor_opportunities'=>['id'=>['bigint unsigned','NO'],'request_id'=>['bigint unsigned','NO'],'donor_id'=>['bigint unsigned','NO'],
             'generation'=>['int unsigned','NO'],'notification_id'=>['bigint unsigned','YES'],'notified_at'=>['datetime(6)','NO'],
-            'due_at'=>['datetime(6)','NO'],'status'=>["enum('pending','answered','invalidated','acknowledged')",'NO']],
+            'due_at'=>['datetime(6)','NO'],'status'=>["enum('pending','answered','invalidated','acknowledged','superseded')",'NO']],
     ];
     $indexes=['donor_response_state'=>['PRIMARY'=>[0,'user_id']],
         'donor_opportunities'=>['PRIMARY'=>[0,'id'],'uq_opportunity_generation'=>[0,'request_id,donor_id,generation'],

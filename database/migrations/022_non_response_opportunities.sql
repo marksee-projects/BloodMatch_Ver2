@@ -15,7 +15,7 @@ CREATE TABLE donor_opportunities (
     notification_id BIGINT UNSIGNED NULL,
     notified_at DATETIME(6) NOT NULL,
     due_at DATETIME(6) NOT NULL,
-    status ENUM('pending','answered','invalidated','acknowledged') NOT NULL DEFAULT 'pending',
+    status ENUM('pending','answered','invalidated','acknowledged','superseded') NOT NULL DEFAULT 'pending',
     PRIMARY KEY (id),
     UNIQUE KEY uq_opportunity_generation (request_id,donor_id,generation),
     INDEX idx_opportunity_due (status,due_at,id),

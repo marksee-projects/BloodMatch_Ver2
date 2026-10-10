@@ -80,35 +80,35 @@ final class DocumentController
             return;
         }
 
-        $docId = (new DocumentRepository())->create(
-            (int) $actor['id'],
-            $docType,
-            $stored,
-            AuthService::nowUtc()
-        );
-
-        AuditLogger::log((int) $actor['id'], 'document.uploaded', 'member_document', (string) $docId, [
-            'doc_type' => $docType,
-            'mime_type' => $stored['mime_type'],
-        ]);
-
-        $verificationStatus = (string) $actor['verification_status'];
-        $resubmitted = false;
-        if ($docType === 'national_id' && (string) $actor['role'] === 'member') {
-            if ($verificationStatus === 'rejected') {
-                (new VerificationService())->resubmit($actor);
-                $verificationStatus = 'pending';
-                $resubmitted = true;
-            }
-
-            if ($verificationStatus === 'pending') {
-                NotificationService::notifyVerificationRequested(
-                    (int) $actor['id'],
-                    (string) $actor['full_name'],
-                    $docId,
-                    $resubmitted
-                );
-            }
+        try {
+            [$docId,$verificationStatus,$resubmitted]=\BloodMatch\Services\WorkflowLockService::transaction(function () use ($actor,$docType,$stored) {
+                $current=\BloodMatch\Services\WorkflowLockService::users([(int)$actor['id']])[(int)$actor['id']];
+                \BloodMatch\Services\WorkflowLockService::assertActiveActor($current);
+                if ($docType==='national_id' && $current['verification_status']==='verified') {
+                    throw new \RuntimeException('National ID uploads are locked after verification.',403);
+                }
+                $docId=(new DocumentRepository())->create((int)$current['id'],$docType,$stored,AuthService::nowUtc());
+                AuditLogger::log((int)$current['id'],'document.uploaded','member_document',(string)$docId,[
+                    'doc_type'=>$docType,'mime_type'=>$stored['mime_type'],
+                ]);
+                $verificationStatus=$current['verification_status'];$resubmitted=false;
+                if ($docType==='national_id' && $current['role']==='member') {
+                    if ($verificationStatus==='rejected') {
+                        (new VerificationService())->resubmit($current);$verificationStatus='pending';$resubmitted=true;
+                    }
+                    if ($verificationStatus==='pending') {
+                        NotificationService::notifyVerificationRequested((int)$current['id'],$current['full_name'],$docId,$resubmitted);
+                    }
+                }
+                return [$docId,$verificationStatus,$resubmitted];
+            });
+        } catch (\Throwable $e) {
+            // Only this newly stored, validated random file; never historical documents.
+            $path=DocumentStorageService::pathFor($stored['stored_name']);
+            if (is_file($path) && !@unlink($path)) { error_log('[documents] failed to remove an uncommitted upload'); }
+            $code=$e instanceof \RuntimeException && in_array((int)$e->getCode(),[403,409],true)?(int)$e->getCode():503;
+            Response::error($code===403?'National ID uploads are locked after verification.':'Could not save the document and review alerts. Please retry.',$code);
+            return;
         }
 
         $matchesRefreshed = [];

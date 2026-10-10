@@ -3,6 +3,8 @@
 > Derived from [CONTEXT.md](./CONTEXT.md) (requirements source of truth, incl. §9 Finalized Business Rules and §10 Verified Implementation Status) and [AGENTS.md](./AGENTS.md) (development rules).
 > Original plan preserved below; completed phases retain their historical verification dates. Current state (post-Phase-17) is summarized in §0.1 and “Post-Phase-17 additions”.
 
+> Current safety amendment (2026-10-10): blanket completion percentages and regression totals below are dated historical records. Use the current approval alignment in docs/BLOODMATCH_SAFETY_FIX_PROGRESS.md for authorized behavior and current verification boundaries. Prepared fake-worker/standby/reconciliation code does not establish applied schema, operational scheduling or a passed database test. Continue independent authorized work without re-requesting resolved approvals.
+
 ---
 
 ## 0. Current State Assessment

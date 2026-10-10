@@ -166,6 +166,9 @@ final class VerificationService
 
     public function resubmit(array $actor): array
     {
+        return WorkflowLockService::transaction(function () use ($actor): array {
+        $actor=WorkflowLockService::users([(int)$actor['id']])[(int)$actor['id']];
+        WorkflowLockService::assertActiveActor($actor);
         $docs = new DocumentRepository();
         $ver = new VerificationRepository();
         $nowUtc = AuthService::nowUtc();
@@ -182,7 +185,7 @@ final class VerificationService
         }
 
         $ver->setVerificationStatus($userId, 'pending');
-        $ver->addDecision($userId, $userId, 'resubmitted', null, $nowUtc);
+        $eventId=$ver->addDecision($userId, $userId, 'resubmitted', null, $nowUtc);
         $auditId = AuditLogger::log($userId, 'verification.resubmitted', 'user', (string) $userId);
 
         NotificationService::notify(
@@ -193,8 +196,8 @@ final class VerificationService
             [
                 'related_type' => 'verification',
                 'related_id' => $userId,
-                'dedup_key' => "verification:{$userId}:resubmitted:{$auditId}",
-                'email' => NotificationService::EMAIL_NORMAL,
+                'dedup_key' => "verification:{$userId}:resubmitted:decision:{$eventId}",
+                'email' => NotificationService::EMAIL_NONE,
             ]
         );
 
@@ -202,5 +205,6 @@ final class VerificationService
             'verification_status' => 'pending',
             'message' => 'Your new National ID is being reviewed. You will be notified when a decision is made.',
         ];
+        });
     }
 }
