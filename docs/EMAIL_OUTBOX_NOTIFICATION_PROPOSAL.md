@@ -2,7 +2,7 @@
 
 Marker: BM-SAFETY-PHASE5-PROPOSAL. Historical proposal; current chat approvals and the current alignment in BLOODMATCH_SAFETY_FIX_PROGRESS.md supersede pending gates and conflicting channel/timer suggestions below. Outbox/accounting/enqueue and a manual fake worker are now prepared; 020/021 have user-supplied test-target evidence. This document is not current completion evidence.
 
-## Source-verified current behavior
+## Historical source snapshot - before approved queue changes
 
 - NotificationService inserts in-app records, then sends eligible email synchronously. NotificationRepository returns NULL on a duplicate (dedup_key + generation), so repeating matching does not retry a failed email. Unconfigured SMTP and ordinary rate-limit deferrals leave no durable delivery job.
 - MatchService calls notifyMatchGeneration inside its request-locked transaction. Request creation has already inserted its request before invoking matching; matching failure is logged and creation still succeeds. Removing SMTP resolves network blocking, but does not itself repair matching-generation failures caused by SQL/reference data errors.
@@ -12,7 +12,7 @@ Marker: BM-SAFETY-PHASE5-PROPOSAL. Historical proposal; current chat approvals a
 - Verification upload/resubmission alerts active admins only. Verification decision and account deactivation/reactivation attempt normal email. Role/chapter changes lack equivalent alerts. Several verification/account/donation notification calls occur after their business writes, so an email outbox alone cannot make all events durable without moving notification creation into the business transaction.
 - Normal email cap is five per recipient/hour, Emergency bypasses it. Current counter uses notification.created_at rather than emailed_at, which is unsuitable for delayed delivery. Mailer exposes a boolean result and logs raw exception messages; SMTP acceptance is not proof of inbox delivery. No real mail or database was used to verify these facts.
 
-## Recommended small phases
+## Historical recommended phases - see current approval alignment
 
 | Phase | Deliverable / likely affected files | Verification and gate |
 |---|---|---|
@@ -22,7 +22,7 @@ Marker: BM-SAFETY-PHASE5-PROPOSAL. Historical proposal; current chat approvals a
 
 5A includes only the transaction changes needed to commit a status/response with its notification and email job, preserving existing authorization/state guards. Successful audit writes remain in that transaction; audit failure durability is still separate. Move donation decision notification creation inside its existing transaction; wrap verification/account status changes and relevant notification writes in transactions with current-actor/target state checks. Do not replay business transitions or SMTP automatically during transaction retries. Initial request creation remains independent of subsequent matching, as currently implemented. Durable recovery of an entirely failed matching-generation transaction is a separate follow-up, not a claim made by this outbox.
 
-## Approval A: outbox design and operating policy
+## Historical proposal A: outbox design and operating policy
 
 Use existing PHP/MySQL/PHPMailer, with no Redis or new package. Proposed single email_outbox table:
 
@@ -56,7 +56,7 @@ Proposed defaults requiring approval:
 - Recheck current request/deadline, generation, live donor age/consent/availability/account/compatibility and unresolved offer immediately before Emergency opportunity delivery. Cancel stale jobs on closure/generation changes/ineligibility. Chapter/distance remain ranking factors. Never hold workflow locks across network I/O: closure can still win after the last check while SMTP is underway; report that small race honestly, rather than promising recall of already sent mail.
 - First rollout queues new events only. Existing failed/no-emailed_at records are ambiguous (not requested/unconfigured/rate-limited/failed); do not bulk resend. Failed-job requeue is a future explicitly authorized CLI action, not a new management UI in this phase. OTP/password-reset remain outside this outbox pending separate secret/TTL design.
 
-## Approval B: event/recipient/channel table
+## Historical proposal B: current email allowlist overrides this table
 
 All email below is queued to verified addresses. N = normal priority subject to five/hour; E = Emergency priority. Approval is for these recipients/channels, not additional medical rules or staff permissions. 5A preserves existing coverage; expansion below is 5B.
 
@@ -80,7 +80,7 @@ All email below is queued to verified addresses. N = normal priority subject to 
 
 For closure, snapshot both unfinished offers and pending-report donors under existing request/ordered-user locks before closing offers. Notification rows/outbox insertion share that closure transaction. A pending report remains available for explicit reasoned rejection and cannot confirm; no donation/cooldown is created by a notification. Completed donors receive their existing donation message; completed-only donors are not included merely because a request later expires.
 
-## Approval C: event identity / repeated response policy
+## Resolved proposal C: actual-transition alerts already approved
 
 Recommended: every actual withdrawal/re-response transition is a new event, but duplicate clicks/retries/rematches without a new transition produce no duplicate. Generate a per-transition identifier inside its existing locked transaction and persist it in notification dedup keys (one per event + recipient, generation NOT NULL); all recipients for that transition share the identifier. An identical second Respond while RESPONDED generates nothing. Withdrawal after report submission remains forbidden. This changes notification repetition only, not multiple-active-response permissions.
 
@@ -111,4 +111,4 @@ These choices are required by the user's original infrastructure/schema and noti
 
 ## Current amendment - 2026-10-10
 
-Actual-transition withdrawal/re-response alerts were already approved and reaffirmed: each genuine transition gets one in-app event; repeated clicks/retries stay silent. Multiple-response permissions do not change. The approved email allowlist is direct OTP/password reset, queued initial Emergency donor opportunities and membership verification decisions only. Response, withdrawal, account, donation, closure and standby updates are in-app; material-edit/rematch email stays off. Quiet visible opportunity reuse is separate from persistent per-generation timeout history. Additive 022 preparation and donor acknowledgment are approved; application/backfill/database tests remain user-only. Only older-generation timeout supersession and removal of the retained 500-email-job cap are currently awaiting answers. Worker validation, operational targets and new infrastructure/data changes remain execution gates.
+Actual-transition withdrawal/re-response alerts were already approved and reaffirmed: each genuine transition gets one in-app event; repeated clicks/retries stay silent. Multiple-response permissions do not change. The approved email allowlist is direct OTP/password reset, queued initial Emergency donor opportunities and membership verification decisions only. Response, withdrawal, account, donation, closure and standby updates are in-app; material-edit/rematch email stays off. Quiet visible opportunity reuse is separate from persistent per-generation timeout history. Additive 022 preparation and donor acknowledgment are approved; application/backfill/database tests remain user-only. These are resolved: older unanswered generations are superseded with history retained; only the latest valid notified generation counts. Emergency enqueueing reaches all eligible donors in bounded batches, without a 500-job total cap. Unlimited enqueueing and actual-transition alerts were already approved and must not be asked again. Worker validation, operational targets and new infrastructure/data changes remain execution gates.

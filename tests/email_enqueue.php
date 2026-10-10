@@ -15,7 +15,7 @@ use BloodMatch\Services\MatchService;
 use BloodMatch\Services\Exceptions\EmailEnqueueException;
 
 ini_set('display_errors', '0');
-$pdo = null; $users = []; $requests = []; $passed = 0; $workers = []; $token = bin2hex(random_bytes(8));
+$pdo = null; $users = []; $requests = []; $passed = 0; $workers = []; $suiteFailed = false; $token = bin2hex(random_bytes(8));
 function q(string $sql, array $params = []): PDOStatement {
     $s = Database::pdo()->prepare($sql); $s->execute($params); return $s;
 }
@@ -214,7 +214,7 @@ try {
     check($donationsBefore === q('SELECT id,status,rejection_reason FROM donation_reports ORDER BY id')->fetchAll(PDO::FETCH_NUM), 'donation history unchanged');
     echo "$passed database enqueue checks passed\n";
 } catch (Throwable $e) {
-    fwrite(STDERR, ($e instanceof LogicException ? $e->getMessage() : 'Enqueue DB checkpoint failed; raw error withheld.') . PHP_EOL); $failed = true;
+    fwrite(STDERR, ($e instanceof LogicException ? $e->getMessage() : 'Enqueue DB checkpoint failed; raw error withheld.') . PHP_EOL); $suiteFailed = true;
 } finally {
     foreach ($workers as [$proc,$pipes]) {
         foreach ($pipes as $pipe) { if (is_resource($pipe)) { fclose($pipe); } }
@@ -230,4 +230,4 @@ try {
         echo "Exact fixture requests/users removed; notification/outbox children cleaned; audit history retained.\n";
     }
 }
-exit(isset($failed) ? 1 : 0);
+exit($suiteFailed ? 1 : 0);

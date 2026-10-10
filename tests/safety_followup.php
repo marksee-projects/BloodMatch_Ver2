@@ -92,14 +92,18 @@ try {
     $timeoutDonor=fixture('timeout');$timed=requestFixture($owner['id']);$matcher->generateForRequest($timed,true,'request_created');
     q("UPDATE donor_opportunities SET notified_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 43 HOUR),due_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 1 HOUR) WHERE request_id=? AND donor_id=?",[$timed,$timeoutDonor['id']]);
     WorkflowLockService::transaction(fn()=>Standby::opportunity($timed,$timeoutDonor['id'],2,(int)q("SELECT id FROM notifications WHERE user_id=? AND type='match.new' AND related_id=?",[$timeoutDonor['id'],$timed])->fetchColumn()));
+    q('UPDATE matches SET generation=2 WHERE request_id=? AND donor_id=?',[$timed,$timeoutDonor['id']]);
+    check(q('SELECT status FROM donor_opportunities WHERE request_id=? AND donor_id=? AND generation=1',[$timed,$timeoutDonor['id']])->fetchColumn()==='superseded'&&Standby::processDue()===0,'older elapsed generation is retained but no longer counts');
+    $elapsedRequest=requestFixture($owner['id']);$matcher->generateForRequest($elapsedRequest,true,'request_created');
+    q("UPDATE donor_opportunities SET notified_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 43 HOUR),due_at=DATE_SUB(UTC_TIMESTAMP(6),INTERVAL 1 HOUR) WHERE request_id=? AND donor_id=?",[$elapsedRequest,$timeoutDonor['id']]);
     $freshRequest=requestFixture($owner['id']);$matcher->generateForRequest($freshRequest,true,'request_created');
     $donationBefore=q('SELECT last_verified_donation_at,donor_availability FROM users WHERE id=?',[$timeoutDonor['id']])->fetch(PDO::FETCH_NUM);
     check(Standby::processDue()===1&&Standby::state($timeoutDonor['id'])['standby_started_at']!==null,'elapsed opportunity creates independent standby');
     check(q('SELECT last_verified_donation_at,donor_availability FROM users WHERE id=?',[$timeoutDonor['id']])->fetch(PDO::FETCH_NUM)===$donationBefore,'standby does not overwrite donation anchor or stored availability');
     check(Standby::processDue()===0,'repeat detection does not duplicate standby transition');
     check(Standby::acknowledge($timeoutDonor['id'])&& !Standby::acknowledge($timeoutDonor['id']),'explicit acknowledgment is idempotent');
-    check(q('SELECT status FROM donor_opportunities WHERE request_id=? AND donor_id=? AND generation=1',[$timed,$timeoutDonor['id']])->fetchColumn()==='acknowledged'
-        &&q('SELECT status FROM donor_opportunities WHERE request_id=? AND donor_id=? AND generation=2',[$timed,$timeoutDonor['id']])->fetchColumn()==='pending','due-at watermark retires elapsed generation and preserves fresh generation');
+    check(q('SELECT status FROM donor_opportunities WHERE request_id=? AND donor_id=? AND generation=1',[$elapsedRequest,$timeoutDonor['id']])->fetchColumn()==='acknowledged'
+        &&q('SELECT status FROM donor_opportunities WHERE request_id=? AND donor_id=? AND generation=2',[$timed,$timeoutDonor['id']])->fetchColumn()==='pending','due-at watermark retires elapsed request and preserves fresh generation');
     check(q('SELECT status FROM donor_opportunities WHERE request_id=? AND donor_id=?',[$freshRequest,$timeoutDonor['id']])->fetchColumn()==='pending','acknowledgment preserves fresh opportunities on another request');
     check(Standby::processDue()===0,'acknowledged timeout cannot immediately retrigger');
     q("UPDATE donor_opportunities SET due_at=DATE_ADD((SELECT consumed_through FROM donor_response_state WHERE user_id=?),INTERVAL 1 MICROSECOND) WHERE request_id=? AND donor_id=? AND generation=2",[$timeoutDonor['id'],$timed,$timeoutDonor['id']]);
@@ -124,6 +128,10 @@ try {
     $bulk=[];for($i=0;$i<101;$i++) { $bulk[]=requestFixture($owner['id']); }
     $refreshed=$matcher->refreshMatchesForDonor($donor['id'],'fixture_refresh');
     check(array_diff($bulk,$refreshed)===[],'donor reconciliation drains more than 100 active requests in bounded batches');
+    $fanout=requestFixture($owner['id']);q("UPDATE blood_requests SET urgency='emergency' WHERE id=?",[$fanout]);
+    $fanoutDonors=[];for($i=0;$i<501;$i++) { $fanoutDonors[]=fixture('fanout-'.$i)['id']; }
+    NotificationService::notifyMatchGeneration((new BloodRequestRepository())->findById($fanout),1,$fanoutDonors,true);
+    check((int)q("SELECT COUNT(*) FROM email_outbox e JOIN notifications n ON n.id=e.notification_id WHERE n.related_type='blood_request' AND n.related_id=?",[$fanout])->fetchColumn()===501,'all 501 eligible Emergency donors enqueue in bounded batches');
     check($attempts===q('SELECT * FROM email_attempts ORDER BY id')->fetchAll(PDO::FETCH_NUM)&&\PHPMailer\PHPMailer\PHPMailer::$calls===0,'no transport or accounting attempts in lifecycle suite');
     echo "$passed safety follow-up database checks passed\n";
 } catch (Throwable $e) { $failed=true;fwrite(STDERR,$e instanceof LogicException?$e->getMessage().PHP_EOL:"Safety follow-up failed; raw error withheld.\n"); }

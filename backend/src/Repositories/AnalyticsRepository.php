@@ -418,7 +418,7 @@ final class AnalyticsRepository
 
         $dateFrom = isset($filters['date_from']) && is_string($filters['date_from']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($filters['date_from']))
             ? trim($filters['date_from']) . ' 00:00:00'
-            : gmdate('Y-m-d 00:00:00', strtotime('-30 days'));
+            : gmdate('Y-m-d 00:00:00', strtotime('-29 days'));
 
         // 3. Request metrics within window
         $reqWhere = ['created_at BETWEEN ? AND ?'];

@@ -99,8 +99,11 @@ final class VerificationService
             throw new RuntimeException('Only member accounts can go through verification.', 403);
         }
 
-        if ((string) $actor['role'] === 'officer') {
-            AuthBridge::assertChapter($actor, (int) $target['chapter_id'], 'officer.verifications.decide');
+        if ((string) $actor['role'] === 'officer' && ($actor['chapter_id']===null || $target['chapter_id']===null
+            || (int)$actor['chapter_id']!==(int)$target['chapter_id'])) {
+            // Service callers must unwind their transaction and fixture cleanup;
+            // HTTP middleware's exit would bypass both. The same scope stays denied.
+            throw new RuntimeException('Forbidden.',403);
         }
 
         $currentVs = (string) $target['verification_status'];
@@ -167,44 +170,44 @@ final class VerificationService
     public function resubmit(array $actor): array
     {
         return WorkflowLockService::transaction(function () use ($actor): array {
-        $actor=WorkflowLockService::users([(int)$actor['id']])[(int)$actor['id']];
-        WorkflowLockService::assertActiveActor($actor);
-        $docs = new DocumentRepository();
-        $ver = new VerificationRepository();
-        $nowUtc = AuthService::nowUtc();
+            $actor=WorkflowLockService::users([(int)$actor['id']])[(int)$actor['id']];
+            WorkflowLockService::assertActiveActor($actor);
+            $docs = new DocumentRepository();
+            $ver = new VerificationRepository();
+            $nowUtc = AuthService::nowUtc();
 
-        $userId = (int) $actor['id'];
-        if ((string) $actor['role'] !== 'member') {
-            throw new RuntimeException('Only members resubmit for verification.', 403);
-        }
-        if ((string) $actor['verification_status'] !== 'rejected') {
-            throw new RuntimeException('Resubmission is only available after rejection.', 409);
-        }
-        if (!$docs->hasType($userId, 'national_id')) {
-            throw new RuntimeException('Upload at least one national ID document before resubmitting.', 400);
-        }
+            $userId = (int) $actor['id'];
+            if ((string) $actor['role'] !== 'member') {
+                throw new RuntimeException('Only members resubmit for verification.', 403);
+            }
+            if ((string) $actor['verification_status'] !== 'rejected') {
+                throw new RuntimeException('Resubmission is only available after rejection.', 409);
+            }
+            if (!$docs->hasType($userId, 'national_id')) {
+                throw new RuntimeException('Upload at least one national ID document before resubmitting.', 400);
+            }
 
-        $ver->setVerificationStatus($userId, 'pending');
-        $eventId=$ver->addDecision($userId, $userId, 'resubmitted', null, $nowUtc);
-        $auditId = AuditLogger::log($userId, 'verification.resubmitted', 'user', (string) $userId);
+            $ver->setVerificationStatus($userId, 'pending');
+            $eventId=$ver->addDecision($userId, $userId, 'resubmitted', null, $nowUtc);
+            AuditLogger::log($userId, 'verification.resubmitted', 'user', (string) $userId);
 
-        NotificationService::notify(
-            $userId,
-            'verification.resubmitted',
-            'Verification is being processed',
-            'We received your new National ID. Your account is being reviewed. Please wait—you will be notified when a decision is made.',
-            [
-                'related_type' => 'verification',
-                'related_id' => $userId,
-                'dedup_key' => "verification:{$userId}:resubmitted:decision:{$eventId}",
-                'email' => NotificationService::EMAIL_NONE,
-            ]
-        );
+            NotificationService::notify(
+                $userId,
+                'verification.resubmitted',
+                'Verification is being processed',
+                'We received your new National ID. Your account is being reviewed. Please wait—you will be notified when a decision is made.',
+                [
+                    'related_type' => 'verification',
+                    'related_id' => $userId,
+                    'dedup_key' => "verification:{$userId}:resubmitted:decision:{$eventId}",
+                    'email' => NotificationService::EMAIL_NONE,
+                ]
+            );
 
-        return [
-            'verification_status' => 'pending',
-            'message' => 'Your new National ID is being reviewed. You will be notified when a decision is made.',
-        ];
+            return [
+                'verification_status' => 'pending',
+                'message' => 'Your new National ID is being reviewed. You will be notified when a decision is made.',
+            ];
         });
     }
 }

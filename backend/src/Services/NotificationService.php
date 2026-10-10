@@ -156,11 +156,13 @@ final class NotificationService
     public static function notifyMany(array $userIds, string $type, string $title, string $body, array $options = []): array
     {
         $notified = [];
-        foreach (array_slice(array_unique($userIds), 0, self::MAX_EMAIL_RECIPIENTS_PER_BATCH * 10) as $uid) {
+        foreach (array_chunk(array_unique($userIds),self::MAX_EMAIL_RECIPIENTS_PER_BATCH) as $batch) {
+        foreach ($batch as $uid) {
             $id = self::notify($uid, $type, $title, $body, $options);
             if ($id !== null) {
                 $notified[$id] = $uid;
             }
+        }
         }
         return $notified;
     }
@@ -205,7 +207,7 @@ final class NotificationService
         $notifiedDonorIds = [];
         foreach (array_chunk(array_values(array_unique($eligibleDonorIds)),self::MAX_EMAIL_RECIPIENTS_PER_BATCH) as $batch) {
         foreach ($batch as $donorId) {
-            $existing=$pdo->prepare("SELECT id,generation FROM notifications WHERE user_id=? AND type='match.new' AND dedup_key=? ORDER BY id LIMIT 1 FOR UPDATE");
+            $existing=$pdo->prepare("SELECT id,generation FROM notifications WHERE user_id=? AND type='match.new' AND dedup_key=? ORDER BY generation DESC,id DESC LIMIT 1 FOR UPDATE");
             $existing->execute([$donorId,self::dedupMatch($requestId,(int)$donorId)]);
             $visible=$existing->fetch(\PDO::FETCH_ASSOC);
             $visibleId=$visible===false?false:$visible['id'];

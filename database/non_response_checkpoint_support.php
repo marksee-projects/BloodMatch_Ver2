@@ -28,7 +28,9 @@ function nonResponseShape(PDO $pdo): array
             $type=preg_replace('/^(bigint|int)\(\d+\)/','$1',$row['COLUMN_TYPE']);
             $actual[$row['COLUMN_NAME']]=[$type,$row['IS_NULLABLE']];
             if (($row['COLUMN_NAME']==='id')!==str_contains($row['EXTRA'],'auto_increment')) { throw new LogicException('Unexpected identity shape.'); }
+            if ($row['COLUMN_NAME']!=='id' && $row['EXTRA']!=='') { throw new LogicException('Unexpected generated/on-update column.'); }
             if ($row['COLUMN_NAME']==='status' && trim((string)$row['COLUMN_DEFAULT'],"'")!=='pending') { throw new LogicException('Unexpected opportunity default.'); }
+            if ($row['COLUMN_NAME']!=='status' && !in_array(strtoupper((string)$row['COLUMN_DEFAULT']),['','NULL'],true)) { throw new LogicException('Unexpected column default.'); }
         }
         if ($actual!==$columns) { throw new LogicException('Column drift: '.$table); }
         $s=$pdo->prepare('SELECT INDEX_NAME,NON_UNIQUE,GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? GROUP BY INDEX_NAME,NON_UNIQUE');

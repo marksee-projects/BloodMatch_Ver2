@@ -209,11 +209,13 @@ final class MatchService
         );
 
         if ($notifiedDonorIds !== []) {
-            $ph = implode(',', array_fill(0, count($notifiedDonorIds), '?'));
+            foreach (array_chunk($notifiedDonorIds,500) as $notificationBatch) {
+            $ph = implode(',', array_fill(0, count($notificationBatch), '?'));
             $pdo->prepare(
                 "UPDATE matches SET status = 'NOTIFIED'
                  WHERE request_id = ? AND donor_id IN ($ph) AND status = 'POTENTIAL'"
-            )->execute(array_merge([$requestId], $notifiedDonorIds));
+            )->execute(array_merge([$requestId], $notificationBatch));
+            }
         }
 
         AuditLogger::log(
