@@ -42,8 +42,8 @@ final class MatchResponseService
                         $repo->setStatus($matchId, 'RESPONDED');
                     }
                 }
-                $title = sprintf('A donor responded to request #%d', $requestId);
-                $body = 'A donor has offered to help with your blood request. Open BloodMatch to review the response.';
+                $title = 'A donor responded to your blood request';
+                $body = NotificationService::displayName($actorId) . ' has offered to help with your blood request. Open BloodMatch to review the response.';
                 $notificationId=null;
                 if (!$wasResponded) {
                     $base=NotificationService::dedupMatchResponse($requestId,$actorId);
@@ -125,7 +125,7 @@ final class MatchResponseService
             $previousEvent = (int)$event->fetchColumn();
             foreach (array_unique([(int)$request['requester_id'], (int)$currentActor['id']]) as $recipientId) {
                 NotificationService::notify($recipientId, 'match.withdrawn', 'Donor offer withdrawn',
-                    'An offer to help with blood request #' . $request['id'] . ' has been withdrawn.', [
+                    NotificationService::displayName((int)$currentActor['id']) . " withdrew their offer to help with " . NotificationService::requestDescription((int)$request['requester_id']) . '.', [
                         'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
                         'dedup_key'=>"withdrawal:{$matchId}:after:{$previousEvent}:{$recipientId}",
                     ]);

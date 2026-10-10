@@ -372,7 +372,7 @@ export default function ProfilePage() {
             <dl className={styles.aboutDetails}>
               <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
               <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
-              <div><dt>Municipality</dt><dd>{profile.location?.municipality_name || 'Not provided'}</dd></div>
+              <div><dt>Municipality</dt><dd>{profile.location?.municipality_name || 'Municipality not provided'}</dd></div>
               <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
               <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
               {profile.role === 'member' && <div><dt>Donor status</dt><dd>{availabilityStatus}</dd></div>}

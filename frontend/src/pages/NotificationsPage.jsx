@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
-import { formatNotificationTime, notificationDeepLink as deepLink } from '../services/notifications'
+import { formatNotificationTime, notificationDeepLink as deepLink, notificationDisplayText } from '../services/notifications'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 export default function NotificationsPage() {
@@ -141,7 +141,7 @@ export default function NotificationsPage() {
                   if (link) window.location.href = link
                 }}
                 style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', marginBottom: '8px' }}
-                aria-label={`${n.title}. ${!n.read_at ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
+                aria-label={`${notificationDisplayText(n, 'title')}. ${!n.read_at ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
               >
                 <div className="notif-item-avatar-wrapper">
                   <img src="/favicon-demolay.png?v=2" alt="BloodMatch" className="notif-avatar" />
@@ -150,8 +150,8 @@ export default function NotificationsPage() {
                   </div>
                 </div>
                 <div className="notif-item-content">
-                  <div className="notif-item-title-fb">{n.title}</div>
-                  <div className="notif-item-body-fb">{n.body}</div>
+                  <div className="notif-item-title-fb">{notificationDisplayText(n, 'title')}</div>
+                  <div className="notif-item-body-fb">{notificationDisplayText(n, 'body')}</div>
                   <div className="notif-item-meta-fb">
                     {n.related_type === 'blood_request' && n.related_request_status && (
                       <span className="notif-item-status-fb">

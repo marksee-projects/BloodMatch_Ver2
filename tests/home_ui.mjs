@@ -135,6 +135,13 @@ try {
   assert(!staff.includes('Staff accounts') && !staff.includes('class="responseReason"'), 'Staff-only donation message is omitted')
   assert(renderCard({ ...request, urgency: 'routine' }).includes('ROUTINE'), 'Routine wording retained')
   expanded = false
+  const collapsedResponse = renderCard({ ...request, responded: true, can_respond: false })
+  assert(collapsedResponse.includes('class="responseStatus"') && collapsedResponse.includes('Responded'), 'Responded status remains visible on a collapsed card')
+  assert(!collapsedResponse.includes('class="expandedContent"'), 'Top status does not require expanded details')
+  expanded = true
+  const expandedResponse = renderCard({ ...request, responded: true, can_respond: false })
+  assert(!expandedResponse.match(/<button[^>]*>Respond(?:ed)?<\/button>/), 'Already responded action is replaced by the top status')
+  expanded = false
   function home(url, requests) {
     const params = new URLSearchParams(url.split('?')[1] || '')
     params.delete('page')

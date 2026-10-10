@@ -12,6 +12,17 @@ final class NotificationService
 
     private const MAX_EMAIL_RECIPIENTS_PER_BATCH = 500;
 
+    public static function displayName(int $userId): string
+    {
+        $user = (new \BloodMatch\Repositories\UserRepository())->findProfileDisplayById($userId);
+        return trim((string) ($user['full_name'] ?? '')) ?: 'A community member';
+    }
+
+    public static function requestDescription(int $requesterId): string
+    {
+        return self::displayName($requesterId) . "'s blood request";
+    }
+
     public static function dedupMatch(int $requestId, int $donorId): string
     {
         return "match:{$requestId}:{$donorId}";
@@ -96,9 +107,12 @@ final class NotificationService
             (m.status IN ('POTENTIAL','NOTIFIED','RESPONDED') OR EXISTS
                 (SELECT 1 FROM donation_reports dr WHERE dr.match_id=m.id AND dr.status='PENDING'))");
         $s->execute([$requestId]);
-        foreach ($s->fetchAll(\PDO::FETCH_COLUMN) as $donorId) {
+        $donorIds = $s->fetchAll(\PDO::FETCH_COLUMN);
+        $request = (new \BloodMatch\Repositories\BloodRequestRepository())->findById($requestId);
+        $description = self::requestDescription((int) $request['requester_id']);
+        foreach ($donorIds as $donorId) {
             self::notify((int)$donorId, 'request.' . strtolower($status), 'Blood request ' . strtolower($status),
-                "Blood request #{$requestId} is " . strtolower($status) . '. Unfinished offers are closed; pending donation reports remain available for review.', [
+                $description . ' is ' . strtolower($status) . '. Unfinished offers are closed; pending donation reports remain available for review.', [
                     'related_type'=>'blood_request', 'related_id'=>$requestId,
                     'dedup_key'=>"request:{$requestId}:{$status}:donor:{$donorId}",
                 ]);
@@ -194,9 +208,10 @@ final class NotificationService
             ? self::EMAIL_EMERGENCY
             : self::EMAIL_NONE;
 
-        $title = sprintf('New compatible donation opportunity (#%d)', $requestId);
+        $title = 'Compatible donation opportunity';
         $body = sprintf(
-            'A blood request (%s) for blood type %s near %s needs donors like you. Open BloodMatch for details.',
+            '%s (%s) for blood type %s near %s needs donors like you. Open BloodMatch for details.',
+            self::requestDescription((int) $request['requester_id']),
             ucfirst((string) $request['urgency']),
             (string) $request['required_blood_type'],
             (string) $request['facility_name']

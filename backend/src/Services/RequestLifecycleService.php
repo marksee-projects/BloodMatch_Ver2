@@ -76,7 +76,7 @@ final class RequestLifecycleService
                 AuditLogger::log((int) $actor['id'], 'request.cancelled', 'blood_request', (string) $requestId,
                     ['via' => $via, 'closed_matches' => $closed]);
                 NotificationService::notify((int) $request['requester_id'], 'request.cancelled', 'Blood request cancelled',
-                    sprintf('Your blood request #%d has been cancelled.', $requestId), [
+                    'Your blood request has been cancelled.', [
                         'related_type' => 'blood_request', 'related_id' => $requestId,
                         'dedup_key' => "request:{$requestId}:cancelled",
                     ]);
@@ -98,7 +98,7 @@ final class RequestLifecycleService
             WorkflowLockService::users([(int) $request['requester_id']]);
             $closed = $this->closeLocked($requestId, 'EXPIRED', $cutoffUtc);
             NotificationService::notify((int) $request['requester_id'], 'request.expired', 'Blood request expired',
-                sprintf('Your blood request #%d passed its needed date and has expired.', $requestId), [
+                'Your blood request passed its needed date and has expired.', [
                     'related_type' => 'blood_request', 'related_id' => $requestId,
                     'dedup_key' => 'request:' . $requestId . ':expired',
                 ]);

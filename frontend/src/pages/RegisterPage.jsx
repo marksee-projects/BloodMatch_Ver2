@@ -17,6 +17,8 @@ import {
 import { api } from '../services/apiClient'
 import PrivacyConsentModal, { CONSENT_STORAGE_KEY } from '../components/PrivacyConsentModal'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
+import LocationSelector from '../components/LocationSelector'
+import { registrationPayload, registrationFormData } from '../services/registrationPayload'
 import styles from './RegisterPage.module.css'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
@@ -41,6 +43,7 @@ export default function RegisterPage() {
   })
 
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
+  const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [registeredEmail, setRegisteredEmail] = useState('')
 
   const [showPassword, setShowPassword] = useState(false)
@@ -224,6 +227,9 @@ export default function RegisterPage() {
       if (idError) {
         errors.idFile = idError
       }
+      if (location.municipality_code && !location.location_id) {
+        errors.location_id = 'Select a valid municipality and barangay from the list.'
+      }
     }
 
     if (currentStep === 3) {
@@ -268,33 +274,11 @@ export default function RegisterPage() {
 
     try {
       let registration
+      const payload = registrationPayload(form, location)
       if (idFile) {
-        const fd = new FormData()
-        fd.append('first_name', form.first_name.trim())
-        if (form.middle_name) fd.append('middle_name', form.middle_name.trim())
-        fd.append('last_name', form.last_name.trim())
-        fd.append('email', form.email.trim().toLowerCase())
-        fd.append('password', form.password)
-        fd.append('chapter_id', form.chapter_id)
-        fd.append('date_of_birth', form.date_of_birth)
-        if (form.blood_type) fd.append('blood_type', form.blood_type)
-        if (form.phone) fd.append('phone', form.phone.trim())
-        fd.append('privacy_acknowledged', 'true')
-        fd.append('national_id', idFile)
-        registration = await api.postForm('/api/register', fd)
+        registration = await api.postForm('/api/register', registrationFormData(payload, idFile))
       } else {
-        registration = await api.post('/api/register', {
-          first_name: form.first_name.trim(),
-          middle_name: form.middle_name.trim() || null,
-          last_name: form.last_name.trim(),
-          email: form.email.trim().toLowerCase(),
-          password: form.password,
-          chapter_id: Number(form.chapter_id),
-          date_of_birth: form.date_of_birth,
-          blood_type: form.blood_type || null,
-          phone: form.phone.trim() || null,
-          privacy_acknowledged: true
-        })
+        registration = await api.post('/api/register', payload)
       }
       setRegisteredEmail(registration?.user?.email || form.email.trim().toLowerCase())
       if (registration?.user?.email_verified !== true) {
@@ -308,7 +292,7 @@ export default function RegisterPage() {
         // If error belongs to step 1 or 2, jump back to that step
         if (err.details.first_name || err.details.last_name || err.details.email || err.details.password || err.details.chapter_id) {
           setStep(1)
-        } else if (err.details.date_of_birth || err.details.blood_type || err.details.phone) {
+        } else if (err.details.date_of_birth || err.details.blood_type || err.details.phone || err.details.location_id || err.details.municipality_code || err.details.barangay_code) {
           setStep(2)
         }
       } else {
@@ -649,6 +633,11 @@ export default function RegisterPage() {
                   )}
                 </div>
               </div>
+
+              <LocationSelector municipalityId="registration-municipality"
+                municipalityCode={location.municipality_code} barangayCode={location.barangay_code}
+                onChange={setLocation} required={false} errors={serverErrors} />
+              {stepErrors.location_id && <span className="field-error">{stepErrors.location_id}</span>}
 
               <div className="field">
                 <label htmlFor="phone">Phone number</label>

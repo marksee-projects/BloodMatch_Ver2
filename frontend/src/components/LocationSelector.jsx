@@ -18,6 +18,7 @@ export default function LocationSelector({
 }) {
   const [municipalities, setMunicipalities] = useState([])
   const [barangays, setBarangays] = useState([])
+  const [loadedMunicipality, setLoadedMunicipality] = useState(null)
   const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
@@ -33,10 +34,15 @@ export default function LocationSelector({
       return undefined
     }
     let active = true
+    setBarangays([])
+    setLoadError(null)
     api
       .get(`/api/locations/barangays?municipality_code=${encodeURIComponent(municipalityCode)}`)
       .then((d) => {
-        if (active) setBarangays(d.barangays || [])
+        if (active) {
+          setBarangays(d.barangays || [])
+          setLoadedMunicipality(municipalityCode)
+        }
       })
       .catch((err) => {
         if (active) setLoadError(err.message)
@@ -58,7 +64,9 @@ export default function LocationSelector({
   }
 
   const handleBarangay = (val) => {
-    const brgy = barangays.find((b) => b.name.toLowerCase() === val.toLowerCase().trim())
+    // Ignore stale options while a different municipality is loading.
+    const brgy = loadedMunicipality === municipalityCode
+      ? barangays.find((b) => b.name.toLowerCase() === val.toLowerCase().trim()) : null
     const code = brgy ? brgy.psgc_code : ''
     onChange({
       location_id: brgy ? brgy.location_id : (municipalities.find((m) => m.psgc_code === municipalityCode)?.location_id ?? null),
@@ -90,7 +98,7 @@ export default function LocationSelector({
           id={`${municipalityId}-barangay`}
           value={barangays.find(b => b.psgc_code === barangayCode)?.name || ''}
           onChange={handleBarangay}
-          options={barangays.map(b => ({ label: b.name, value: b.name }))}
+          options={(loadedMunicipality === municipalityCode ? barangays : []).map(b => ({ label: b.name, value: b.name }))}
           placeholder="Select Barangay..."
           required={required}
         />

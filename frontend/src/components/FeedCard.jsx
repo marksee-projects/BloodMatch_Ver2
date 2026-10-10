@@ -82,6 +82,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
             </span>
             <span className={styles.chapter}>{request.requester_chapter_name ? `${request.requester_chapter_name} member` : 'Chapter not assigned'}</span>
             <span className={styles.postedTime}>{formatPostedTime(request.created_at)}</span>
+            {responded && <span className={styles.responseStatus}><Badge variant="neutral">Responded</Badge></span>}
           </span>
 
           <span className={styles.summaryMeta}>
@@ -115,11 +116,11 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
             {!hideActions && (
               <div>
                 <footer className={styles.actions}>
-                  <Button type="button" variant="primary" disabled={!canRespond || response.isPending}
+                  {!responded && <Button type="button" variant="primary" disabled={!canRespond || response.isPending}
                     isLoading={response.isPending} aria-describedby={responseReason ? reasonId : undefined}
                     onClick={() => { response.reset(); setConfirmingResponse(true) }}>
-                    {responded ? 'Responded' : 'Respond'}
-                  </Button>
+                    Respond
+                  </Button>}
                   <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
                 </footer>
                 {responseReason && <p id={reasonId} className={styles.responseReason} role="status">{responseReason}</p>}

@@ -69,7 +69,7 @@ final class DonationService
             }
             foreach ($reviewers as $reviewerId) {
                 NotificationService::notify((int)$reviewerId, 'donation.reported', 'Donation report awaiting review',
-                    "A donation report for blood request #{$request['id']} is awaiting review.", [
+                    NotificationService::displayName($donorId) . " submitted a donation report for " . NotificationService::requestDescription((int)$request['requester_id']) . '. It is awaiting review.', [
                         'related_type'=>'donation_report', 'related_id'=>$reportId,
                         'dedup_key'=>"donation:{$reportId}:submitted:{$reviewerId}",
                     ]);
@@ -185,14 +185,14 @@ final class DonationService
 
                 if ($confirm) {
                     NotificationService::notify((int)$request['requester_id'], 'donation.confirmed', 'Donation confirmed',
-                        "A donation for your blood request #{$request['id']} was confirmed.", [
+                        NotificationService::displayName((int)$row['donor_id']) . "'s donation for your blood request was confirmed.", [
                             'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
                             'dedup_key'=>"donation:{$reportId}:confirmed:requester",
                         ]);
                 }
                 if ($fulfilledNow) {
                     NotificationService::notify((int)$request['requester_id'], 'request.fulfilled', 'Blood request fulfilled',
-                        "Your blood request #{$request['id']} has been fulfilled.", [
+                        'Your blood request has been fulfilled.', [
                             'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
                             'dedup_key'=>"request:{$request['id']}:fulfilled",
                         ]);

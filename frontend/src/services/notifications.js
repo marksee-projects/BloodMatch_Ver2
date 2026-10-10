@@ -5,6 +5,14 @@
  */
 
 /** Resolve the in-app destination for a notification, if it is actionable. */
+export function notificationDisplayText(notification, field) {
+  const text = String(notification?.[field] || '')
+  if (!['blood_request', 'donation_report'].includes(notification?.related_type)) return text
+  // Presentation only for legacy rows: keep stored IDs, links and read state intact.
+  return text.replace(/\b(blood request|request)\s+#\d+\b/gi, '$1')
+    .replace(/(compatible donation opportunity)\s+\(#\d+\)/gi, '$1')
+}
+
 export function notificationDeepLink(n, role = 'admin') {
   if (!n) return null
   if (n.related_type === 'blood_request' && n.related_id) {

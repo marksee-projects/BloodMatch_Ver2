@@ -184,7 +184,7 @@ final class MatchService
                 }
                 foreach (array_unique([$donorId,(int)$request['requester_id']]) as $recipient) {
                     NotificationService::notify((int)$recipient,'match.invalidated','Donor offer needs review',
-                        "An offer for blood request #{$requestId} no longer meets the current compatibility or eligibility requirements." . ($pending?' Its pending report requires explicit review.':' The offer has been closed.'),[
+                        NotificationService::displayName((int)$donorId) . "'s offer for " . NotificationService::requestDescription((int)$request['requester_id']) . " no longer meets the current compatibility or eligibility requirements." . ($pending?' Its pending report requires explicit review.':' The offer has been closed.'),[
                             'related_type'=>'blood_request','related_id'=>$requestId,
                             'dedup_key'=>"offer-invalid:{$existing['id']}:{$existing['generation']}:{$recipient}",
                         ]);

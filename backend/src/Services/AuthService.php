@@ -62,6 +62,7 @@ final class AuthService
         $bloodType = Request::str('blood_type', $input);
         $latitude = null;
         $longitude = null;
+        $location = null;
 
         $allowedBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
@@ -100,7 +101,14 @@ final class AuthService
         }
 
         if (array_key_exists('latitude', $input) || array_key_exists('longitude', $input)) {
-            $v->addError('location_id', 'Set your location after registration using the Bataan municipality/barangay selector.');
+            $v->addError('location_id', 'Use the Bataan municipality/barangay selector; coordinates cannot be supplied directly.');
+        }
+
+        if ((array_key_exists('location_id', $input) && $input['location_id'] !== null && $input['location_id'] !== '')
+            || !empty($input['municipality_code']) || !empty($input['barangay_code'])) {
+            $location = LocationService::resolveSelection($input);
+            $latitude = $location['latitude'];
+            $longitude = $location['longitude'];
         }
 
         if ($chapterId !== null && !$this->users->chapterExists($chapterId)) {
@@ -134,6 +142,7 @@ final class AuthService
             'blood_type' => $bloodType,
             'blood_type_source' => $bloodType !== null ? 'self_reported' : null,
             'blood_type_verified' => 0,
+            'location_id' => $location['location_id'] ?? null,
             'latitude' => $latitude,
             'longitude' => $longitude,
             'email_verified_at' => null,

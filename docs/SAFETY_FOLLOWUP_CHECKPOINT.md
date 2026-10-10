@@ -2,6 +2,8 @@
 
 Prepared 2026-10-10, Asia/Manila. Current chat approvals supersede historical proposal gates. Code, migration and tests are prepared; current SQL/API/database results are **not agent-run**. No real transport or schedule is installed.
 
+Current result update: the user supplied 42 focused checks passed, exact fixture cleanup and exit 0; supplied workflow/Home summaries and reported all phase4/phase5/phase12 passes. Supplied latest scoped cleanup removed 29 users, 5 requests and 7 upload files; final review is already_absent and journal removed. Earlier worker/enqueue results remain retained. Commands below are historical execution instructions for this completed checkpoint, not requests to rerun. Schema evidence is test-only (bloodmatch_test:3306); browser, operational scheduling, real transport and deployed targets remain unverified/separately scoped.
+
 Resolved rules: all eligible donors receive in-app coverage; all eligible initial Emergency donors enqueue in batches of 500 with no total truncation. Material-edit/rematch and response emails stay off. Actual withdrawal/re-response transitions notify once in-app; retries remain silent. Material edits and offer reconciliation commit together, preserve completed donations, close invalid responding offers without pending reports, preserve pending reports for reasoned review, and block invalid confirmation. Valid offers produce no invalidation alert. Quiet opportunity reuse preserves read/creation timestamps and one visible notification.
 
 ## Additive 022 impact

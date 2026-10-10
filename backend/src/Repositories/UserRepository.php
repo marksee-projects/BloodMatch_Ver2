@@ -91,8 +91,8 @@ final class UserRepository
             'INSERT INTO users
                 (email, password_hash, first_name, middle_name, last_name, phone, role, chapter_id, verification_status,
                  account_status, date_of_birth, blood_type, blood_type_source, blood_type_verified,
-                 latitude, longitude, email_verified_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                 location_id, latitude, longitude, email_verified_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         );
 
         try {
@@ -111,6 +111,7 @@ final class UserRepository
                 $user['blood_type'],
                 $user['blood_type_source'],
                 $user['blood_type_verified'],
+                $user['location_id'] ?? null,
                 $user['latitude'],
                 $user['longitude'],
                 $user['email_verified_at'] ?? null,

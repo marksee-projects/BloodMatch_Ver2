@@ -94,6 +94,33 @@ final class LocationService
         return $row;
     }
 
+    /** Resolve submitted reference IDs/codes together; never accept a cross-municipality barangay. */
+    public static function resolveSelection(array $input): array
+    {
+        $location = self::resolveLocationId($input['location_id'] ?? null);
+        self::validateSelection($location, $input, self::municipalityExists($location['municipality_code']));
+        return $location;
+    }
+
+    public static function validateSelection(array $location, array $input, bool $municipalityActive): void
+    {
+        $errors = [];
+        if (!$municipalityActive) {
+            $errors['municipality_code'] = ['Selected municipality is invalid or unavailable.'];
+        }
+        if (array_key_exists('municipality_code', $input)
+            && $input['municipality_code'] !== $location['municipality_code']) {
+            $errors['municipality_code'] = ['Selected location does not belong to the selected municipality.'];
+        }
+        if (array_key_exists('barangay_code', $input)
+            && ($input['barangay_code'] === '' ? null : $input['barangay_code']) !== $location['barangay_code']) {
+            $errors['barangay_code'] = ['Selected barangay does not match the selected location.'];
+        }
+        if ($errors !== []) {
+            throw new ValidationException($errors);
+        }
+    }
+
     public static function present(array $row): array
     {
         $isBarangay = (string) $row['level'] === 'barangay';

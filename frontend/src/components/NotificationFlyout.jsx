@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Bell, X, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
-import { formatNotificationTime, notificationDeepLink } from '../services/notifications'
+import { formatNotificationTime, notificationDeepLink, notificationDisplayText } from '../services/notifications'
 
 const PREVIEW_SIZE = 10
 
@@ -183,7 +183,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
                   type="button"
                   className={`notif-item-fb ${isUnread ? 'unread' : ''}`}
                   onClick={() => openItem(n)}
-                  aria-label={`${n.title}. ${isUnread ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
+                  aria-label={`${notificationDisplayText(n, 'title')}. ${isUnread ? 'Unread' : 'Read'}.${link ? ' Opens details.' : ''}`}
                 >
                   <div className="notif-item-avatar-wrapper">
                     <img src="/favicon-demolay.png?v=2" alt="BloodMatch" className="notif-avatar" />
@@ -192,8 +192,8 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
                     </div>
                   </div>
                   <div className="notif-item-content">
-                    <div className="notif-item-title-fb">{n.title}</div>
-                    <div className="notif-item-body-fb">{n.body}</div>
+                    <div className="notif-item-title-fb">{notificationDisplayText(n, 'title')}</div>
+                    <div className="notif-item-body-fb">{notificationDisplayText(n, 'body')}</div>
                     <div className="notif-item-meta-fb">
                       {n.related_type === 'blood_request' && n.related_request_status && (
                         <span className="notif-item-status-fb">
