@@ -20,7 +20,7 @@ final class EmailWorker
         }
         $ids = array_values(array_unique(array_map('intval', $ids)));
         if (count($ids)>100 || array_filter($ids, fn ($id)=>$id<1) || $limit<1 || $limit>20) { throw new \LogicException('Invalid bounded job scope.'); }
-        $summary = ['status'=>'completed','claimed'=>0,'sent'=>0,'failed'=>0,'cancelled'=>0,'deferred'=>0,'lost'=>0];
+        $summary = ['status'=>'completed','claimed'=>0,'sent'=>0,'failed'=>0,'cancelled'=>0,'deferred'=>0,'lost'=>0,'transport_calls'=>0,'accepted_messages'=>0];
         // Serializes recipient acceptance limits across manual/parallel test runs.
         $lockName = $this->lockName;
         $s = $pdo->prepare('SELECT GET_LOCK(?,0)'); $s->execute([$lockName]);
@@ -81,6 +81,7 @@ final class EmailWorker
                     $attemptStarted=$repo->beginDigestAttempt($active,$this->now());
                     if (!$attemptStarted) { return ['outcome'=>'rejected']; }
                     $keys=array_column($active,'delivery_key'); sort($keys,SORT_STRING);
+                    $summary['transport_calls']++;
                     return ($this->transport)([
                         'job_id'=>(int)$active[0]['id'], 'job_ids'=>array_map('intval',array_column($active,'id')),
                         'message_id'=>'<'.hash('sha256',implode('|',$keys)).'@bloodmatch.invalid>',
@@ -95,6 +96,7 @@ final class EmailWorker
                 }
                 if (!$attemptStarted) { $summary['lost']+=count($active); continue; }
                 if ($result['status']==='sent') {
+                    $summary['accepted_messages']++;
                     $ok=$repo->finishDigest($active,'sent',$now,$result['code']); $summary[$ok?'sent':'lost']+=count($active);
                 } else {
                     foreach ($active as $candidate) {
@@ -118,7 +120,8 @@ final class EmailWorker
             || ($job['status']==='leased' && $job['lease_expires_at']!==null && $job['lease_expires_at']<=$now);
         return ['job_id'=>(int)$job['id'],'notification_type'=>$job['notification_type']??null,'status'=>$job['status'],
             'priority'=>$job['priority'],'attempts'=>(int)$job['attempts'],'created_at'=>$job['created_at'],'expires_at'=>$job['expires_at'],
-            'claimable_now'=>$claimable,'policy_block'=>$reason,'mail_class'=>$context['mail_class']??null,
+            'claimable_now'=>$claimable,'policy_block'=>$reason,'mail_class'=>$context['mail_class']??null,'next_attempt_at'=>$job['next_attempt_at'],
+            'request_id'=>$context['request']['id']??null,'requester_id'=>$context['request']['requester_id']??null,'recipient_user_id'=>$context['user']['id']??null,
             'grouping_ready_at'=>$job['priority']==='emergency'?EmailWorkerPolicy::digestReadyAt($job['created_at']):null];
     }
     private function later(string $now,int $seconds): string { return gmdate('Y-m-d H:i:s',strtotime($now.' UTC')+$seconds); }
@@ -136,6 +139,7 @@ final class EmailWorker
         $domain=strtolower((string)substr(strrchr($user['email'],'@')?:'',1));
         if (!$this->allowReservedRecipients && preg_match('/(^|\.)(local|test|invalid)$/',$domain)) { return [null,'recipient_invalid']; }
         if (empty($user['email_verified_at'])) { return [null,'recipient_unverified']; }
+        $request=null;
         if ($class===EmailAttemptBudget::ACCOUNT) {
             if (!preg_match('/^verification:(\d+):(verified|rejected):decision:(\d+)$/D',(string)$n['dedup_key'],$event)
                 || (int)$event[1] !== (int)$user['id'] || $n['related_type']!=='verification' || (int)$n['related_id']!==(int)$user['id']) { return [null,'invalid_event']; }
@@ -153,6 +157,6 @@ final class EmailWorker
             $eligible=DonorEligibilityService::evaluateForRequest($user,$request,substr($now,0,19));
             if (!$eligible['eligible']) { return [null,'donor_ineligible']; }
         }
-        return [['user'=>$user,'mail_class'=>$class],null];
+        return [['user'=>$user,'mail_class'=>$class,'request'=>$request],null];
     }
 }
