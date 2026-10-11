@@ -19,13 +19,13 @@ export function notificationDeepLink(n, role = 'admin') {
     return `/requests/${n.related_id}/matches`
   }
   if (n.type === 'verification.requested' && n.related_id) {
-    return `/${role === 'officer' ? 'officer' : 'admin'}/verifications?user=${n.related_id}`
+    return role === 'admin' ? `/admin/verifications?user=${n.related_id}` : null
   }
   if (n.type === 'verification.decision') return '/profile'
   if (n.type === 'verification.resubmitted') return '/profile'
   if (n.type === 'account.status_changed') return '/profile'
   if (n.type === 'donation.confirmed' || n.type === 'donation.rejected') return '/profile'
-  if (n.type === 'donation.reported' && role === 'officer') return '/officer/confirmations'
+  if (n.type === 'donation.reported' && role === 'admin') return '/admin/confirmations'
   return null
 }
 

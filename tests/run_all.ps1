@@ -7,6 +7,10 @@ param(
 if ($env:TEST_DB_NAME) { $env:DB_NAME = $env:TEST_DB_NAME }
 if ($env:TEST_DB_PORT) { $env:DB_PORT = $env:TEST_DB_PORT }
 
+# This historical suite creates retired officer roles and asserts chapter-only access.
+# Reject before fixtures or server actions; CP0 uses the explicitly named replacement.
+throw 'Legacy chapter-scoped full suite is retired. Use tests/run_isolated.ps1 -Suite staff_role_api.ps1 for the canonical staff model. Other historical phases require porting before use.'
+
 $suites = @(
     'phase3.ps1',
     'phase4.ps1',

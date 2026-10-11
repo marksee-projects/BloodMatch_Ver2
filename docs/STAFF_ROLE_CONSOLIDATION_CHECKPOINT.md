@@ -1,3 +1,5 @@
+> FROZEN: See [the final checkpoint](STAFF_ROLE_FROZEN_CHECKPOINT.md) for unfinished workflow items, rollout holds, commands and recovery. It supersedes earlier full-completion wording below. Product edits are stopped; migration remains unapplied by the agent.
+
 # Combined staff role checkpoint — 2026-10-11
 
 The user's approval supersedes earlier chapter-scoped Officer requirements: `admin` is the only staff backend role, displayed as **Admin/Officer**, with global access. `member` remains separate. Membership verification and activation statuses are not roles and are unchanged.

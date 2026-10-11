@@ -1,7 +1,7 @@
 param([string]$BaseUrl = 'http://127.0.0.1:8001', [string]$MysqlPath = 'C:\xampp\mysql\bin\mysql.exe', [string]$PhpPath = 'C:\xampp\php\php.exe')
 $ErrorActionPreference = 'Stop'
 if ($BaseUrl.TrimEnd('/') -ne 'http://127.0.0.1:8001' -or $env:TEST_DB_NAME -ne 'bloodmatch_test' -or $env:TEST_DB_PORT -ne '3306') { throw 'Use run_isolated.ps1 on bloodmatch_test:3306 and port 8001 only.' }
-$passed = 0; $failed = 0; $fixtureIds = @(); $nonce = [Guid]::NewGuid().ToString('N'); $ownedEmails = @(); $ownedRequestId = $null; $attemptSnapshot = $null
+$passed = 0; $failed = 0; $fixtureIds = @(); $nonce = [Guid]::NewGuid().ToString('N'); $ownedEmails = @(); $ownedRequestId = $null; $attemptSnapshot = $null; $ownedDocuments = @()
 function Query($sql) {
     $result = & $MysqlPath -h 127.0.0.1 -P 3306 -u root -N -B bloodmatch_test -e $sql
     if ($LASTEXITCODE -ne 0) { throw 'Fixed-target SQL failed.' }
@@ -32,6 +32,8 @@ function Login($email) {
 try {
     Check (("$(Query 'SELECT DATABASE(),@@port;')").Trim() -eq "bloodmatch_test`t3306") 'fixed test target'
     Check ([int](Query "SELECT COUNT(*) FROM schema_migrations WHERE name='024_consolidate_staff_role.sql';") -eq 1) '024 recorded on the test target'
+    $roleShape = ("$(Query "SELECT COLUMN_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='bloodmatch_test' AND TABLE_NAME='users' AND COLUMN_NAME='role';")").Trim()
+    Check ($roleShape -eq "enum('member','admin')" -and [int](Query "SELECT COUNT(*) FROM users WHERE role='officer';") -eq 0) 'test role schema is canonical with no remaining officers before fixtures'
     $attemptSnapshot = "$(Query 'SELECT COUNT(*),COALESCE(MAX(id),0) FROM email_attempts;')"
     $chapters = @(Query 'SELECT id FROM chapters ORDER BY id LIMIT 2;')
     if ($chapters.Count -lt 2) { throw 'Two existing reference chapters required.' }
@@ -77,9 +79,31 @@ try {
     Check ((Call $officer.session 'POST' '/api/donation-reports' @{match_id=0} $officer.csrf).status -eq 403) 'staff cannot submit donor reports'
     Check ((Call $officer.session 'POST' '/api/matches/0/withdraw' @{} $officer.csrf).status -eq 403) 'staff cannot withdraw donor offers'
     Check ((Call $member.session 'GET' '/api/admin/donation-reports').status -eq 403) 'member cannot use staff confirmation queue'
-    Query "UPDATE users SET account_status='deactivated' WHERE id=$($fixtureIds[1]) AND email='$($ownedEmails[1])';" | Out-Null
+    Query "UPDATE users SET account_status='deactivated',deactivated_at=UTC_TIMESTAMP() WHERE id=$($fixtureIds[1]) AND email='$($ownedEmails[1])';" | Out-Null
     Check ((Call $officer.session 'GET' '/api/admin/users').status -eq 403) 'inactive staff privileges remain blocked'
-    Query "UPDATE users SET account_status='active' WHERE id=$($fixtureIds[1]) AND email='$($ownedEmails[1])';" | Out-Null
+    Query "UPDATE users SET account_status='active',deactivated_at=NULL WHERE id=$($fixtureIds[1]) AND email='$($ownedEmails[1])';" | Out-Null
+    # Metadata-only disposable documents: no file creation, real document reads or email enqueue.
+    Query "UPDATE users SET verification_status='pending',blood_type='A+',email_verified_at=NULL WHERE id=$($fixtureIds[2]) AND email='$($ownedEmails[2])';" | Out-Null
+    foreach ($docType in @('national_id','parental_consent','donor_card')) {
+        $hasher = [Security.Cryptography.SHA256]::Create()
+        try { $storedName = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes("$nonce-$docType")))).Replace('-','').ToLowerInvariant() }
+        finally { $hasher.Dispose() }
+        $ownedDocuments += @{ user_id=$fixtureIds[2]; stored_name=$storedName; doc_type=$docType }
+        Query "INSERT INTO member_documents(user_id,doc_type,stored_name,mime_type,original_ext,size_bytes) VALUES ($($fixtureIds[2]),'$docType','$storedName','application/pdf','pdf',1024);" | Out-Null
+    }
+    $detailResponse = Call $officer.session 'GET' "/api/admin/verifications/$($fixtureIds[2])"
+    Check ($detailResponse.status -eq 200) 'shared staff verification detail across chapters'
+    $detail = $detailResponse.raw | ConvertFrom-Json
+    Check (@($detail.data.verification.documents | Where-Object { $_.doc_type -in @('national_id','parental_consent','donor_card') }).Count -eq 3) 'shared verification API includes supplemental document metadata'
+    $decisionBody = @{ decision='verified'; accept_donor_card=$true }
+    $decisionResponse = Call $officer.session 'POST' "/api/admin/verifications/$($fixtureIds[2])/decision" $decisionBody $officer.csrf
+    Check ($decisionResponse.status -eq 200) 'shared staff accepts donor-card evidence across chapters'
+    $decisionResult = $decisionResponse.raw | ConvertFrom-Json
+    Check ($decisionResult.data.result.blood_type_provenance_updated -eq $true) 'donor-card decision reports administrative provenance update'
+    Check ([int](Query "SELECT COUNT(*) FROM users WHERE id=$($fixtureIds[2]) AND email='$($ownedEmails[2])' AND verification_status='verified' AND blood_type_source='donor_card' AND blood_type_verified=1;") -eq 1) 'donor-card provenance persists on disposable member'
+    Check ((Call $officer.session 'POST' "/api/admin/verifications/$($fixtureIds[2])/decision" $decisionBody $officer.csrf).status -eq 409) 'duplicate membership decision is rejected'
+    Check ([int](Query "SELECT COUNT(*) FROM verification_decisions WHERE target_user_id=$($fixtureIds[2]);") -eq 1) 'duplicate decision creates no second history entry'
+    Query "UPDATE users SET email_verified_at=UTC_TIMESTAMP() WHERE id=$($fixtureIds[2]) AND email='$($ownedEmails[2])';" | Out-Null
     foreach ($action in @('role','chapter','deactivate')) {
         $body = if ($action -eq 'role') { @{ role = 'member' } } elseif ($action -eq 'chapter') { @{ chapter_id = $otherChapter } } else { @{} }
         Check ((Call $admin.session 'POST' "/api/admin/users/$($fixtureIds[0])/$action" $body $admin.csrf).status -eq 403) "self $action forbidden"
@@ -104,6 +128,12 @@ try {
 } catch { $failed++; Write-Host "FAIL combined staff API checkpoint: $($_.Exception.Message)" }
 finally {
     try {
+        foreach ($document in $ownedDocuments) {
+            $owner = [int](Query "SELECT COUNT(*) FROM users WHERE id=$($document.user_id) AND email='$($ownedEmails[2])';")
+            $foreignOwner = [int](Query "SELECT COUNT(*) FROM member_documents WHERE stored_name='$($document.stored_name)' AND (user_id<>$($document.user_id) OR doc_type<>'$($document.doc_type)');")
+            if ($owner -ne 1 -or $foreignOwner -ne 0) { throw 'Document metadata ownership changed; retain fixtures.' }
+            Query "DELETE FROM member_documents WHERE user_id=$($document.user_id) AND stored_name='$($document.stored_name)' AND doc_type='$($document.doc_type)';" | Out-Null
+        }
         if ($ownedRequestId) {
             $owned = [int](Query "SELECT COUNT(*) FROM blood_requests WHERE id=$ownedRequestId AND requester_id=$($fixtureIds[1]) AND facility_name='Staff regression $nonce';")
             $otherDonors = [int](Query "SELECT COUNT(*) FROM matches WHERE request_id=$ownedRequestId AND donor_id NOT IN ($($fixtureIds -join ','));")

@@ -47,4 +47,15 @@ WorkflowLockService::assertDonorActor($base);staffCheck(true,'active members ret
 staffCheck(AuditDateRange::bound('2026-10-11',true)===[' < ?','2026-10-12 00:00:00'],'audit end date includes the entire UTC day');
 staffCheck(AuditDateRange::bound('2026-12-31',true)===[' < ?','2027-01-01 00:00:00'],'audit end-date rollover preserves full-day semantics');
 staffCheck(AuditDateRange::bound('2026-10-11 12:30:00',true)===[' <= ?','2026-10-11 12:30:00'],'explicit timestamp bounds retain existing semantics');
+foreach ([
+    ["enum('member','admin')",true,0,true,'ready'],
+    ["enum('member','officer','admin')",true,2,false,'inconsistent'],
+    ["enum('member','officer','admin')",true,0,false,'inconsistent'],
+    ["enum('member','admin')",true,1,false,'inconsistent'],
+    ["enum('member','admin')",false,0,false,'review_required'],
+    ["enum('member','officer','admin')",false,2,false,'review_required'],
+] as [$shape,$recorded,$remaining,$ready,$status]) {
+    $state=StaffRoleMigration::readiness($shape,$recorded,$remaining);
+    staffCheck($state['ready']===$ready && $state['status']===$status,'readiness requires matching enum, ledger and zero officers');
+}
 echo "PASS $checks offline staff-role/preservation/date checks; no database, SMTP or tasks.".PHP_EOL;

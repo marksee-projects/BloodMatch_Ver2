@@ -69,9 +69,16 @@ try {
             $report['writes']=true;$report['status']='applied';$report['role_shape']=$new;$report['recorded']=true;
             $report['remaining_officers']=(int)$pdo->query("SELECT COUNT(*) FROM users WHERE role='officer'")->fetchColumn();
         }
-    } else { $report['status']=$recorded?'ready':'review_required'; }
+    } else {
+        $report += StaffRoleMigration::readiness($column['COLUMN_TYPE'],$recorded,$preview['affected_count']);
+    }
+    $readiness = StaffRoleMigration::readiness($report['role_shape'],(bool)$report['recorded'],
+        (int)($report['remaining_officers']??$preview['affected_count']));
+    $report['ready']=$readiness['ready'];
+    $report['remaining_officers']=$readiness['remaining_officers'];
     // Never emit full account snapshots, hashes of passwords, OTPs or reset tokens.
     echo json_encode($report,JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR).PHP_EOL;
+    if ($readiness['status']==='inconsistent') { exit(2); }
 } catch (Throwable $e) {
     if ($pdo instanceof PDO && $pdo->inTransaction()) { $pdo->rollBack(); }
     fwrite(STDERR,'Staff-role checkpoint failed: '.$e->getMessage().PHP_EOL.'Do not rerun blindly; retain backups. DDL may have committed separately.'.PHP_EOL);

@@ -40,4 +40,13 @@ final class StaffRoleMigration
         }, $before);
         if ($expected !== $after) { throw new \LogicException('User data differs beyond the approved role conversion. Retain backups and investigate.'); }
     }
+
+    public static function readiness(string $shape, bool $recorded, int $officers): array
+    {
+        $canonical = $shape === "enum('member','admin')";
+        $ready = $canonical && $recorded && $officers === 0;
+        $inconsistent = ($recorded && !$ready) || ($canonical && $officers !== 0);
+        return ['ready'=>$ready, 'status'=>$ready?'ready':($inconsistent?'inconsistent':'review_required'),
+            'remaining_officers'=>$officers];
+    }
 }
