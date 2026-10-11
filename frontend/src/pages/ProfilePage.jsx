@@ -112,7 +112,7 @@ export default function ProfilePage() {
     queryClient.invalidateQueries({ queryKey: ['request-matches', String(editingRequestId)] })
     queryClient.invalidateQueries({ queryKey: ['home-feed'] })
     await refetch()
-    setMessage(result?.matching_status === 'failed_retry_required' ? 'Request saved, but matching failed. Ask an officer to retry matching; do not post a duplicate request.' : (wasEditing ? 'Request details updated.' : 'Blood request created and matching completed.'))
+    setMessage(result?.matching_status === 'failed_retry_required' ? 'Request saved, but matching failed. Ask an Admin/Officer to retry matching; do not post a duplicate request.' : (wasEditing ? 'Request details updated.' : 'Blood request created and matching completed.'))
   }
 
   const enrollAsDonor = async () => {
@@ -278,6 +278,7 @@ export default function ProfilePage() {
             <dl className={styles.aboutDetails}>
               <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
               <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
+              <div><dt>Municipality</dt><dd>{profile.municipality_name || 'Municipality not provided'}</dd></div>
               <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
               <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
               {profile.email && <div><dt>Email</dt><dd><a href={`mailto:${profile.email}`}>{profile.email}</a></dd></div>}
@@ -347,7 +348,7 @@ export default function ProfilePage() {
               <h1>{profile.full_name}</h1>
               {profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}
             </div>
-            <p>{profile.role === 'admin' ? 'Admin' : profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
+            <p>{profile.role === 'admin' ? 'Admin/Officer' : profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
             {profile.role === 'member' && <span className={styles.availabilityText}><Drop size={16} weight="fill" aria-hidden="true" /> {availabilityStatus}</span>}
           </div>
 

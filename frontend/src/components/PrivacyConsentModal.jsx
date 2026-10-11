@@ -153,7 +153,7 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
           </p>
 
           <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            Your data is processed strictly based on your explicit consent and solely for the operational functionality of the platform. Your National ID is encrypted and accessed exclusively by verified chapter officers to confirm member identity and prevent fraudulent requests. Health data, including blood type and donation history, is used to ensure biological compatibility and enforce medically mandated cooldown periods for donor safety. Furthermore, generalized location data allows the system to calculate donor proximity during urgent emergency requests, while in-app messaging and notifications enable real-time coordination between requesters, donors, and chapter administration.
+            Your data is processed strictly based on your explicit consent and solely for the operational functionality of the platform. Your National ID is stored securely and accessed exclusively by authorized Admin/Officer staff to confirm member identity and prevent fraudulent requests. Health data, including blood type and donation history, is used to ensure biological compatibility and enforce medically mandated cooldown periods for donor safety. Furthermore, generalized location data allows the system to calculate donor proximity during urgent emergency requests, while in-app messaging and notifications enable real-time coordination between requesters, donors, and chapter administration.
           </p>
 
           <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>

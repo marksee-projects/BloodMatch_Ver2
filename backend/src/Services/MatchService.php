@@ -307,10 +307,6 @@ final class MatchService
                 (int) $viewer['id'] === (int) $row['donor_id']
                 || (string) $viewer['role'] === 'admin'
                 || (string) $viewer['role'] === 'member'
-                || ((string) $viewer['role'] === 'officer'
-                    && $viewer['chapter_id'] !== null
-                    && $row['chapter_id'] !== null
-                    && (int) $viewer['chapter_id'] === (int) $row['chapter_id'])
                 || ((int) $viewer['id'] === (int) $row['requester_id']
                     && (string) $row['request_status'] === 'OPEN'
                     && in_array((string) $row['status'], ['RESPONDED', 'COMPLETED'], true))

@@ -23,9 +23,6 @@ final class RequestLifecycleService
         WorkflowLockService::assertActiveActor($actor);
         if ((int) $actor['id'] === (int) $request['requester_id']) { return 'owner'; }
         if ((string) $actor['role'] === 'admin') { return 'admin'; }
-        if ((string) $actor['role'] === 'officer' && $actor['chapter_id'] !== null
-            && $request['request_chapter_id'] !== null
-            && (int) $actor['chapter_id'] === (int) $request['request_chapter_id']) { return 'officer'; }
         throw new RuntimeException('Forbidden.', 403);
     }
 

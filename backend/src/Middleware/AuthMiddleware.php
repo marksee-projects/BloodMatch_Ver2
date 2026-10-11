@@ -96,7 +96,7 @@ final class AuthMiddleware
 
         $ownChapter = $actor['chapter_id'] === null ? null : (int) $actor['chapter_id'];
 
-        if ((string) $actor['role'] !== 'officer' || $ownChapter === null || $ownChapter !== $targetChapterId) {
+        if ((string) $actor['role'] !== 'admin') {
             AuditLogger::log((int) $actor['id'], 'authz.denied', 'chapter', (string) $targetChapterId, [
                 'endpoint' => $endpoint,
                 'reason' => 'outside_chapter_scope',

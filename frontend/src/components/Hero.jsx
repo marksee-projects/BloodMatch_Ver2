@@ -20,8 +20,7 @@ export default function Hero() {
           <>
             <Link to="/requests/new" className="btn btn-lg">Create Blood Request</Link>
             <Link to="/profile" className="btn btn-secondary">Manage Profile</Link>
-            {user.role === 'officer' && <Link to="/officer/dashboard" className="btn btn-secondary">Officer Dashboard</Link>}
-            {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin Dashboard</Link>}
+            {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin/Officer Dashboard</Link>}
           </>
         ) : (
           <>
@@ -35,7 +34,7 @@ export default function Hero() {
         <span>·</span>
         <span>8 blood types</span>
         <span>·</span>
-        <span>Officer-verified</span>
+        <span>Administratively verified</span>
       </div>
     </section>
   )

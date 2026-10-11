@@ -36,6 +36,10 @@ foreach ($files as $file) {
     if (in_array($name, $applied, true)) {
         continue;
     }
+    if ($name === '024_consolidate_staff_role.sql') {
+        fwrite(STDERR, '[migrations] 024 grants global permissions and requires an impact review. Use database/review_staff_role_migration.php for this migration only.'.PHP_EOL);
+        exit(1);
+    }
 
     $sql = file_get_contents($file);
     if ($sql === false || trim($sql) === '') {
@@ -61,7 +65,7 @@ foreach ($files as $file) {
             STDERR,
             "[migrations] FAILED {$name}: " . $e->getMessage() . PHP_EOL .
             '[migrations] note: MySQL DDL auto-commits; a failed migration may leave partial objects. ' .
-            'Drop and recreate the database before retrying.' . PHP_EOL
+            'Stop, retain backups and inspect partial state before retrying. Do not drop application data.' . PHP_EOL
         );
         exit(1);
     }

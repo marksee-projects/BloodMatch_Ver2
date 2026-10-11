@@ -88,13 +88,15 @@ final class AuditLogRepository
         }
 
         if (isset($filters['date_from']) && is_string($filters['date_from']) && trim($filters['date_from']) !== '') {
-            $where[] = 'a.created_at >= ?';
-            $params[] = trim($filters['date_from']);
+            [$operator,$value] = \BloodMatch\Utils\AuditDateRange::bound($filters['date_from'],false);
+            $where[] = 'a.created_at'.$operator;
+            $params[] = $value;
         }
 
         if (isset($filters['date_to']) && is_string($filters['date_to']) && trim($filters['date_to']) !== '') {
-            $where[] = 'a.created_at <= ?';
-            $params[] = trim($filters['date_to']);
+            [$operator,$value] = \BloodMatch\Utils\AuditDateRange::bound($filters['date_to'],true);
+            $where[] = 'a.created_at'.$operator;
+            $params[] = $value;
         }
 
         $whereClause = $where === [] ? '' : 'WHERE ' . implode(' AND ', $where);

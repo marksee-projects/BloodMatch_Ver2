@@ -55,7 +55,7 @@ export default function DashboardView() {
         <div className="metric-card">
           <span className="metric-label">Total Users</span>
           <span className="metric-value">{overview.total_users || 0}</span>
-          <span className="metric-sub">{overview.total_members || 0} members · {overview.total_officers || 0} officers</span>
+          <span className="metric-sub">{overview.total_members || 0} members · {overview.total_staff || 0} staff</span>
         </div>
 
         <div className="metric-card">

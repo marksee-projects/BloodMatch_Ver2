@@ -40,8 +40,8 @@ function Fixture({ Component, ...props }) {
   index = 0; inPage = true
   try { return Component(props) } finally { inPage = false }
 }
-const self = { id: 1, full_name: 'Current admin', email: 'admin@example.test', role: 'admin', chapter_id: 1, account_status: 'active' }
-const other = { ...self, id: 2, full_name: 'Other member', email: 'member@example.test', role: 'member' }
+const self = { id: 1, full_name: 'Current admin', email: 'admin@example.test', role: 'admin', chapter_id: 1, account_status: 'active', verification_status: 'verified' }
+const other = { ...self, id: 2, full_name: 'Other member', email: 'member@example.test', role: 'member', verification_status: 'pending' }
 React.useState = initial => {
   if (!inPage) return original(initial)
   const position = index++
@@ -60,12 +60,16 @@ try {
   assert(html.includes('Change role') && html.includes('Change chapter') && html.includes('Deactivate') && html.includes('Previous') && html.includes('Next'))
   mode = 'confirmations'; index = 0
   html = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Fixture, { Component: Confirmations, admin: true })))
-  assert(html.includes('Donation Confirmations') && !html.includes('Chapter Queue'))
+  assert(html.includes('Donation confirmations') && !html.includes('Chapter Queue'))
   assert(html.includes('You cannot review your own report.'))
   assert.equal((html.match(/disabled=""/g) || []).length, 2)
   const app = readFileSync(`${root}/src/App.jsx`, 'utf8')
-  assert(app.includes('path="users" element={<UsersView />}') && app.includes('path="confirmations" element={<OfficerConfirmationsView admin />}'))
+  assert(app.includes('path="users" element={<UsersView />}') && app.includes('path="confirmations" element={<ConfirmationsView />}'))
   const analytics = readFileSync(`${root}/src/pages/admin/views/AnalyticsView.jsx`, 'utf8')
   assert(analytics.includes('/api/analytics/export?') && analytics.includes('Export aggregate CSV'))
-  console.log('PASS 8 offline management/confirmation/export UI checks; no API or database.')
+  const Report = await page('./src/components/AnalyticsPrintReport.jsx')
+  const report = renderToStaticMarkup(React.createElement(Report, {scopeLabel:'All chapters',data:{date_from:'2026-10-01',date_to:'2026-10-11',request_volume:{fulfilled_requests:6,resolved_requests:34,fulfillment_rate_percent:17.6},donor_pool:{available:25},users:[{full_name:'PRIVATE NAME',email:'private@example.test',phone:'PRIVATE PHONE'}],documents:[{stored_name:'PRIVATE DOCUMENT'}]}}))
+  assert(report.includes('17.6%') && report.includes('current snapshot') && report.includes('All chapters'))
+  for(const secret of ['PRIVATE NAME','private@example.test','PRIVATE PHONE','PRIVATE DOCUMENT']) assert(!report.includes(secret))
+  console.log('PASS offline management, self-action, confirmation and aggregate-print privacy checks; no API or database.')
 } finally { React.useState = original }

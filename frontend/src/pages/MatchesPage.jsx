@@ -300,7 +300,7 @@ export default function MatchesPage() {
         <div className={styles.modalBackdrop} role="presentation">
           <form className={styles.modalContent} onSubmit={onSubmitReport} role="dialog" aria-modal="true" aria-labelledby="report-title">
             <h2 id="report-title">Report completed donation</h2>
-            <p>The report will be reviewed by a chapter officer before the donation is confirmed.</p>
+            <p>The report will be reviewed by an Admin/Officer before the donation is confirmed.</p>
             <label htmlFor="report-note">Optional note</label>
             <textarea id="report-note" value={reportNote} onChange={(event) => setReportNote(event.target.value)} maxLength={500} rows={4} />
             <div className={styles.modalActions}><Button type="button" variant="secondary" onClick={() => setReportingMatchId(null)}>Cancel</Button><Button type="submit" isLoading={submittingReport}>Send report</Button></div>

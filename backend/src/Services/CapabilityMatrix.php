@@ -16,7 +16,7 @@ final class CapabilityMatrix
                 ? ($vs === 'unverified' ? 'limited' : 'full')
                 : false,
             'create_request' => $active && in_array($vs, ['pending', 'verified'], true),
-            'appear_as_donor' => $active && $vs === 'verified',
+            'appear_as_donor' => $active && (string) ($user['role'] ?? '') === 'member' && $vs === 'verified',
             'resubmit_verification' => $active && $vs === 'rejected',
             'account_locked' => !$active,
         ];

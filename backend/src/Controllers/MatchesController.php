@@ -74,7 +74,7 @@ final class MatchesController
 
     public function withdraw(array $params): void
     {
-        $actor = AuthMiddleware::requireActiveUser('matches.withdraw');
+        $actor = AuthMiddleware::requireRoles(['member'], 'matches.withdraw');
         try {
             $result = (new MatchResponseService())->withdraw($actor, (int) $params['matchId']);
         } catch (RuntimeException $e) {

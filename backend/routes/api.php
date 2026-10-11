@@ -30,7 +30,7 @@ use BloodMatch\Controllers\HealthController;
 use BloodMatch\Controllers\Officer\AuditLogOfficerController;
 use BloodMatch\Controllers\Officer\ChapterUsersController;
 use BloodMatch\Controllers\Officer\OfficerDashboardController;
-use BloodMatch\Controllers\Officer\OfficerVerificationController;
+use BloodMatch\Controllers\Admin\MembershipVerificationController;
 use BloodMatch\Routing\Router;
 
 return static function (Router $router): void {
@@ -72,13 +72,13 @@ return static function (Router $router): void {
     $router->add('POST', '/api/profile/picture', [new ProfilePictureController(), 'upload']);
     $router->add('GET', '/api/profile/picture', [new ProfilePictureController(), 'show']);
 
-    $router->add('GET', '/api/officer/verifications', [new OfficerVerificationController(), 'queue']);
-    $router->add('GET', '/api/officer/verifications/{userId}', [new OfficerVerificationController(), 'detail']);
-    $router->add('POST', '/api/officer/verifications/{userId}/decision', [new OfficerVerificationController(), 'decide']);
+    $router->add('GET', '/api/officer/verifications', [new MembershipVerificationController(), 'queue']);
+    $router->add('GET', '/api/officer/verifications/{userId}', [new MembershipVerificationController(), 'detail']);
+    $router->add('POST', '/api/officer/verifications/{userId}/decision', [new MembershipVerificationController(), 'decide']);
     $router->add('GET', '/api/officer/documents/{documentId}/file', [new DocumentController(), 'fileOfficer']);
-    $router->add('GET', '/api/admin/verifications', [new OfficerVerificationController(), 'adminQueue']);
-    $router->add('GET', '/api/admin/verifications/{userId}', [new OfficerVerificationController(), 'adminDetail']);
-    $router->add('POST', '/api/admin/verifications/{userId}/decision', [new OfficerVerificationController(), 'adminDecide']);
+    $router->add('GET', '/api/admin/verifications', [new MembershipVerificationController(), 'queue']);
+    $router->add('GET', '/api/admin/verifications/{userId}', [new MembershipVerificationController(), 'detail']);
+    $router->add('POST', '/api/admin/verifications/{userId}/decision', [new MembershipVerificationController(), 'decide']);
     $router->add('GET', '/api/admin/documents/{documentId}/file', [new DocumentController(), 'fileAdmin']);
 
     $router->add('POST', '/api/requests', [new RequestsController(), 'create']);
@@ -99,7 +99,12 @@ return static function (Router $router): void {
     $router->add('POST', '/api/matches/{matchId}/withdraw', [new MatchesController(), 'withdraw']);
     $router->add('POST', '/api/donation-reports', [new DonationReportController(), 'submit']);
     $router->add('GET', '/api/my/donation-reports', [new DonationReportController(), 'myReports']);
-    $router->add('GET', '/api/officer/donation-reports', [new DonationReportController(), 'officerQueue']);
+    $router->add('GET', '/api/admin/donation-reports', [new DonationReportController(), 'staffQueue']);
+    $router->add('POST', '/api/admin/donation-reports/{id}/confirm', [new DonationReportController(), 'confirm']);
+    $router->add('POST', '/api/admin/donation-reports/{id}/reject', [new DonationReportController(), 'reject']);
+    $router->add('POST', '/api/admin/requests/{id}/re-match', [new RequestsController(), 'rematch']);
+    // Legacy URLs are aliases to the same canonical staff authorization.
+    $router->add('GET', '/api/officer/donation-reports', [new DonationReportController(), 'staffQueue']);
     $router->add('POST', '/api/officer/donation-reports/{id}/confirm', [new DonationReportController(), 'confirm']);
     $router->add('POST', '/api/officer/donation-reports/{id}/reject', [new DonationReportController(), 'reject']);
 

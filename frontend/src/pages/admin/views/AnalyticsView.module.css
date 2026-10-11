@@ -21,3 +21,4 @@
 .filterBar {
   margin-bottom: var(--space-6);
 }
+.periodNote { font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-4); }

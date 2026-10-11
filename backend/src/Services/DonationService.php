@@ -46,7 +46,7 @@ final class DonationService
         return WorkflowLockService::transaction(function () use ($donorId, $matchId, $note, $match, $repo): array {
             $request = WorkflowLockService::request((int) $match['request_id']);
             $users = WorkflowLockService::users([$donorId, (int) $request['requester_id']]);
-            WorkflowLockService::assertActiveActor($users[$donorId]);
+            WorkflowLockService::assertDonorActor($users[$donorId]);
             $currentMatch = $repo->findByIdForUpdate($matchId);
             if ($currentMatch === null || (int) $currentMatch['donor_id'] !== $donorId
                 || (int) $currentMatch['request_id'] !== (int) $request['id']) {
@@ -63,10 +63,7 @@ final class DonationService
             $nowUtc = AuthService::nowUtc();
             WorkflowLockService::assertOpenBeforeDeadline($request, $nowUtc);
             $reportId = $reports->insert($matchId, $donorId, $note, $nowUtc);
-            $reviewers = array_diff(NotificationService::chapterOfficerIds($request['request_chapter_id'] === null ? null : (int)$request['request_chapter_id']), [$donorId]);
-            if ($reviewers === []) {
-                $reviewers = array_diff((new UserRepository())->activeIdsByRole('admin'), [$donorId]);
-            }
+            $reviewers = array_diff((new UserRepository())->activeIdsByRole('admin'), [$donorId]);
             foreach ($reviewers as $reviewerId) {
                 NotificationService::notify((int)$reviewerId, 'donation.reported', 'Donation report awaiting review',
                     NotificationService::displayName($donorId) . " submitted a donation report for " . NotificationService::requestDescription((int)$request['requester_id']) . '. It is awaiting review.', [
@@ -96,8 +93,8 @@ final class DonationService
 
     public function decide(array $actor, int $reportId, bool $confirm, mixed $rejectionReason = null): array
     {
-        $endpoint = $confirm ? 'officer.reports.confirm' : 'officer.reports.reject';
-        AuthMiddleware::requireRoles(['officer', 'admin'], $endpoint);
+        $endpoint = $confirm ? 'admin.reports.confirm' : 'admin.reports.reject';
+        AuthMiddleware::requireRoles(['admin'], $endpoint);
 
         // Pre-transaction authorization reads (scope + self rules).
         $pre = (new DonationReportRepository())->findById($reportId);
@@ -110,9 +107,6 @@ final class DonationService
                 'reason' => 'self_confirmation_forbidden',
             ]);
             throw new RuntimeException('You cannot decide on your own donation report.', 403);
-        }
-        if ((string) $actor['role'] === 'officer') {
-            AuthBridge::assertChapter($actor, (int) $pre['request_chapter_id'], $endpoint);
         }
 
         $reason = $confirm ? null : self::normalizeRejectionReason($rejectionReason);

@@ -106,7 +106,7 @@ final class MatchResponseService
             $request = WorkflowLockService::request((int) $pre['request_id']);
             $users = WorkflowLockService::users([(int) $actor['id'], (int) $request['requester_id']]);
             $currentActor = $users[(int) $actor['id']];
-            WorkflowLockService::assertActiveActor($currentActor);
+            WorkflowLockService::assertDonorActor($currentActor);
             $match = $repo->findByIdForUpdate($matchId);
             if ($match === null || (int) $match['donor_id'] !== (int) $currentActor['id']
                 || (int) $match['request_id'] !== (int) $request['id']) {

@@ -30,24 +30,9 @@ final class AnalyticsController
 
     private function data(): array
     {
-        $actor = AuthMiddleware::requireRoles(['admin', 'officer'], self::ENDPOINT);
+        $actor = AuthMiddleware::requireRoles(['admin'], self::ENDPOINT);
 
         $scopedChapterId = null;
-        if ($actor['role'] === 'officer') {
-            $ownChapter = $actor['chapter_id'] === null ? null : (int) $actor['chapter_id'];
-            if ($ownChapter === null) {
-                AuthMiddleware::requireChapterScope($actor, -1, self::ENDPOINT);
-                return [];
-            }
-
-            $requestedChapter = Request::int('chapter_id');
-            if ($requestedChapter !== null && $requestedChapter !== $ownChapter) {
-                AuthMiddleware::requireChapterScope($actor, $requestedChapter, self::ENDPOINT);
-                return [];
-            }
-
-            $scopedChapterId = $ownChapter;
-        }
 
         $filters = [
             'chapter_id' => $scopedChapterId ?? Request::int('chapter_id'),

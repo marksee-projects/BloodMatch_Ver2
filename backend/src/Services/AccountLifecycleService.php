@@ -18,7 +18,7 @@ final class AccountLifecycleService
             $repo=new UserRepository();
             $role=$fields['role']??$target['role'];
             $chapter=array_key_exists('chapter_id',$fields)?$fields['chapter_id']:$target['chapter_id'];
-            if ($role==='officer' && $chapter===null) { throw new \RuntimeException('An Officer requires a chapter assignment.',422); }
+            if (!in_array($role, ['member', 'admin'], true)) { throw new \RuntimeException('Role must be member or admin.',422); }
             if ($chapter!==null && !$repo->chapterExists((int)$chapter)) { throw new \RuntimeException('Chapter does not exist.',400); }
             $changed=[];
             foreach ($fields as $field=>$value) {

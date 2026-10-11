@@ -88,16 +88,19 @@ final class WorkflowLockService
     public static function assertReportReviewer(array $actor, array $request, int $donorId): void
     {
         self::assertActiveActor($actor);
-        if (!in_array((string) $actor['role'], ['officer', 'admin'], true)) {
+        if ((string) $actor['role'] !== 'admin') {
             throw new RuntimeException('Forbidden.', 403);
         }
         if ((int) $actor['id'] === $donorId) {
             throw new RuntimeException('You cannot decide on your own donation report.', 403);
         }
-        if ((string) $actor['role'] === 'officer'
-            && ($actor['chapter_id'] === null || $request['request_chapter_id'] === null
-                || (int) $actor['chapter_id'] !== (int) $request['request_chapter_id'])) {
-            throw new RuntimeException('Forbidden.', 403);
+    }
+
+    public static function assertDonorActor(array $actor): void
+    {
+        self::assertActiveActor($actor);
+        if ((string) $actor['role'] !== 'member') {
+            throw new RuntimeException('Staff accounts can only view donor responses.', 403);
         }
     }
 }

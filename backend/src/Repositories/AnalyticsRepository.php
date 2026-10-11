@@ -124,124 +124,6 @@ final class AnalyticsRepository
     }
 
     /**
-     * Chapter Officer Dashboard summary.
-     */
-    public function getOfficerDashboard(int $chapterId): array
-    {
-        $pdo = Database::pdo();
-        $nowUtc = AuthService::nowUtc();
-
-        // 1. Chapter info
-        $stmt = $pdo->prepare('SELECT id, code, name, municipality FROM chapters WHERE id = ? LIMIT 1');
-        $stmt->execute([$chapterId]);
-        $chapter = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($chapter === false) {
-            $chapter = [
-                'id' => $chapterId,
-                'code' => '',
-                'name' => 'Unknown Chapter',
-                'municipality' => '',
-            ];
-        }
-
-        // 2. Pending verifications in chapter
-        $pvStmt = $pdo->prepare(
-            'SELECT COUNT(*) FROM users WHERE role = \'member\' AND chapter_id = ? AND verification_status = \'pending\' AND account_status = \'active\''
-        );
-        $pvStmt->execute([$chapterId]);
-        $pendingVerifications = (int) $pvStmt->fetchColumn();
-
-        // 3. Pending donation reports for requests in chapter
-        $pdrStmt = $pdo->prepare(
-            'SELECT COUNT(dr.id)
-             FROM donation_reports dr
-             JOIN matches m ON m.id = dr.match_id
-             JOIN blood_requests br ON br.id = m.request_id
-             WHERE br.request_chapter_id = ? AND dr.status = \'PENDING\''
-        );
-        $pdrStmt->execute([$chapterId]);
-        $pendingDonationReports = (int) $pdrStmt->fetchColumn();
-
-        // 4. Active OPEN requests in chapter
-        $reqStmt = $pdo->prepare(
-            'SELECT COUNT(id) AS open_count,
-                    COALESCE(SUM(quantity_units), 0) AS units_needed,
-                    COALESCE(SUM(CASE WHEN urgency IN (\'urgent\', \'emergency\') THEN 1 ELSE 0 END), 0) AS urgent_count
-             FROM blood_requests
-             WHERE request_chapter_id = ? AND status = \'OPEN\' AND needed_datetime >= ?'
-        );
-        $reqStmt->execute([$chapterId, $nowUtc]);
-        $reqSummary = $reqStmt->fetch(PDO::FETCH_ASSOC);
-
-        $activeOpenRequests = (int) ($reqSummary['open_count'] ?? 0);
-        $totalUnitsNeeded = (int) ($reqSummary['units_needed'] ?? 0);
-        $urgentOpenRequests = (int) ($reqSummary['urgent_count'] ?? 0);
-
-        // 5. Demand by blood type in chapter
-        $btStmt = $pdo->prepare(
-            'SELECT required_blood_type, COALESCE(SUM(quantity_units), 0) AS units
-             FROM blood_requests
-             WHERE request_chapter_id = ? AND status = \'OPEN\' AND needed_datetime >= ?
-             GROUP BY required_blood_type'
-        );
-        $btStmt->execute([$chapterId, $nowUtc]);
-        $btRows = $btStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $demandByBloodType = [];
-        foreach (self::BLOOD_TYPES as $bt) {
-            $demandByBloodType[$bt] = 0;
-        }
-        foreach ($btRows as $r) {
-            $bt = (string) $r['required_blood_type'];
-            if (isset($demandByBloodType[$bt])) {
-                $demandByBloodType[$bt] = (int) $r['units'];
-            }
-        }
-
-        // 6. Donor pool availability evaluated via DonorEligibilityService
-        $donorStmt = $pdo->prepare(
-            'SELECT id, blood_type, donor_availability, last_verified_donation_at,
-                    role, account_status, verification_status, email_verified_at, donor_enrolled_at, date_of_birth,
-                    EXISTS (SELECT 1 FROM member_documents consent WHERE consent.user_id=users.id AND consent.doc_type=\'parental_consent\') AS has_parental_consent
-             FROM users
-             WHERE chapter_id = ? AND role = \'member\' AND verification_status = \'verified\'
-               AND account_status = \'active\' AND donor_enrolled_at IS NOT NULL'
-        );
-        $donorStmt->execute([$chapterId]);
-        $donors = $donorStmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $donorPool = $this->evaluateDonorPoolStatus($donors);
-
-        // 7. Recent chapter activity via AuditLogRepository
-        $auditRepo = new AuditLogRepository();
-        $recentAudit = $auditRepo->listForChapter($chapterId, [], 1, 5);
-
-        return [
-            'chapter' => [
-                'id' => (int) $chapter['id'],
-                'code' => (string) $chapter['code'],
-                'name' => (string) $chapter['name'],
-                'municipality' => (string) $chapter['municipality'],
-            ],
-            'metrics' => [
-                'pending_verifications' => $pendingVerifications,
-                'pending_donation_reports' => $pendingDonationReports,
-                'active_open_requests' => $activeOpenRequests,
-                'total_units_needed' => $totalUnitsNeeded,
-                'urgent_open_requests' => $urgentOpenRequests,
-                'enrolled_donors' => $donorPool['total_enrolled'],
-                'available_donors' => $donorPool['available'],
-                'standby_donors' => $donorPool['standby'],
-                'cooldown_donors' => $donorPool['cooldown'],
-                'unavailable_donors' => $donorPool['unavailable'],
-            ],
-            'demand_by_blood_type' => $demandByBloodType,
-            'donor_pool' => $donorPool,
-            'recent_activity' => $recentAudit['logs'] ?? [],
-        ];
-    }
-
-    /**
      * Admin Dashboard summary.
      */
     public function getAdminDashboard(?int $filterChapterId = null): array
@@ -252,7 +134,7 @@ final class AnalyticsRepository
         // 1. Total users
         $totalUsers = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn();
         $totalMembers = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE role = \'member\'')->fetchColumn();
-        $totalOfficers = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE role = \'officer\'')->fetchColumn();
+        $totalStaff = (int) $pdo->query('SELECT COUNT(*) FROM users WHERE role = \'admin\'')->fetchColumn();
 
         // 2. Request lifecycle aggregates
         $reqWhere = [];
@@ -375,7 +257,7 @@ final class AnalyticsRepository
             'overview' => [
                 'total_users' => $totalUsers,
                 'total_members' => $totalMembers,
-                'total_officers' => $totalOfficers,
+                'total_staff' => $totalStaff,
                 'total_requests_all_time' => $totalReqs,
                 'active_open_requests' => $openCount,
                 'open_units_needed' => $openUnits,

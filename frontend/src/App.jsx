@@ -15,7 +15,6 @@ import MatchesPage from './pages/MatchesPage'
 import NotificationFlyout from './components/NotificationFlyout'
 import Footer from './components/Footer'
 import NotificationsPage from './pages/NotificationsPage'
-import PortalLayout from './components/PortalLayout'
 import AdminLayout from './pages/admin/AdminLayout'
 import DashboardView from './pages/admin/views/DashboardView'
 import DemandMapView from './pages/admin/views/DemandMapView'
@@ -23,11 +22,7 @@ import AnalyticsView from './pages/admin/views/AnalyticsView'
 import AuditLogsView from './pages/admin/views/AuditLogsView'
 import UsersView from './pages/admin/views/UsersView'
 import AdminVerificationsView from './pages/admin/views/VerificationsView'
-import OfficerLayout from './pages/officer/OfficerLayout'
-import OfficerDashboardView from './pages/officer/views/DashboardView'
-import OfficerVerificationView from './pages/officer/views/VerificationView'
-import OfficerConfirmationsView from './pages/officer/views/ConfirmationsView'
-import OfficerAuditLogsView from './pages/officer/views/AuditLogsView'
+import ConfirmationsView from './pages/admin/views/ConfirmationsView'
 import DemandMapWidget from './components/DemandMapWidget'
 import { api } from './services/apiClient'
 import LandingPage from './pages/LandingPage'
@@ -45,7 +40,7 @@ function RequireAuth({ children, roles }) {
   if (!user) {
     return <Navigate to="/" replace />
   }
-  if (roles && !roles.includes(user.role)) {
+  if (roles && (!roles.includes(user.role) || user.account_status !== 'active')) {
     return <Navigate to="/" replace />
   }
   return children
@@ -284,18 +279,11 @@ function AppShell() {
                           <CaretRight size={16} className="dropdown-caret" />
                         </Link>
                         
-                        {user.role === 'officer' && (
-                          <Link to="/officer/dashboard" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
-                            <div className="dropdown-icon-wrapper"><ShieldCheck size={20} weight="fill" /></div>
-                            <span className="dropdown-item-text">Officer Portal</span>
-                            <CaretRight size={16} className="dropdown-caret" />
-                          </Link>
-                        )}
                         
                         {user.role === 'admin' && (
                           <Link to="/admin/dashboard" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
                             <div className="dropdown-icon-wrapper"><ShieldCheck size={20} weight="fill" /></div>
-                            <span className="dropdown-item-text">Admin Portal</span>
+                            <span className="dropdown-item-text">Admin/Officer Portal</span>
                             <CaretRight size={16} className="dropdown-caret" />
                           </Link>
                         )}
@@ -392,16 +380,10 @@ function AppShell() {
                   <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Profile</Link>
                   <Link to="/profile" className="mobile-link" onClick={() => setMobileOpen(false)}>My Requests</Link>
                   <Link to="/notifications" className={`mobile-link ${isActive('/notifications') ? 'active' : ''}`} aria-label={`Notifications, ${unread} unread`} aria-current={isActive('/notifications') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Notifications {unread > 0 && <span className="nav-badge">{unread}</span>}</Link>
-                  {user.role === 'officer' && (
-                    <>
-                      <div className="mobile-section-label">Administrative</div>
-                      <Link to="/officer/dashboard" className={`mobile-link ${isPortalActive ? 'active' : ''}`} aria-current={isPortalActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Officer Portal</Link>
-                    </>
-                  )}
                   {user.role === 'admin' && (
                     <>
                       <div className="mobile-section-label">Administrative</div>
-                      <Link to="/admin/dashboard" className={`mobile-link ${isPortalActive ? 'active' : ''}`} aria-current={isPortalActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Admin Portal</Link>
+                      <Link to="/admin/dashboard" className={`mobile-link ${isPortalActive ? 'active' : ''}`} aria-current={isPortalActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Admin/Officer Portal</Link>
                     </>
                   )}
 
@@ -443,7 +425,7 @@ function AppShell() {
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
             <Route path="/profile/:id" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
-            {/* Nested Admin Portal Routes */}
+            {/* Nested Admin/Officer Portal Routes */}
             <Route
               path="/admin"
               element={
@@ -456,54 +438,22 @@ function AppShell() {
               <Route path="dashboard" element={<DashboardView />} />
               <Route path="verifications" element={<AdminVerificationsView />} />
               <Route path="users" element={<UsersView />} />
-              <Route path="confirmations" element={<OfficerConfirmationsView admin />} />
+              <Route path="confirmations" element={<ConfirmationsView />} />
               <Route path="demand-map" element={<DemandMapView />} />
               <Route path="analytics" element={<AnalyticsView />} />
               <Route path="audit-logs" element={<AuditLogsView />} />
             </Route>
 
-            {/* Nested Officer Portal Routes */}
-            <Route
-              path="/officer"
-              element={
-                <RequireAuth roles={['officer']}>
-                  <OfficerLayout />
-                </RequireAuth>
-              }
-            >
-              <Route index element={<Navigate replace to="dashboard" />} />
-              <Route path="dashboard" element={<OfficerDashboardView />} />
-              <Route path="verifications" element={<OfficerVerificationView />} />
-              <Route path="verification" element={<Navigate replace to="verifications" />} />
-              <Route path="confirmations" element={<OfficerConfirmationsView />} />
-              <Route path="audit-logs" element={<OfficerAuditLogsView />} />
-            </Route>
-
-            {/* Standalone Demand Map & Analytics Routes (Officers use PortalLayout, Admins redirect to /admin/*) */}
-            <Route
-              path="/demand-map"
-              element={
-                <RequireAuth roles={['officer', 'admin']}>
-                  {user?.role === 'admin' ? (
-                    <Navigate replace to="/admin/demand-map" />
-                  ) : (
-                    <PortalLayout><DemandMapView /></PortalLayout>
-                  )}
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/analytics"
-              element={
-                <RequireAuth roles={['officer', 'admin']}>
-                  {user?.role === 'admin' ? (
-                    <Navigate replace to="/admin/analytics" />
-                  ) : (
-                    <PortalLayout><AnalyticsView /></PortalLayout>
-                  )}
-                </RequireAuth>
-              }
-            />
+            {/* Legacy bookmarks redirect to the combined staff portal. */}
+            <Route path="/officer" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/dashboard" /></RequireAuth>} />
+            <Route path="/officer/dashboard" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/dashboard" /></RequireAuth>} />
+            <Route path="/officer/verifications" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/verifications" /></RequireAuth>} />
+            <Route path="/officer/verification" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/verifications" /></RequireAuth>} />
+            <Route path="/officer/confirmations" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/confirmations" /></RequireAuth>} />
+            <Route path="/officer/audit-logs" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/audit-logs" /></RequireAuth>} />
+            <Route path="/officer/users" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/users" /></RequireAuth>} />
+            <Route path="/demand-map" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/demand-map" /></RequireAuth>} />
+            <Route path="/analytics" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/analytics" /></RequireAuth>} />
 
             {/* Standard Member Routes */}
             <Route path="/requests/new" element={<RequireAuth><CreateRequestEntry /></RequireAuth>} />

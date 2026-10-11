@@ -1,10 +1,13 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
+import AuditFilterToolbar from '../../../components/AuditFilterToolbar'
 
 export default function AuditLogsView() {
   const [data, setData] = useState(null)
+  const [chapters,setChapters] = useState([])
+  const [filters,setFilters] = useState({})
+  useEffect(() => { let active=true; api.get('/api/chapters').then(result => { if(active) setChapters(result.chapters || []) }).catch(err => { if(active) setError(err.message) }); return () => { active=false } }, [])
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
   const [action, setAction] = useState('')
@@ -18,39 +21,20 @@ export default function AuditLogsView() {
   const [loading, setLoading] = useState(false)
   const [selectedContext, setSelectedContext] = useState(null)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setError(null)
-    const params = new URLSearchParams()
-    params.set('page', page.toString())
-    params.set('page_size', pageSize.toString())
-    if (action.trim()) params.set('action', action.trim())
-    if (actorId.trim()) params.set('actor_id', actorId.trim())
-    if (targetType.trim()) params.set('target_type', targetType.trim())
-    if (targetId.trim()) params.set('target_id', targetId.trim())
-    if (chapterId.trim()) params.set('chapter_id', chapterId.trim())
-    if (dateFrom.trim()) params.set('date_from', dateFrom.trim())
-    if (dateTo.trim()) params.set('date_to', dateTo.trim())
-
-    api.get(`/api/admin/audit-logs?${params.toString()}`)
-      .then((res) => {
-        setData(res)
-        setLoading(false)
-      })
-      .catch((err) => {
-        setError(err.message)
-        setLoading(false)
-      })
-  }, [page, pageSize, action, actorId, targetType, targetId, chapterId, dateFrom, dateTo])
-
   useEffect(() => {
-    load()
-  }, [load])
+    let active = true
+    setLoading(true); setError(null)
+    const params = new URLSearchParams({page:String(page),page_size:String(pageSize)})
+    Object.entries(filters).forEach(([key,value]) => { if(String(value).trim()) params.set(key,String(value).trim()) })
+    api.get(`/api/admin/audit-logs?${params}`).then(result => { if(active) setData(result) })
+      .catch(err => { if(active) setError(err.message) }).finally(() => { if(active) setLoading(false) })
+    return () => { active=false }
+  }, [page,pageSize,filters])
 
   const handleSearch = (e) => {
     e.preventDefault()
     setPage(1)
-    load()
+    setFilters({action,actor_id:actorId,target_type:targetType,target_id:targetId,chapter_id:chapterId,date_from:dateFrom,date_to:dateTo})
   }
 
   const handleReset = () => {
@@ -61,6 +45,7 @@ export default function AuditLogsView() {
     setChapterId('')
     setDateFrom('')
     setDateTo('')
+    setFilters({})
     setPage(1)
   }
 
@@ -70,117 +55,9 @@ export default function AuditLogsView() {
       {error && <div className="alert alert-error" role="alert">{error}</div>}
 
       {/* Filter Toolbar */}
-      <form onSubmit={handleSearch} className="card" style={{ marginBottom: 'var(--space-6)' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 'var(--space-3)', marginBottom: 'var(--space-4)' }}>
-          <div className="field">
-            <label htmlFor="admin-filter-chapter">Chapter</label>
-            <select
-              id="admin-filter-chapter"
-              value={chapterId}
-              onChange={(e) => setChapterId(e.target.value)}
-            >
-              <option value="">All Chapters (Global)</option>
-              <option value="1">Mt. Samat (Orani)</option>
-              <option value="2">Mt. Tarak (Mariveles)</option>
-              <option value="3">Meridian Heights (Balanga City)</option>
-            </select>
-          </div>
-
-          <div className="field">
-            <label htmlFor="admin-filter-action">Action Code</label>
-            <input
-              id="admin-filter-action"
-              type="text"
-              placeholder="e.g. auth.*, request.*"
-              value={action}
-              onChange={(e) => setAction(e.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="admin-filter-target-type">Target Type</label>
-            <select
-              id="admin-filter-target-type"
-              value={targetType}
-              onChange={(e) => setTargetType(e.target.value)}
-            >
-              <option value="">All Types</option>
-              <option value="user">User</option>
-              <option value="blood_request">Blood Request</option>
-              <option value="member_document">Member Document</option>
-              <option value="donation_report">Donation Report</option>
-              <option value="chapter">Chapter</option>
-            </select>
-          </div>
-
-          <div className="field">
-            <label htmlFor="admin-filter-actor-id">Actor User ID</label>
-            <input
-              id="admin-filter-actor-id"
-              type="text"
-              placeholder="e.g. 1"
-              value={actorId}
-              onChange={(e) => setActorId(e.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="admin-filter-target-id">Target ID</label>
-            <input
-              id="admin-filter-target-id"
-              type="text"
-              placeholder="e.g. 50"
-              value={targetId}
-              onChange={(e) => setTargetId(e.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="admin-filter-date-from">Date From</label>
-            <input
-              id="admin-filter-date-from"
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-          </div>
-
-          <div className="field">
-            <label htmlFor="admin-filter-date-to">Date To</label>
-            <input
-              id="admin-filter-date-to"
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
-          <div className="button-group">
-            <button type="submit" className="btn btn-sm">
-              Filter Audit Records
-            </button>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={handleReset}>
-              Reset Filters
-            </button>
-          </div>
-
-          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-            <label htmlFor="admin-page-size-select" style={{ fontSize: '0.8125rem' }}>Rows per page:</label>
-            <select
-              id="admin-page-size-select"
-              value={pageSize}
-              onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1) }}
-              style={{ fontSize: '0.8125rem', padding: 'var(--space-1) var(--space-2)', width: 'auto' }}
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-            </select>
-          </div>
-        </div>
-      </form>
+      <AuditFilterToolbar draft={{action,actorId,targetType,targetId,chapterId,dateFrom,dateTo}} chapters={chapters}
+        change={(field,value) => ({action:setAction,actorId:setActorId,targetType:setTargetType,targetId:setTargetId,chapterId:setChapterId,dateFrom:setDateFrom,dateTo:setDateTo})[field](value)}
+        onSubmit={handleSearch} onReset={handleReset} pageSize={pageSize} onPageSize={value => { setPageSize(value); setPage(1) }} />
 
       {/* Audit Event Table */}
       {loading ? (

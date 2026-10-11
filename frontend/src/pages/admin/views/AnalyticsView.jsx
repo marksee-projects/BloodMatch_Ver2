@@ -6,11 +6,15 @@ import DailyTrendChart from '../../../components/charts/DailyTrendChart'
 import BloodGroupDemandChart from '../../../components/charts/BloodGroupDemandChart'
 import DonorPoolBreakdownChart from '../../../components/charts/DonorPoolBreakdownChart'
 import styles from './AnalyticsView.module.css'
+import AnalyticsPrintReport from '../../../components/AnalyticsPrintReport'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function AnalyticsView() {
   const { user } = useAuth()
   const [data, setData] = useState(null)
+  const [chapters,setChapters] = useState([])
+  const [version,setVersion] = useState(0)
+  useEffect(() => { let active=true; api.get('/api/chapters').then(result => { if(active) setChapters(result.chapters || []) }).catch(() => {}); return () => { active=false } }, [])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -23,27 +27,19 @@ export default function AnalyticsView() {
   const [chapterId, setChapterId] = useState('')
   const [activePreset, setActivePreset] = useState('monthly')
 
-  const fetchAnalytics = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (dateFrom) params.set('date_from', dateFrom)
-      if (dateTo) params.set('date_to', dateTo)
-      if (user?.role === 'admin' && chapterId) params.set('chapter_id', chapterId)
-
-      const res = await api.get(`/api/analytics/summary?${params.toString()}`)
-      setData(res)
-    } catch (err) {
-      setError(err.message || 'Failed to load analytics summary.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
+  const fetchAnalytics = () => setVersion(value => value + 1)
   useEffect(() => {
-    fetchAnalytics()
-  }, [dateFrom, dateTo, chapterId])
+    let active=true
+    setLoading(true); setError(null)
+    const params=new URLSearchParams()
+    if(dateFrom) params.set('date_from',dateFrom)
+    if(dateTo) params.set('date_to',dateTo)
+    if(chapterId) params.set('chapter_id',chapterId)
+    api.get(`/api/analytics/summary?${params}`).then(result => { if(active) setData(result) })
+      .catch(err => { if(active) setError(err.message || 'Failed to load analytics summary.') })
+      .finally(() => { if(active) setLoading(false) })
+    return () => { active=false }
+  }, [dateFrom,dateTo,chapterId,version,user?.id])
 
   const applyPreset = (presetKey, days) => {
     setActivePreset(presetKey)
@@ -70,6 +66,9 @@ export default function AnalyticsView() {
   return (
     <div className="container" style={{ padding: 'var(--space-6) 0' }}>
 
+      <section className="card" style={{marginBottom:'var(--space-6)'}}>
+        <div className="card-header"><h2>Request volume and fulfillment trend</h2></div>
+        <p className={styles.periodNote}>Filters apply to all charts, totals and exports. Reporting days use UTC: 8 AM to before 8 AM the following day in the Philippines.</p>
       {/* 1-Click Periodic Preset Tabs */}
       <div className={styles.presetsBar}>
         <div className={styles.tabGroup} role="tablist" aria-label="Reporting Intervals">
@@ -113,7 +112,7 @@ export default function AnalyticsView() {
       </div>
 
       {/* Date Range & Chapter Filter Bar */}
-      <section className="card" style={{ marginBottom: 'var(--space-6)' }}>
+      <div className={styles.filterBar}>
         <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <div className="field">
             <label htmlFor="date-from">Date From</label>
@@ -150,15 +149,14 @@ export default function AnalyticsView() {
                 onChange={(e) => setChapterId(e.target.value)}
               >
                 <option value="">All Chapters (Global)</option>
-                <option value="1">Mt. Samat (Orani)</option>
-                <option value="2">Mt. Tarak (Mariveles)</option>
-                <option value="3">Meridian Heights (Balanga City)</option>
+                {chapters.map(chapter => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}
               </select>
             </div>
           )}
 
           <div>
             <a className="btn btn-secondary btn-sm" href={`/api/analytics/export?${new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...(user?.role === 'admin' && chapterId ? { chapter_id: chapterId } : {}) })}`} download>Export aggregate CSV</a>
+            <button className="btn btn-secondary btn-sm" type="button" disabled={loading || Boolean(error) || !data} onClick={() => window.print()}>Print / Save PDF</button>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
@@ -169,7 +167,11 @@ export default function AnalyticsView() {
             </button>
           </div>
         </div>
+      </div>
+
+        {!loading && !error && <DailyTrendChart trend={chartTrend} />}
       </section>
+      <AnalyticsPrintReport data={!loading && !error ? data : null} scopeLabel={data?.chapter_id == null ? 'All chapters' : (chapters.find(chapter => String(chapter.id) === String(data.chapter_id))?.name || `Chapter ${data.chapter_id}`)} />
 
       {error && <div className="alert alert-error" role="alert">{error}</div>}
       {loading && (
@@ -205,17 +207,6 @@ export default function AnalyticsView() {
               <span className="metric-value">{reqVolume.expiration_rate_percent !== undefined ? `${reqVolume.expiration_rate_percent}%` : '0%'}</span>
               <span className="metric-sub">{reqVolume.expired_requests || 0} expired</span>
             </div>
-          </section>
-
-          {/* Interactive Trend Chart Card */}
-          <section className="card" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="card-header">
-              <div>
-                <h3>Request Volume &amp; Fulfillment Trend</h3>
-                <span className="muted" style={{ fontSize: '0.75rem' }}>Requests grouped by creation date; outcomes reflect their current status</span>
-              </div>
-            </div>
-            <DailyTrendChart trend={chartTrend} />
           </section>
 
           {/* Categorical Breakdowns Grid */}

@@ -1,3 +1,5 @@
+> **Ratified user amendment ? 2026-10-11:** Officer/Admin consolidation supersedes contrary requirements below, including section 9, and archived chapter-scoped Officer rules. The only staff backend role is `admin`, labelled **Admin/Officer**, with global access across chapters. `member`, membership verification status and activation status remain separate. Preserve active checks, authenticated/private document access, no self-verification or donation review, and staff read-only donor responses. Existing officer-to-admin conversion is a separately reviewed, backed-up, user-run migration, never an implicit runtime elevation. See [the current checkpoint](../STAFF_ROLE_CONSOLIDATION_CHECKPOINT.md).
+
 # BloodMatch — Project Context
 
 > **This file is the permanent source of truth for understanding the BloodMatch system before making implementation decisions.**

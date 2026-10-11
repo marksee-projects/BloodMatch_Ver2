@@ -24,6 +24,7 @@ final class UserAdminController
         $users = (new UserRepository())->listAll(
             [
                 'role' => \BloodMatch\Utils\Request::str('role'),
+                'role_group' => Request::str('role_group'),
                 'verification_status' => \BloodMatch\Utils\Request::str('verification_status'),
                 'account_status' => \BloodMatch\Utils\Request::str('account_status'),
                 'chapter_id' => \BloodMatch\Utils\Request::str('chapter_id'),
@@ -62,9 +63,9 @@ final class UserAdminController
         $body = Request::json();
         $role = Request::str('role', $body);
 
-        if (!in_array($role, ['member', 'officer', 'admin'], true)) {
+        if (!in_array($role, ['member', 'admin'], true)) {
             Response::error('Invalid role value.', 400, [
-                'role' => ['Role must be one of: member, officer, admin.'],
+                'role' => ['Role must be member or admin (Admin/Officer).'],
             ]);
             return;
         }
@@ -79,15 +80,6 @@ final class UserAdminController
             return;
         }
 
-        if ($role === 'officer') {
-            $effectiveChapter = $chapterId ?? ($target['chapter_id'] !== null ? (int) $target['chapter_id'] : null);
-            if ($effectiveChapter === null) {
-                Response::error('An Officer must be assigned exactly one chapter.', 400, [
-                    'chapter_id' => ['An Officer requires a chapter assignment.'],
-                ]);
-                return;
-            }
-        }
 
         try {
             \BloodMatch\Services\AccountLifecycleService::change($actorId,$targetId,[
@@ -141,12 +133,6 @@ final class UserAdminController
             return;
         }
 
-        if ((string) $target['role'] === 'officer' && $chapterId === null) {
-            Response::error('An Officer cannot have a null chapter assignment.', 422, [
-                'chapter_id' => ['Officers require exactly one chapter.'],
-            ]);
-            return;
-        }
 
         try { \BloodMatch\Services\AccountLifecycleService::change($actorId,$targetId,['chapter_id'=>$chapterId]); }
         catch (\Throwable $e) {

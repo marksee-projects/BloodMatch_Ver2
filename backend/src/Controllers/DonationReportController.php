@@ -17,7 +17,7 @@ final class DonationReportController
 {
     public function submit(): void
     {
-        $actor = AuthMiddleware::requireActiveUser('donation_reports.submit');
+        $actor = AuthMiddleware::requireRoles(['member'], 'donation_reports.submit');
 
         $body = Request::json();
         $matchId = Request::int('match_id', $body);
@@ -63,18 +63,11 @@ final class DonationReportController
         ], $rows)]);
     }
 
-    public function officerQueue(): void
+    public function staffQueue(): void
     {
-        $actor = AuthMiddleware::requireRoles(['officer', 'admin'], 'officer.reports.queue');
+        $actor = AuthMiddleware::requireRoles(['admin'], 'admin.reports.queue');
 
-        $chapterId = (string) $actor['role'] === 'admin'
-            ? null
-            : ($actor['chapter_id'] !== null ? (int) $actor['chapter_id'] : -1);
-
-        if ($chapterId === -1) {
-            AuthBridge::assertChapter($actor, -1, 'officer.reports.queue');
-            return;
-        }
+        $chapterId = null;
 
         $rows = (new DonationReportRepository())->listPendingByChapter($chapterId);
         Response::success(['pending_reports' => array_map(static fn (array $r): array => [
@@ -108,7 +101,7 @@ final class DonationReportController
 
     private function decide(array $params, bool $confirm): void
     {
-        $actor = AuthMiddleware::requireRoles(['officer', 'admin'], 'officer.reports.decide');
+        $actor = AuthMiddleware::requireRoles(['admin'], 'admin.reports.decide');
 
         try {
             $result = (new \BloodMatch\Services\DonationService())->decide(

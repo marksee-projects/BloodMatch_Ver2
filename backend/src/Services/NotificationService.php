@@ -62,9 +62,7 @@ final class NotificationService
         bool $resubmitted = false
     ): array {
         $users = new \BloodMatch\Repositories\UserRepository();
-        $member = $users->findById($memberId);
-        $adminIds = array_unique(array_merge($users->activeIdsByRole('admin'),
-            self::chapterOfficerIds($member['chapter_id'] ?? null)));
+        $adminIds = $users->activeIdsByRole('admin');
         $notified = [];
         $title = $resubmitted ? 'National ID resubmitted' : 'New account verification request';
         $body = $resubmitted
@@ -92,12 +90,10 @@ final class NotificationService
         return $notified;
     }
 
+    /** Legacy helper; review recipients are now global staff. */
     public static function chapterOfficerIds(?int $chapterId): array
     {
-        if ($chapterId === null) { return []; }
-        $s = \BloodMatch\Config\Database::pdo()->prepare("SELECT id FROM users WHERE role='officer' AND account_status='active' AND chapter_id=? ORDER BY id");
-        $s->execute([$chapterId]);
-        return array_map('intval', $s->fetchAll(\PDO::FETCH_COLUMN));
+        return (new \BloodMatch\Repositories\UserRepository())->activeIdsByRole('admin');
     }
 
     /** Called before unfinished offers are closed, inside the owning transaction. */

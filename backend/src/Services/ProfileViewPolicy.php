@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace BloodMatch\Services;
 
-use BloodMatch\Repositories\MatchRepository;
-
 final class ProfileViewPolicy
 {
     public function relation(array $viewer, array $target): ?string
@@ -32,13 +30,6 @@ final class ProfileViewPolicy
             return 'member';
         }
 
-        if ((string) $viewer['role'] === 'officer'
-            && $viewer['chapter_id'] !== null
-            && $target['chapter_id'] !== null
-            && (int) $viewer['chapter_id'] === (int) $target['chapter_id']) {
-            return 'chapter_officer';
-        }
-
-        return (new MatchRepository())->profileViewRelation($viewerId, $targetId);
+        return null;
     }
 }

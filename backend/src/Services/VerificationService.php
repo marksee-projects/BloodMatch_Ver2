@@ -25,7 +25,7 @@ final class VerificationService
                 // Denial logs inside the failed business transaction roll back;
                 // retain the denial after rollback without exposing document data.
                 AuditLogger::log((int) $actor['id'], 'authz.denied', 'user', (string) $targetId, [
-                    'endpoint' => 'officer.verifications.decide',
+                    'endpoint' => 'admin.verifications.decide',
                     'reason' => (int) $actor['id'] === $targetId ? 'self_verification_forbidden' : 'verification_authorization_denied',
                 ]);
             }
@@ -71,7 +71,7 @@ final class VerificationService
         }
         $actor = $locked[(int) $actor['id']];
         WorkflowLockService::assertActiveActor($actor);
-        if (!in_array((string) $actor['role'], ['officer', 'admin'], true)) { throw new RuntimeException('Forbidden.', 403); }
+        if ((string) $actor['role'] !== 'admin') { throw new RuntimeException('Forbidden.', 403); }
         $users = new UserRepository();
         $docs = new DocumentRepository();
         $ver = new VerificationRepository();
@@ -84,7 +84,7 @@ final class VerificationService
 
         if ((string) $actor['id'] === (string) $target['id']) {
             AuditLogger::log((int) $actor['id'], 'authz.denied', 'user', (string) $targetId, [
-                'endpoint' => 'officer.verifications.decide',
+                'endpoint' => 'admin.verifications.decide',
                 'reason' => 'self_verification_forbidden',
             ]);
             throw new RuntimeException('You cannot verify your own account.', 403);
@@ -92,19 +92,13 @@ final class VerificationService
 
         if ((string) $target['role'] !== 'member') {
             AuditLogger::log((int) $actor['id'], 'authz.denied', 'user', (string) $targetId, [
-                'endpoint' => 'officer.verifications.decide',
+                'endpoint' => 'admin.verifications.decide',
                 'reason' => 'privileged_target_forbidden',
                 'target_role' => (string) $target['role'],
             ]);
             throw new RuntimeException('Only member accounts can go through verification.', 403);
         }
 
-        if ((string) $actor['role'] === 'officer' && ($actor['chapter_id']===null || $target['chapter_id']===null
-            || (int)$actor['chapter_id']!==(int)$target['chapter_id'])) {
-            // Service callers must unwind their transaction and fixture cleanup;
-            // HTTP middleware's exit would bypass both. The same scope stays denied.
-            throw new RuntimeException('Forbidden.',403);
-        }
 
         $currentVs = (string) $target['verification_status'];
 
@@ -133,7 +127,7 @@ final class VerificationService
                 'verification.decision',
                 $decision === 'verified' ? 'Your membership has been verified' : 'Account verification rejected',
                 $decision === 'verified'
-                    ? 'An officer verified your membership. You can now participate as a donor.'
+                    ? 'An Admin/Officer verified your membership. You can now participate as a donor.'
                     : 'Your National ID could not be approved: ' . trim((string) $reason)
                         . '. Upload a clearer or valid National ID to request another review.',
                 [

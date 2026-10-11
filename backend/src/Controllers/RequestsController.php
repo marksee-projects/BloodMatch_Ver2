@@ -230,9 +230,6 @@ final class RequestsController
 
         $isOwner = (int) $row['requester_id'] === (int) $actor['id'];
         $isAdmin = (string) $actor['role'] === 'admin';
-        $isSameChapterOfficer = (string) $actor['role'] === 'officer'
-            && $actor['chapter_id'] !== null
-            && (int) $actor['chapter_id'] === (int) $row['request_chapter_id'];
         $context = $repo->findRequestContext($requestId, (int) $actor['id']);
         $nowUtc = DonorEligibilityService::nowUtc();
         $window = DonorEligibilityService::evaluateWindows(
@@ -248,7 +245,7 @@ final class RequestsController
             )
             : null;
 
-        if ($isOwner || $isAdmin || $isSameChapterOfficer) {
+        if ($isOwner || $isAdmin) {
             Response::success([
                 'viewer_mode' => 'requester',
                 'request' => $requestView,
@@ -302,7 +299,7 @@ final class RequestsController
 
         AuditLogger::log((int) $actor['id'], 'authz.denied', 'blood_request', (string) $requestId, [
             'endpoint' => 'requests.matches',
-            'reason' => 'not_owner_officer_or_matched_donor',
+            'reason' => 'not_owner_staff_or_matched_donor',
         ]);
         Response::error('Forbidden.', 403);
     }
@@ -329,7 +326,7 @@ final class RequestsController
 
     public function rematch(array $params): void
     {
-        $actor = AuthMiddleware::requireRoles(['officer', 'admin'], 'requests.rematch');
+        $actor = AuthMiddleware::requireRoles(['admin'], 'requests.rematch');
         $repo = new BloodRequestRepository();
         $row = $repo->findById((int) $params['id']);
 
@@ -385,11 +382,8 @@ final class RequestsController
 
         $isOwner = (int) $row['requester_id'] === (int) $actor['id'];
         $isAdmin = (string) $actor['role'] === 'admin';
-        $isSameChapterOfficer = (string) $actor['role'] === 'officer'
-            && $actor['chapter_id'] !== null
-            && (int) $actor['chapter_id'] === (int) $row['request_chapter_id'];
 
-        if (!$isOwner && !$isAdmin && !$isSameChapterOfficer) {
+        if (!$isOwner && !$isAdmin) {
             AuditLogger::log((int) $actor['id'], 'authz.denied', 'blood_request', (string) $id, [
                 'endpoint' => $endpoint,
                 'reason' => 'not_owner_or_out_of_chapter',

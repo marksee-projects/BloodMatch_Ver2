@@ -154,7 +154,7 @@ final class DocumentController
 
     public function fileOfficer(array $params): void
     {
-        $actor = AuthMiddleware::requireRoles(['officer', 'admin'], 'officer.documents.file');
+        $actor = AuthMiddleware::requireRoles(['admin'], 'admin.documents.file');
 
         $doc = (new DocumentRepository())->findById((int) $params['documentId']);
         if ($doc === null) {
@@ -165,17 +165,17 @@ final class DocumentController
         $owner = (new UserRepository())->findById((int) $doc['user_id']);
         if ($owner === null || (string) $owner['role'] !== 'member') {
             AuditLogger::log((int) $actor['id'], 'authz.denied', 'member_document', (string) $doc['id'], [
-                'endpoint' => 'officer.documents.file',
+                'endpoint' => 'admin.documents.file',
                 'reason' => 'owner_not_member',
             ]);
             Response::error('Forbidden.', 403);
             return;
         }
 
-        AuthMiddleware::requireChapterScope($actor, (int) $owner['chapter_id'], 'officer.documents.file');
+        AuthMiddleware::requireChapterScope($actor, (int) $owner['chapter_id'], 'admin.documents.file');
 
         AuditLogger::log((int) $actor['id'], 'document.accessed', 'member_document', (string) $doc['id'], [
-            'via' => 'officer_review',
+            'via' => 'staff_review',
             'owner_user_id' => (int) $owner['id'],
         ]);
 

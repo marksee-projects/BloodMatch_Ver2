@@ -12,7 +12,7 @@ final class CompatibilityController
 {
     public function show(): void
     {
-        AuthMiddleware::requireRoles(['officer', 'admin'], 'compatibility.matrix');
+        AuthMiddleware::requireRoles(['admin'], 'compatibility.matrix');
 
         $matrix = BloodCompatibilityService::fullMatrix();
         ksort($matrix);

@@ -15,9 +15,11 @@ final class UserRepository
         $stmt = Database::pdo()->prepare(
             'SELECT u.id, u.email, u.full_name, u.role, u.chapter_id,
                     u.verification_status, u.account_status, u.blood_type,
-                    u.profile_picture, u.created_at, c.name AS chapter_name
+                    u.profile_picture, u.created_at, c.name AS chapter_name,
+                    l.municipality_name
              FROM users u
              LEFT JOIN chapters c ON c.id = u.chapter_id
+             LEFT JOIN bataan_locations l ON l.id = u.location_id
              WHERE u.id = ? LIMIT 1'
         );
         $stmt->execute([$id]);
@@ -184,6 +186,11 @@ final class UserRepository
         $params = [];
 
         static $allowed = ['role', 'verification_status', 'account_status'];
+        if (($filters['role_group'] ?? '') === 'member') {
+            $where[] = "role = 'member'";
+        } elseif (($filters['role_group'] ?? '') === 'staff') {
+            $where[] = "role = 'admin'";
+        }
         foreach ($allowed as $col) {
             if (!empty($filters[$col]) && is_string($filters[$col])) {
                 $where[] = "$col = ?";
