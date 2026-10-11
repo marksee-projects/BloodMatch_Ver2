@@ -9,8 +9,8 @@ export default function BloodGroupDemandChart({ demandByBt = {} }) {
     const data = demandByBt[bt] || {}
     return {
       bloodType: bt,
-      requestsCount: Number(data.requests_count || 0),
-      unitsNeeded: Number(data.units_needed || 0)
+      requestsCount: Number(data.requests || 0),
+      unitsNeeded: Number(data.units || 0)
     }
   })
 
@@ -27,6 +27,10 @@ export default function BloodGroupDemandChart({ demandByBt = {} }) {
           return (
             <div
               key={item.bloodType}
+              tabIndex={0}
+              aria-label={`${item.bloodType}: ${item.unitsNeeded} units requested across ${item.requestsCount} requests`}
+              onFocus={() => setHoveredBt(item.bloodType)}
+              onBlur={() => setHoveredBt(null)}
               style={{
                 display: 'flex',
                 flexDirection: 'column',
@@ -89,7 +93,7 @@ export default function BloodGroupDemandChart({ demandByBt = {} }) {
                     pointerEvents: 'none'
                   }}
                 >
-                  <strong>{item.bloodType}</strong>: {item.unitsNeeded} units needed ({item.requestsCount} requests)
+                  <strong>{item.bloodType}</strong>: {item.unitsNeeded} units requested ({item.requestsCount} requests)
                 </div>
               )}
             </div>

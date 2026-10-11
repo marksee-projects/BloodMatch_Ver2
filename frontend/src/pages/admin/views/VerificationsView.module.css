@@ -97,7 +97,6 @@
   overflow-wrap: anywhere;
 }
 
-.applicantIcon,
 .documentIcon {
   display: inline-flex;
   flex: none;
@@ -105,12 +104,6 @@
   justify-content: center;
   background: var(--color-surface-sunken);
   color: var(--color-brand-navy);
-}
-
-.applicantIcon {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
 }
 
 .memberSummary {
@@ -156,6 +149,17 @@
   flex: none;
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+}
+
+.centeredSectionHeading {
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+}
+
+.centeredSectionHeading h3 {
+  font-weight: 700;
 }
 
 .documentList {
@@ -246,7 +250,7 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 
-  .documentCard > a {
+  .documentCard > button {
     grid-column: 1 / -1;
     width: 100%;
   }

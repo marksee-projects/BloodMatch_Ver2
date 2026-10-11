@@ -4,6 +4,7 @@ import { Check } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 import ConfirmationDialog from '../../../components/ConfirmationDialog'
+import ConfirmedDonationSummary from '../../../components/ConfirmedDonationSummary'
 import { normalizeRejectionReason, rejectionReasonError } from '../../../services/rejectionReason'
 import styles from './ConfirmationsView.module.css'
 
@@ -12,6 +13,7 @@ export default function ConfirmationsView() {
   const [message, setMessage] = useState(null)
   const [errorAlert, setErrorAlert] = useState(null)
   const [processingId, setProcessingId] = useState(null)
+  const [summaryVersion, setSummaryVersion] = useState(0)
   const processingRef = useRef(false)
   const [rejectTarget, setRejectTarget] = useState(null)
   const [rejectionReason, setRejectionReason] = useState('')
@@ -43,6 +45,7 @@ export default function ConfirmationsView() {
       setMessage(`Donation report #${reportId} has been ${action === 'confirm' ? 'CONFIRMED' : 'REJECTED'}.`)
       if (action === 'reject') { setRejectTarget(null); setRejectionReason(''); setRejectionError(null) }
       await load()
+      setSummaryVersion(value => value + 1)
     } catch (err) {
       if (action === 'reject') setRejectionError(err.details?.rejection_reason?.[0] || err.message)
       else setErrorAlert(err.message)
@@ -69,10 +72,11 @@ export default function ConfirmationsView() {
 
       {message && <div className="alert alert-success" role="status">{message}</div>}
       {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
+      <ConfirmedDonationSummary version={summaryVersion} />
 
       {queue.length === 0 ? (
-        <div className="empty-state">
-          <h3>No Pending Confirmations</h3>
+        <div className={`card ${styles.emptyQueue}`}>
+          <h3>No pending confirmations</h3>
           <p>{'There are no donation reports awaiting review.'}</p>
           <Link to={'/admin/dashboard'} className="btn btn-secondary">
             Return to Dashboard

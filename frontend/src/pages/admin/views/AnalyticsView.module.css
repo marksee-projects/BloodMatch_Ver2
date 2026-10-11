@@ -2,7 +2,7 @@
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--space-4);
 }
 
 .tabGroup {
@@ -19,6 +19,19 @@
 }
 
 .filterBar {
-  margin-bottom: var(--space-6);
+  margin-bottom: 0;
 }
-.periodNote { font-size: var(--text-sm); color: var(--color-text-muted); margin-bottom: var(--space-4); }
+.trendHeading { width: 100%; text-align: center; font-weight: 700; margin: 0 0 var(--space-5); }
+.metrics, .trendCard { margin-bottom: var(--space-5); }
+.metric::before { display: none; }
+.metricLabel { font-family: var(--font-sans); font-size: var(--text-sm); text-transform: none; letter-spacing: normal; font-weight: 600; }
+.toolbar { padding: var(--space-4); margin-bottom: var(--space-5); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-md); background: var(--color-surface-sunken); }
+.tabGroup { justify-content: center; width: 100%; }
+.dateFilters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.dateFilters :global(.field) { margin: 0; min-width: 0; }
+.dateFilters input, .dateFilters select { box-sizing: border-box; width: 100%; }
+.exportActions { display: flex; justify-content: flex-end; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-4); }
+@media (max-width: 640px) {
+  .dateFilters { grid-template-columns: 1fr; }
+  .exportActions > * { flex: 1 1 auto; }
+}

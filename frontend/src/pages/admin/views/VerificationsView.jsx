@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, CheckCircle, FileText, ShieldCheck } from '@phos
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
+import DocumentPreview from '../../../components/DocumentPreview'
 import styles from './VerificationsView.module.css'
 
 const PAGE_SIZE = 20
@@ -39,7 +40,13 @@ export default function VerificationsView() {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [previewDocument, setPreviewDocument] = useState(null)
   const submittingRef = useRef(false)
+  const rejectionReasonRef = useRef(null)
+
+  useEffect(() => {
+    if (decision === 'rejected') rejectionReasonRef.current?.focus()
+  }, [decision])
 
   const loadQueue = useCallback(async () => {
     setLoading(true)
@@ -85,6 +92,7 @@ export default function VerificationsView() {
   }, [setSearchParams])
 
   const requestedUserId = searchParams.get('user')
+  useEffect(() => { setPreviewDocument(null) }, [requestedUserId])
   useEffect(() => {
     if (!requestedUserId) {
       setDetail(null)
@@ -109,7 +117,13 @@ export default function VerificationsView() {
 
   const submitDecision = async (event) => {
     event.preventDefault()
-    if (!detail || submittingRef.current) return
+    if (!detail || submittingRef.current || loadingDetail || detail.user.verification_status !== 'pending') return
+    if (decision === 'verified' && !(detail.documents || []).some(document => document.doc_type === 'national_id')) return
+    if (decision === 'rejected' && !reason.trim()) {
+      setError('Enter a rejection reason and instructions for the member.')
+      rejectionReasonRef.current?.focus()
+      return
+    }
     submittingRef.current = true
 
     const memberName = detail.user.full_name
@@ -150,6 +164,7 @@ export default function VerificationsView() {
   const totalPages = Math.max(1, Math.ceil((queue?.total || 0) / PAGE_SIZE))
   const supplementalDocuments = (detail?.documents || []).filter(document => ['parental_consent','donor_card'].includes(document.doc_type))
   const canAcceptDonorCard = Boolean(detail?.user?.blood_type) && supplementalDocuments.some(document => document.doc_type === 'donor_card')
+  const decisionDisabled = submitting || loadingDetail || detail?.user?.verification_status !== 'pending'
 
   if (loadingDetail && !detail) {
     return (
@@ -252,15 +267,12 @@ export default function VerificationsView() {
 
           <header className={styles.reviewHeader}>
             <div className={styles.applicantIdentity}>
-              <div className={styles.applicantIcon} aria-hidden="true">
-                <ShieldCheck size={24} weight="duotone" />
-              </div>
               <div>
                 <h2 id="verification-member-heading">{detail.user.full_name}</h2>
                 <p>{detail.user.email}</p>
               </div>
             </div>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={closeDetail}>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={closeDetail} disabled={submitting}>
               <ArrowLeft size={14} aria-hidden="true" /> Back to queue
             </button>
           </header>
@@ -281,11 +293,8 @@ export default function VerificationsView() {
           </dl>
 
           <section className={styles.documentsSection} aria-labelledby="submitted-national-ids-heading">
-            <div className={styles.sectionHeading}>
-              <div>
-                <h3 id="submitted-national-ids-heading">Submitted National ID</h3>
-                <p>Inspect the latest document before making a decision.</p>
-              </div>
+            <div className={`${styles.sectionHeading} ${styles.centeredSectionHeading}`}>
+              <h3 id="submitted-national-ids-heading">Submitted National ID</h3>
               <span>{nationalIds.length} file{nationalIds.length === 1 ? '' : 's'}</span>
             </div>
 
@@ -309,9 +318,9 @@ export default function VerificationsView() {
                         <div><dt>Uploaded</dt><dd>{formatDate(document.uploaded_at)}</dd></div>
                       </dl>
                     </div>
-                    <a className="btn btn-secondary btn-sm" href={`/api/admin/documents/${document.id}/file`} target="_blank" rel="noreferrer">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPreviewDocument(document)}>
                       Inspect National ID
-                    </a>
+                    </button>
                   </article>
                 ))}
               </div>
@@ -330,36 +339,28 @@ export default function VerificationsView() {
                   <div><dt>Uploaded</dt><dd>{formatDate(document.uploaded_at)}</dd></div>
                 </dl>
               </div>
-              <a className="btn btn-secondary btn-sm" href={`/api/admin/documents/${document.id}/file`} target="_blank" rel="noreferrer">Inspect {document.doc_type === 'parental_consent' ? 'parental consent' : 'donor card'}</a>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPreviewDocument(document)}>Inspect {document.doc_type === 'parental_consent' ? 'parental consent' : 'donor card'}</button>
             </article>)}</div>
           </section>}
 
           <form className={styles.decisionPanel} onSubmit={submitDecision}>
-            <div className={styles.sectionHeading}>
-              <div>
-                <h3>Verification decision</h3>
-                <p>Choose the outcome for this account.</p>
-              </div>
+            <div className={`${styles.sectionHeading} ${styles.centeredSectionHeading}`}>
+              <h3>Verification decision</h3>
             </div>
 
             <div className={styles.decisionFields}>
-              <div className="field">
-                <label htmlFor="admin-verification-decision">Decision</label>
-                <select id="admin-verification-decision" value={decision} disabled={submitting} onChange={(event) => { setDecision(event.target.value); setAcceptDonorCard(false) }}>
-                  <option value="verified">Approve account</option>
-                  <option value="rejected">Reject verification</option>
-                </select>
-              </div>
               {decision === 'verified' && canAcceptDonorCard && <div className="field">
-                <label className={styles.donorCardOption} htmlFor="staff-accept-donor-card"><input id="staff-accept-donor-card" type="checkbox" checked={acceptDonorCard} disabled={submitting} onChange={event => setAcceptDonorCard(event.target.checked)} /> Accept the inspected donor card as administrative blood-type evidence</label>
+                <label className={styles.donorCardOption} htmlFor="staff-accept-donor-card"><input id="staff-accept-donor-card" type="checkbox" checked={acceptDonorCard} disabled={decisionDisabled} onChange={event => setAcceptDonorCard(event.target.checked)} /> Accept the inspected donor card as administrative blood-type evidence</label>
                 <small>{detail.blood_type_notice || 'Administrative verification is not medical confirmation.'}</small>
               </div>}
               {decision === 'rejected' && (
                 <div className="field">
                   <label htmlFor="admin-verification-reason">Reason and instructions</label>
                   <textarea
+                    ref={rejectionReasonRef}
                     id="admin-verification-reason"
                     value={reason}
+                    disabled={decisionDisabled}
                     onChange={(event) => setReason(event.target.value)}
                     maxLength={500}
                     required
@@ -370,12 +371,15 @@ export default function VerificationsView() {
             </div>
 
             <div className="button-group">
-              <button type="submit" className={decision === 'rejected' ? 'btn btn-danger' : 'btn'} disabled={submitting || detail.user.verification_status !== 'pending' || (decision === 'verified' && nationalIds.length === 0)}>
-                {submitting ? 'Saving decision…' : decision === 'verified' ? 'Approve account' : 'Reject verification'}
+              <button type="submit" className={decision === 'rejected' ? 'btn btn-danger' : 'btn'} disabled={decisionDisabled || (decision === 'verified' && nationalIds.length === 0)}>
+                {submitting ? 'Saving decision…' : decision === 'verified' ? 'Approve account' : 'Submit rejection'}
               </button>
+              {decision === 'verified' ? <button type="button" className="btn btn-secondary" disabled={decisionDisabled} onClick={() => { setDecision('rejected'); setAcceptDonorCard(false); setReason(''); setError(null) }}>Reject verification</button>
+                : <button type="button" className="btn btn-secondary" disabled={submitting} onClick={() => { setDecision('verified'); setAcceptDonorCard(false); setReason(''); setError(null) }}>Cancel rejection</button>}
               <button type="button" className="btn btn-secondary" onClick={closeDetail} disabled={submitting}>Cancel</button>
             </div>
           </form>
+          {previewDocument && <DocumentPreview key={`${detail.user.id}-${previewDocument.id}`} document={previewDocument} onClose={() => setPreviewDocument(null)} />}
         </section>
       )}
     </div>

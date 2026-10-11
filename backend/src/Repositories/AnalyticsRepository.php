@@ -11,6 +11,21 @@ use PDO;
 
 final class AnalyticsRepository
 {
+    public function confirmedDonationSummary(array $range, ?int $chapterId): array
+    {
+        $where = "dr.status='CONFIRMED' AND dr.confirmed_at >= ? AND dr.confirmed_at < ?";
+        $params = [$range['start'], $range['end_exclusive']];
+        if ($chapterId !== null) { $where .= ' AND br.request_chapter_id = ?'; $params[] = $chapterId; }
+        $statement = Database::pdo()->prepare("SELECT DATE(dr.confirmed_at) AS confirmation_date_utc, COUNT(*) AS confirmed_reports
+            FROM donation_reports dr JOIN matches m ON m.id=dr.match_id JOIN blood_requests br ON br.id=m.request_id
+            WHERE {$where} GROUP BY DATE(dr.confirmed_at) ORDER BY confirmation_date_utc");
+        $statement->execute($params);
+        $rows = array_map(static fn(array $row): array => ['confirmation_date_utc'=>(string)$row['confirmation_date_utc'],
+            'confirmed_reports'=>(int)$row['confirmed_reports']], $statement->fetchAll(PDO::FETCH_ASSOC));
+        return ['date_from'=>$range['date_from'], 'date_to'=>$range['date_to'], 'chapter_id'=>$chapterId,
+            'total_confirmed_reports'=>array_sum(array_column($rows,'confirmed_reports')), 'daily_confirmations'=>$rows];
+    }
+
     private const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
     private const URGENCIES = ['routine', 'urgent', 'emergency'];
 

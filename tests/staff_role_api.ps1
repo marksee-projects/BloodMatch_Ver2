@@ -83,7 +83,8 @@ try {
     Check ((Call $officer.session 'GET' '/api/admin/users').status -eq 403) 'inactive staff privileges remain blocked'
     Query "UPDATE users SET account_status='active',deactivated_at=NULL WHERE id=$($fixtureIds[1]) AND email='$($ownedEmails[1])';" | Out-Null
     # Metadata-only disposable documents: no file creation, real document reads or email enqueue.
-    Query "UPDATE users SET verification_status='pending',blood_type='A+',email_verified_at=NULL WHERE id=$($fixtureIds[2]) AND email='$($ownedEmails[2])';" | Out-Null
+    # A recorded blood type requires a source; evidence is self-reported until the decision accepts the card.
+    Query "UPDATE users SET verification_status='pending',blood_type='A+',blood_type_source='self_reported',blood_type_verified=0,email_verified_at=NULL WHERE id=$($fixtureIds[2]) AND email='$($ownedEmails[2])';" | Out-Null
     foreach ($docType in @('national_id','parental_consent','donor_card')) {
         $hasher = [Security.Cryptography.SHA256]::Create()
         try { $storedName = ([BitConverter]::ToString($hasher.ComputeHash([Text.Encoding]::UTF8.GetBytes("$nonce-$docType")))).Replace('-','').ToLowerInvariant() }

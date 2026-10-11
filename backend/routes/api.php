@@ -117,6 +117,8 @@ return static function (Router $router): void {
     $router->add('GET', '/api/analytics/summary', [new AnalyticsController(), 'summary']);
     $router->add('GET', '/api/analytics/export', [new AnalyticsController(), 'csv']);
     $router->add('GET', '/api/analytics/export.csv', [new AnalyticsController(), 'csv']);
+    $router->add('GET', '/api/analytics/confirmations', [new AnalyticsController(), 'confirmations']);
+    $router->add('GET', '/api/analytics/confirmations/export', [new AnalyticsController(), 'confirmationsCsv']);
 
     $router->add('GET', '/api/notifications', [new NotificationsController(), 'index']);
     $router->add('GET', '/api/notifications/unread-count', [new NotificationsController(), 'unreadCount']);

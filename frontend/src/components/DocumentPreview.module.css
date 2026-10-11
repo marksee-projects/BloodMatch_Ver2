@@ -1,0 +1,9 @@
+.dialog { width: min(90vw, 64rem); max-height: 90dvh; box-sizing: border-box; padding: var(--space-5); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-card); background: var(--color-surface); color: var(--color-text); overflow: auto; }
+.dialog::backdrop { background: var(--color-page); opacity: .9; }
+.header, .zoom { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-4); }
+.header h2 { margin: 0; }
+.zoom { justify-content: center; }
+.pdf { width: 100%; height: 65dvh; border: 1px solid var(--color-border-hairline); }
+.imageViewport { max-height: 65dvh; overflow: auto; background: var(--color-surface-sunken); }
+.imageViewport img { display: block; height: auto; max-width: none; }
+.hint { color: var(--color-text-muted); font-size: var(--text-sm); }

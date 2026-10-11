@@ -55,6 +55,12 @@ export default function AnalyticsView() {
   const demandByUrg = data?.demand_by_urgency || {}
   const donorPool = data?.donor_pool || {}
   const dailyTrend = data?.daily_request_trend || []
+  const metrics = [
+    ['Total requests', reqVolume.total_requests || 0, `${reqVolume.total_units_requested || 0} units requested`],
+    ['Fulfillment rate', `${reqVolume.fulfillment_rate_percent ?? 0}%`, `${reqVolume.fulfilled_requests || 0} of ${reqVolume.resolved_requests || 0} resolved`],
+    ['Cancellation rate', `${reqVolume.cancellation_rate_percent ?? 0}%`, `${reqVolume.cancelled_requests || 0} cancelled`],
+    ['Expiration rate', `${reqVolume.expiration_rate_percent ?? 0}%`, `${reqVolume.expired_requests || 0} expired`],
+  ]
 
   // Normalized trend data for DailyTrendChart
   const chartTrend = dailyTrend.map((row) => ({
@@ -65,10 +71,17 @@ export default function AnalyticsView() {
 
   return (
     <div className="container" style={{ padding: 'var(--space-6) 0' }}>
+      {!loading && !error && <section className={`grid-4 ${styles.metrics}`} aria-label="Request metrics">
+        {metrics.map(([label,value,detail]) => <div key={label} className={`metric-card ${styles.metric}`}>
+          <span className={`metric-label ${styles.metricLabel}`}>{label}</span>
+          <span className="metric-value">{value}</span>
+          <span className="metric-sub">{detail}</span>
+        </div>)}
+      </section>}
 
-      <section className="card" style={{marginBottom:'var(--space-6)'}}>
-        <div className="card-header"><h2>Request volume and fulfillment trend</h2></div>
-        <p className={styles.periodNote}>Filters apply to all charts, totals and exports. Reporting days use UTC: 8 AM to before 8 AM the following day in the Philippines.</p>
+      <section className={`card ${styles.trendCard}`}>
+        <h2 className={styles.trendHeading}>Request volume and fulfillment trend</h2>
+      <div className={styles.toolbar}>
       {/* 1-Click Periodic Preset Tabs */}
       <div className={styles.presetsBar}>
         <div className={styles.tabGroup} role="tablist" aria-label="Reporting Intervals">
@@ -113,9 +126,9 @@ export default function AnalyticsView() {
 
       {/* Date Range & Chapter Filter Bar */}
       <div className={styles.filterBar}>
-        <div style={{ display: 'flex', gap: 'var(--space-4)', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div className={styles.dateFilters}>
           <div className="field">
-            <label htmlFor="date-from">Date From</label>
+            <label htmlFor="date-from">From (UTC)</label>
             <input
               id="date-from"
               type="date"
@@ -128,7 +141,7 @@ export default function AnalyticsView() {
           </div>
 
           <div className="field">
-            <label htmlFor="date-to">Date To</label>
+            <label htmlFor="date-to">To (UTC)</label>
             <input
               id="date-to"
               type="date"
@@ -141,32 +154,32 @@ export default function AnalyticsView() {
           </div>
 
           {user?.role === 'admin' && (
-            <div className="field" style={{ minWidth: '200px' }}>
-              <label htmlFor="chapter-filter">Scope Chapter</label>
+            <div className="field">
+              <label htmlFor="chapter-filter">Chapter</label>
               <select
                 id="chapter-filter"
                 value={chapterId}
                 onChange={(e) => setChapterId(e.target.value)}
               >
-                <option value="">All Chapters (Global)</option>
+                <option value="">All chapters</option>
                 {chapters.map(chapter => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}
               </select>
             </div>
           )}
 
-          <div>
+        </div>
+          <div className={styles.exportActions}>
             <a className="btn btn-secondary btn-sm" href={`/api/analytics/export?${new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...(user?.role === 'admin' && chapterId ? { chapter_id: chapterId } : {}) })}`} download>Export aggregate CSV</a>
             <button className="btn btn-secondary btn-sm" type="button" disabled={loading || Boolean(error) || !data} onClick={() => window.print()}>Print / Save PDF</button>
             <button
               type="button"
               className="btn btn-secondary btn-sm"
               onClick={fetchAnalytics}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <ArrowsClockwise size={14} weight="regular" aria-hidden="true" /> Refresh
             </button>
           </div>
-        </div>
+      </div>
       </div>
 
         {!loading && !error && <DailyTrendChart trend={chartTrend} />}
@@ -182,33 +195,6 @@ export default function AnalyticsView() {
 
       {!loading && !error && (
         <>
-          {/* Request Lifecycle Volume & Resolution Rates */}
-          <section className="grid-4" style={{ marginBottom: 'var(--space-6)' }}>
-            <div className="metric-card">
-              <span className="metric-label">Total Requests</span>
-              <span className="metric-value">{reqVolume.total_requests || 0}</span>
-              <span className="metric-sub">{reqVolume.total_units_requested || 0} units requested</span>
-            </div>
-
-            <div className="metric-card">
-              <span className="metric-label">Fulfillment Rate</span>
-              <span className="metric-value">{reqVolume.fulfillment_rate_percent !== undefined ? `${reqVolume.fulfillment_rate_percent}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.fulfilled_requests || 0} of {reqVolume.resolved_requests || 0} resolved</span>
-            </div>
-
-            <div className="metric-card">
-              <span className="metric-label">Cancellation Rate</span>
-              <span className="metric-value">{reqVolume.cancellation_rate_percent !== undefined ? `${reqVolume.cancellation_rate_percent}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.cancelled_requests || 0} cancelled</span>
-            </div>
-
-            <div className="metric-card">
-              <span className="metric-label">Expiration Rate</span>
-              <span className="metric-value">{reqVolume.expiration_rate_percent !== undefined ? `${reqVolume.expiration_rate_percent}%` : '0%'}</span>
-              <span className="metric-sub">{reqVolume.expired_requests || 0} expired</span>
-            </div>
-          </section>
-
           {/* Categorical Breakdowns Grid */}
           <div className="grid-2" style={{ marginBottom: 'var(--space-6)' }}>
             {/* Blood Type Demand Distribution with Bar Chart */}
