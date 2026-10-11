@@ -54,7 +54,6 @@ export default function ConfirmedDonationSummary({ version = 0 }) {
           <div className={styles.total}><strong>{data.total_confirmed_reports}</strong><span>Confirmed {data.total_confirmed_reports === 1 ? 'report' : 'reports'}</span></div>
           <dl className={styles.scope}><div><dt>Period (UTC)</dt><dd>{formatDate(data.date_from)} to {formatDate(data.date_to)}</dd></div><div><dt>Request chapter</dt><dd>{scopeLabel}</dd></div></dl>
         </div>
-        <p className={styles.note}>Grouped by confirmation date. Donation dates and donated units are not included.</p>
         {dailyTable}
       </>}
     </section>
