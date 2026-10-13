@@ -15,6 +15,7 @@ import {
   WarningCircle
 } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useAuth } from '../context/AuthContext'
 import PrivacyConsentModal, { CONSENT_STORAGE_KEY } from '../components/PrivacyConsentModal'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import LocationSelector from '../components/LocationSelector'
@@ -25,6 +26,7 @@ const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 
 export default function RegisterPage() {
   const navigate = useNavigate()
+  const { refresh } = useAuth()
 
   const [showReadonlyPrivacyModal, setShowReadonlyPrivacyModal] = useState(false)
   const [step, setStep] = useState(1)
@@ -904,11 +906,15 @@ export default function RegisterPage() {
       <EmailVerificationDialog
         isOpen={verifyDialogOpen}
         initialEmail={registeredEmail}
-        onClose={() => {
+        onClose={async () => {
           setVerifyDialogOpen(false)
+          if (refresh) await refresh()
           navigate('/', { state: { registered: true } })
         }}
-        onSuccess={() => navigate('/', { state: { registered: true } })}
+        onSuccess={async () => {
+          if (refresh) await refresh()
+          navigate('/', { state: { registered: true } })
+        }}
       />
     </div>
   )

@@ -8,6 +8,7 @@ import DonorPoolBreakdownChart from '../../../components/charts/DonorPoolBreakdo
 import styles from './AnalyticsView.module.css'
 import AnalyticsPrintReport from '../../../components/AnalyticsPrintReport'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
+import { getPhilippineDateString } from '../../../services/dateTime'
 
 export default function AnalyticsView() {
   const { user } = useAuth()
@@ -18,12 +19,8 @@ export default function AnalyticsView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  const [dateFrom, setDateFrom] = useState(() => {
-    const d = new Date()
-    d.setUTCDate(d.getUTCDate() - 29)
-    return d.toISOString().slice(0, 10)
-  })
-  const [dateTo, setDateTo] = useState(() => new Date().toISOString().slice(0, 10))
+  const [dateFrom, setDateFrom] = useState(() => getPhilippineDateString(-30))
+  const [dateTo, setDateTo] = useState(() => getPhilippineDateString(0))
   const [chapterId, setChapterId] = useState('')
   const [activePreset, setActivePreset] = useState('monthly')
 
@@ -43,11 +40,12 @@ export default function AnalyticsView() {
 
   const applyPreset = (presetKey, days) => {
     setActivePreset(presetKey)
-    const end = new Date()
-    const start = new Date()
-    start.setUTCDate(end.getUTCDate() - (days - 1))
-    setDateFrom(start.toISOString().slice(0, 10))
-    setDateTo(end.toISOString().slice(0, 10))
+    if (days === 1) {
+      setDateFrom(getPhilippineDateString(-1))
+    } else {
+      setDateFrom(getPhilippineDateString(-days))
+    }
+    setDateTo(getPhilippineDateString(0))
   }
 
   const reqVolume = data?.request_volume || {}
@@ -245,7 +243,7 @@ export default function AnalyticsView() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Date (UTC)</th>
+                      <th>DATE</th>
                       <th>Requests Created</th>
                       <th>Units Requested</th>
                       <th>Fulfilled</th>

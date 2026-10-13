@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, Users, House, ClipboardText, ShieldCheck, SignOut, CircleNotch } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, Users, HandHeart, House, ClipboardText, ShieldCheck, SignOut, CircleNotch } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
@@ -12,7 +12,10 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import { CreateRequestEntry, RequestCreationProvider, useRequestCreation } from './context/RequestCreationContext'
 import MatchesPage from './pages/MatchesPage'
+import MyResponsesPage from './pages/MyResponsesPage'
 import NotificationFlyout from './components/NotificationFlyout'
+import MessengerFlyout from './components/chat/MessengerFlyout'
+import FloatingChatContainer from './components/chat/FloatingChatContainer'
 import Footer from './components/Footer'
 import NotificationsPage from './pages/NotificationsPage'
 import AdminLayout from './pages/admin/AdminLayout'
@@ -144,7 +147,8 @@ function AppShell() {
   }, [user])
 
   const isActive = (path) => location.pathname === path
-  const isMatchesActive = isActive('/matches') || /^\/requests\/[^/]+\/matches$/.test(location.pathname)
+  const isResponsesActive = isActive('/responses') || isActive('/my-responses')
+  const isMatchesActive = isActive('/matches') || (/^\/requests\/[^/]+\/matches$/.test(location.pathname) && !isResponsesActive)
   const isPortalActive = location.pathname.startsWith('/officer') ||
     location.pathname.startsWith('/admin') ||
     location.pathname === '/demand-map' ||
@@ -163,7 +167,6 @@ function AppShell() {
 
   const handleLogout = async () => {
     setProfileMenuOpen(false)
-    if (!window.confirm("Are you sure you want to log out?")) return
     setIsLoggingOut(true)
     try {
       await logout()
@@ -213,8 +216,24 @@ function AppShell() {
               </Link>
             )}
             {user && (
+              <Link to="/responses" className={`nav-link ${isResponsesActive ? 'active' : ''}`} aria-current={isResponsesActive ? 'page' : undefined} aria-label="My Responses" title="My Responses">
+                <HandHeart size={28} weight={isResponsesActive ? 'fill' : 'regular'} />
+              </Link>
+            )}
+            {user && (
               <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} title="Profile">
                 <User size={28} weight={isActive('/profile') ? 'fill' : 'regular'} />
+              </Link>
+            )}
+            {(user?.role === 'officer' || user?.role === 'admin') && (
+              <Link
+                to={user.role === 'admin' ? '/admin/dashboard' : '/officer/dashboard'}
+                className={`nav-link ${isPortalActive || isActive('/officer') ? 'active' : ''}`}
+                aria-current={isPortalActive || isActive('/officer') ? 'page' : undefined}
+                title={user.role === 'admin' ? 'Admin Portal' : 'Officer Portal'}
+                aria-label={user.role === 'admin' ? 'Admin Portal' : 'Officer Portal'}
+              >
+                <ShieldCheck size={28} weight={isActive('/officer') || isPortalActive ? 'fill' : 'regular'} />
               </Link>
             )}
           </nav>
@@ -232,6 +251,7 @@ function AppShell() {
                   >
                     <Plus size={28} weight="bold" aria-hidden="true" />
                   </button>
+                  <MessengerFlyout variant="desktop" />
                   <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
                   <div style={{ position: 'relative' }} ref={profileMenuRef}>
                     <button 
@@ -340,6 +360,9 @@ function AppShell() {
                   >
                     <Plus size={28} weight="bold" aria-hidden="true" />
                   </button>
+                  <span className="notif-mobile" title="Chats">
+                    <MessengerFlyout variant="mobile" />
+                  </span>
                   <span className="notif-mobile" title="Notifications">
                     <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
                   </span>
@@ -376,6 +399,7 @@ function AppShell() {
               {user ? (
                 <>
                   <Link to="/matches" className={`mobile-link ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Matches</Link>
+                  <Link to="/responses" className={`mobile-link ${isResponsesActive ? 'active' : ''}`} aria-current={isResponsesActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>My Responses</Link>
                   <div className="mobile-section-label">Account</div>
                   <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Profile</Link>
                   <Link to="/profile" className="mobile-link" onClick={() => setMobileOpen(false)}>My Requests</Link>
@@ -444,22 +468,58 @@ function AppShell() {
               <Route path="audit-logs" element={<AuditLogsView />} />
             </Route>
 
-            {/* Legacy bookmarks redirect to the combined staff portal. */}
-            <Route path="/officer" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/dashboard" /></RequireAuth>} />
-            <Route path="/officer/dashboard" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/dashboard" /></RequireAuth>} />
-            <Route path="/officer/verifications" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/verifications" /></RequireAuth>} />
-            <Route path="/officer/verification" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/verifications" /></RequireAuth>} />
-            <Route path="/officer/confirmations" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/confirmations" /></RequireAuth>} />
-            <Route path="/officer/audit-logs" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/audit-logs" /></RequireAuth>} />
-            <Route path="/officer/users" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/users" /></RequireAuth>} />
-            <Route path="/demand-map" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/demand-map" /></RequireAuth>} />
-            <Route path="/analytics" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/analytics" /></RequireAuth>} />
+            {/* Nested Officer Portal Routes */}
+            <Route
+              path="/officer"
+              element={
+                <RequireAuth roles={['officer']}>
+                  <OfficerLayout />
+                </RequireAuth>
+              }
+            >
+              <Route index element={<Navigate replace to="dashboard" />} />
+              <Route path="dashboard" element={<OfficerDashboardView />} />
+              <Route path="verifications" element={<OfficerVerificationView />} />
+              <Route path="verification" element={<Navigate replace to="verifications" />} />
+              <Route path="confirmations" element={<OfficerConfirmationsView />} />
+              <Route path="audit-logs" element={<OfficerAuditLogsView />} />
+              <Route path="demand-map" element={<DemandMapView />} />
+              <Route path="analytics" element={<AnalyticsView />} />
+            </Route>
+
+            {/* Standalone Demand Map & Analytics Routes (Officers redirect to /officer/*, Admins redirect to /admin/*) */}
+            <Route
+              path="/demand-map"
+              element={
+                <RequireAuth roles={['officer', 'admin']}>
+                  {user?.role === 'admin' ? (
+                    <Navigate replace to="/admin/demand-map" />
+                  ) : (
+                    <Navigate replace to="/officer/demand-map" />
+                  )}
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <RequireAuth roles={['officer', 'admin']}>
+                  {user?.role === 'admin' ? (
+                    <Navigate replace to="/admin/analytics" />
+                  ) : (
+                    <Navigate replace to="/officer/analytics" />
+                  )}
+                </RequireAuth>
+              }
+            />
 
             {/* Standard Member Routes */}
             <Route path="/requests/new" element={<RequireAuth><CreateRequestEntry /></RequireAuth>} />
             <Route path="/requests/mine" element={<RequireAuth><Navigate to="/profile" replace /></RequireAuth>} />
             <Route path="/requests/:id/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
             <Route path="/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
+            <Route path="/responses" element={<RequireAuth><MyResponsesPage /></RequireAuth>} />
+            <Route path="/my-responses" element={<RequireAuth><Navigate to="/responses" replace /></RequireAuth>} />
             <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />
 
             <Route path="*" element={
@@ -472,6 +532,7 @@ function AppShell() {
           </Routes>
         )}
       </main>
+      <FloatingChatContainer />
     </div>
   )
 }
