@@ -255,3 +255,17 @@
   margin: 0;
   font-size: 0.8125rem;
 }
+
+@media (max-width: 1023px) {
+  .popover {
+    position: fixed;
+    top: 66px;
+    left: var(--space-4);
+    right: var(--space-4);
+    width: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .triggerBtn, .searchInput, .convItem { transition: none; }
+}

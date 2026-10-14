@@ -53,7 +53,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
   const responded = request.responded || response.isSuccess
   const isEnrolledNow = Boolean(user && user.donor_enrolled === true)
   const isNotEnrolled = !isEnrolledNow && (request.reason_code === 'not_enrolled' || Boolean(user && user.donor_enrolled === false && user.role === 'member'))
-  const canRespond = (request.can_respond === true || (isEnrolledNow && request.reason_code === 'not_enrolled' && user?.verification_status === 'verified')) && !responded
+  const canRespond = request.can_respond === true && !responded
   const confirmResponse = () => {
     if (!canRespond || response.isPending || responseBusyRef.current) return
     responseBusyRef.current = true
@@ -125,7 +125,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
             {!hideActions && (
               <div>
                 <footer className={styles.actions}>
-                  <Button type="button" variant="primary" disabled={(!canRespond && !isNotEnrolled) || response.isPending}
+                  {!responded && <Button type="button" variant="primary" disabled={(!canRespond && !isNotEnrolled) || response.isPending}
                     isLoading={response.isPending} aria-describedby={responseReason ? reasonId : undefined}
                     title={isNotEnrolled ? 'Enroll as donor to respond.' : undefined}
                     onClick={() => {
@@ -136,8 +136,8 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                       response.reset()
                       setConfirmingResponse(true)
                     }}>
-                    {responded ? 'Responded' : 'Respond'}
-                  </Button>
+                    Respond
+                  </Button>}
                   <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
                 </footer>
                 {isNotEnrolled ? (

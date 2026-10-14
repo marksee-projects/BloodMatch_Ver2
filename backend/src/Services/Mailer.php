@@ -66,13 +66,7 @@ final class Mailer
             }
             $mail->isSMTP();
             $mail->Host = $host;
-            $port = (int) (\BloodMatch\Config\Env::get('MAIL_PORT', '25'));
-            $mail->Port = $port;
-            if ($port === 587) {
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-            } elseif ($port === 465) {
-                $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-            }
+            $mail->Port = (int) (\BloodMatch\Config\Env::get('MAIL_PORT', '25'));
             $user = \BloodMatch\Config\Env::get('MAIL_USER', '');
             $pass = \BloodMatch\Config\Env::get('MAIL_PASS', '');
             if ($user !== '') {
@@ -89,12 +83,11 @@ final class Mailer
             $mail->Subject = $subject;
             $mail->isHTML(true);
             $mail->Body = $htmlBody;
-            $mail->AltBody = strip_tags(str_replace(['<br>', '<br/>', '<br />', '</p>'], "\n", $htmlBody));
-            $mail->send();
-            error_log('[mailer] successfully sent email to ' . $toEmail . ' (subject: ' . $subject . ')');
-            return true;
+            $result = self::attemptWithTransport($mailClass, static fn () => $mail->send());
+            if ($result['status'] !== 'sent') { error_log('[mailer] unavailable: ' . $result['code']); }
+            return $result['status'] === 'sent';
         } catch (\Throwable $e) {
-            error_log('[mailer] send failed to ' . $toEmail . ': ' . $e->getMessage());
+            error_log('[mailer] send unavailable: transport or accounting failure');
             return false;
         }
     }

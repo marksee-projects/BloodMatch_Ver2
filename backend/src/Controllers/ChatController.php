@@ -143,8 +143,14 @@ final class ChatController
             return;
         }
 
+        $lastMessageId = Request::int('last_message_id');
+        if ($lastMessageId === null || $lastMessageId < 0) {
+            Response::error('Invalid or missing last_message_id.', 422);
+            return;
+        }
+
         try {
-            $this->chatService->markRead($actor, $conversationId);
+            $this->chatService->markRead($actor, $conversationId, $lastMessageId);
             Response::success(['status' => 'ok']);
         } catch (Throwable $e) {
             Response::error($e->getMessage(), 400);

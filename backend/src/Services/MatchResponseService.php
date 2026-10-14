@@ -60,15 +60,10 @@ final class MatchResponseService
                         'match_id' => $matchId, 'source' => $source,
                     ]);
                 }
-                if (in_array((string) $request['urgency'], ['emergency', 'urgent'], true) && $notificationId !== null) {
+                if ((string) $request['urgency'] === 'emergency' && $notificationId !== null) {
                     $email = [
-                        'user_id' => (int) $request['requester_id'],
-                        'notification_id' => $notificationId,
-                        'subject' => $title,
-                        'body' => $body,
-                        'priority' => (string) $request['urgency'] === 'emergency'
-                            ? NotificationService::EMAIL_EMERGENCY
-                            : NotificationService::EMAIL_NORMAL,
+                        'user_id' => (int) $request['requester_id'], 'notification_id' => $notificationId,
+                        'subject' => $title, 'body' => $body,
                     ];
                 }
                 return [
@@ -87,12 +82,8 @@ final class MatchResponseService
         }
         if ($email !== null) {
             NotificationService::attemptExistingEmail(
-                $email['user_id'],
-                $email['notification_id'],
-                $email['subject'],
-                $email['body'],
-                $email['priority'] ?? NotificationService::EMAIL_EMERGENCY,
-                'match.responded'
+                $email['user_id'], $email['notification_id'], $email['subject'], $email['body'],
+                NotificationService::EMAIL_EMERGENCY
             );
         }
         return $result;

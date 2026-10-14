@@ -47,17 +47,19 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
   const [conversations, setConversations] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
   const rootRef = useRef(null)
 
   const loadConversations = useCallback(async () => {
     setLoading(true)
+    setError(null)
     try {
       const res = await api.get('/api/chat/conversations')
       if (Array.isArray(res?.conversations)) {
         setConversations(res.conversations)
       }
-    } catch {
-      // Ignored
+    } catch (err) {
+      setError(err.message || 'Could not load chats.')
     } finally {
       setLoading(false)
     }
@@ -115,7 +117,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`Chats${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
-        title="Messenger chats"
+        title="Chats"
       >
         <ChatCircleDots size={variant === 'mobile' ? 24 : 26} weight="regular" aria-hidden="true" />
         {badgeText && <span className={styles.badge}>{badgeText}</span>}
@@ -132,10 +134,10 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
               <input
                 type="text"
                 className={styles.searchInput}
-                placeholder="Search Messenger…"
+                placeholder="Search chats…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                aria-label="Search Messenger chats"
+                aria-label="Search Chats"
               />
             </div>
           </div>
@@ -144,6 +146,11 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
             {loading ? (
               <div className={styles.emptyState}>
                 <p>Loading chats…</p>
+              </div>
+            ) : error ? (
+              <div className={styles.emptyState} role="alert">
+                <p>{error}</p>
+                <button type="button" className="btn btn-secondary" onClick={loadConversations}>Try again</button>
               </div>
             ) : filtered.length === 0 ? (
               <div className={styles.emptyState}>

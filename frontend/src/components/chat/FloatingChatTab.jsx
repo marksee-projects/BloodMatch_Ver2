@@ -29,23 +29,25 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
   const [inputText, setInputText] = useState('')
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   const messagesEndRef = useRef(null)
   const lastIdRef = useRef(0)
   const inputRef = useRef(null)
 
   const scrollToBottom = useCallback((smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' })
+    messagesEndRef.current?.scrollIntoView({ behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' })
   }, [])
 
   const markAsRead = useCallback(async () => {
     try {
-      await api.post(`/api/chat/conversations/${conversationId}/read`)
+      if (document.hidden || isMinimized) return
+      await api.post(`/api/chat/conversations/${conversationId}/read`, { last_message_id: lastIdRef.current })
       fetchUnreadCount()
     } catch {
       // Ignored
     }
-  }, [conversationId, fetchUnreadCount])
+  }, [conversationId, fetchUnreadCount, isMinimized])
 
   // Initial load
   useEffect(() => {
@@ -63,11 +65,15 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
             setSuggestedChats(res.suggested_chats || null)
           }
           setLoading(false)
+          setLoadError(null)
           setTimeout(() => scrollToBottom(false), 50)
           markAsRead()
         }
       } catch (err) {
-        if (mounted) setLoading(false)
+        if (mounted) {
+          setLoading(false)
+          setLoadError(err.message || 'Could not load conversation.')
+        }
       }
     }
 
@@ -90,6 +96,10 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
         const res = await api.get(
           `/api/chat/conversations/${conversationId}/messages?after_id=${afterId}&limit=50`
         )
+        if (Array.isArray(res?.messages)) {
+          setLoadError(null)
+          setLoading(false)
+        }
         if (Array.isArray(res?.messages) && res.messages.length > 0) {
           setMessages((prev) => {
             // Deduplicate
@@ -138,9 +148,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
       const res = await api.post(`/api/chat/conversations/${conversationId}/messages`, { body: text })
       if (res?.message) {
         setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? res.message : m))
+          [...prev.filter((m) => m.id !== tempId && m.id !== res.message.id), res.message]
         )
-        lastIdRef.current = Math.max(lastIdRef.current, res.message.id)
         markAsRead()
       }
     } catch (err) {
@@ -180,9 +189,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
       })
       if (res?.message) {
         setMessages((prev) =>
-          prev.map((m) => (m.id === tempId ? res.message : m))
+          [...prev.filter((m) => m.id !== tempId && m.id !== res.message.id), res.message]
         )
-        lastIdRef.current = Math.max(lastIdRef.current, res.message.id)
         markAsRead()
       }
     } catch (err) {
@@ -212,7 +220,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
     >
       <header className={styles.tabHeader} onClick={onToggleMinimize}>
         <div className={styles.headerLeft}>
-          {recipient?.id ? (
+          {recipient?.id && recipient.role === 'member' ? (
             <Link
               to={`/profile/${recipient.id}`}
               className={styles.avatarLink}
@@ -249,7 +257,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
           )}
 
           <div className={styles.nameBlock}>
-            {recipient?.id ? (
+            {recipient?.id && recipient.role === 'member' ? (
               <Link
                 to={`/profile/${recipient.id}`}
                 className={styles.recipientName}
@@ -261,7 +269,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
             ) : (
               <span className={styles.recipientName}>{recipientName}</span>
             )}
-            <span className={styles.recipientStatus}>Active now</span>
+            <span className={styles.recipientStatus}>Direct conversation</span>
           </div>
         </div>
 
@@ -292,6 +300,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
           <div className={styles.messageList}>
             {loading ? (
               <div className={styles.emptyNotice}>Loading conversation…</div>
+            ) : loadError ? (
+              <div className={styles.emptyNotice} role="alert">{loadError}</div>
             ) : messages.length === 0 ? (
               <div className={styles.emptyNotice}>
                 <ChatCircleDots size={32} className={styles.emptyNoticeIcon} />

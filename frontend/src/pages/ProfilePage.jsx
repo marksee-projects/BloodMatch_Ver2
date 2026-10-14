@@ -76,17 +76,9 @@ export default function ProfilePage() {
   const [cancelError, setCancelError] = useState(null)
   const cancelBusyRef = useRef(false)
 
-  const profileQueryKey = isOtherProfile
-    ? (user?.id ? ['member-profile', profileId, user?.id] : ['member-profile', profileId])
-    : (user?.id ? ['profile', user.id] : ['profile'])
-
-  const isProfileEnabled = isOtherProfile
-    ? true
-    : (Boolean(user?.id) || Boolean(queryClient.getQueryData(['profile'])))
-
   const { data, isLoading, error: profileError, refetch } = useQuery({
-    queryKey: profileQueryKey,
-    enabled: isProfileEnabled,
+    queryKey: isOtherProfile ? ['member-profile', profileId, user?.id] : ['profile', user?.id],
+    enabled: Boolean(user?.id),
     queryFn: async () => {
       const response = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile')
       if (isOtherProfile) {

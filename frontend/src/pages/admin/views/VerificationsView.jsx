@@ -3,14 +3,16 @@ import { ArrowLeft, ArrowRight, CheckCircle, FileText, ShieldCheck } from '@phos
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/apiClient'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
-import { formatPhilippineDateTime } from '../../../services/dateTime'
+import DocumentPreview from '../../../components/DocumentPreview'
 import styles from './VerificationsView.module.css'
 
 const PAGE_SIZE = 20
 
 function formatDate(value) {
   if (!value) return 'Not available'
-  return formatPhilippineDateTime(value)
+  const normalized = String(value).includes('T') ? String(value) : `${String(value).replace(' ', 'T')}Z`
+  const date = new Date(normalized)
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()
 }
 
 function formatMimeType(value) {

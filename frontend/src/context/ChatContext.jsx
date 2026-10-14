@@ -7,6 +7,10 @@ const ChatContext = createContext(null)
 const MAX_DESKTOP_TABS = 3
 const UNREAD_POLL_INTERVAL_MS = 30000
 
+function tabLimit() {
+  return Math.max(1, Math.min(MAX_DESKTOP_TABS, Math.floor((window.innerWidth - 32) / 344)))
+}
+
 export function ChatProvider({ children }) {
   const { user } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
@@ -35,6 +39,7 @@ export function ChatProvider({ children }) {
     if (!user) {
       setUnreadCount(0)
       setOpenTabs([])
+      setDrawerOpen(false)
       return undefined
     }
 
@@ -56,6 +61,12 @@ export function ChatProvider({ children }) {
     }
   }, [user, fetchUnreadCount])
 
+  useEffect(() => {
+    const fitTabs = () => setOpenTabs((tabs) => tabs.length > tabLimit() ? tabs.slice(-tabLimit()) : tabs)
+    window.addEventListener('resize', fitTabs)
+    return () => window.removeEventListener('resize', fitTabs)
+  }, [])
+
   const openConversationTab = useCallback((conv) => {
     if (!conv?.id) return
 
@@ -74,8 +85,7 @@ export function ChatProvider({ children }) {
         return updated
       }
 
-      const isMobile = window.innerWidth < 640
-      const limit = isMobile ? 1 : MAX_DESKTOP_TABS
+      const limit = tabLimit()
 
       const newTab = {
         conversationId: conv.id,

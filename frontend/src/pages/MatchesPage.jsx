@@ -79,8 +79,7 @@ export default function MatchesPage() {
   const isRequesterView = viewerMode === 'requester'
   const isOwnRequest = request && String(request.requester_id) === String(user?.id)
   const hasActiveResponse = ['RESPONDED', 'COMPLETED'].includes(ownMatch?.status)
-  const isEnrolledNow = Boolean(user && user.donor_enrolled === true)
-  const canRespond = !isRequesterView && (request?.can_respond === true || (isEnrolledNow && request?.reason_code === 'not_enrolled' && user?.verification_status === 'verified')) && !hasActiveResponse
+  const canRespond = !isRequesterView && request?.can_respond === true && !hasActiveResponse
 
   const respond = async () => {
     if (!canRespond || responseBusyRef.current) return

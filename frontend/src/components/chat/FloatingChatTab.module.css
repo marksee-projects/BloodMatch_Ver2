@@ -15,6 +15,7 @@
 
 .tabWrapperExpanded {
   height: 440px;
+  max-height: calc(100dvh - 80px);
 }
 
 .tabWrapperMinimized {
@@ -378,7 +379,8 @@
 
 .chatInput {
   flex: 1;
-  min-height: 42px;
+  min-width: 0;
+  min-height: 44px;
   border: 1px solid var(--color-border, rgba(15, 23, 42, 0.15));
   border-radius: 21px;
   padding: 8px 16px;
@@ -434,4 +436,15 @@
 .sendBtn:focus-visible {
   outline: 2px solid var(--color-focus-ring, #020066);
   outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .tabWrapper { width: 100%; max-width: 100%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tabWrapper, .avatarLink, .sendBtn, .suggestedPill { transition: none; }
+  .messageList { scroll-behavior: auto; }
+  .suggestedContainer { animation: none; }
+  .avatarLink:hover, .sendBtn:hover:not(:disabled), .sendBtn:active:not(:disabled), .suggestedPill:hover:not(:disabled) { transform: none; }
 }

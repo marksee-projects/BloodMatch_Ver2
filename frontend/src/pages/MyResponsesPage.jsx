@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowRight,
   CalendarBlank,
@@ -56,6 +56,9 @@ function RequesterAvatar({ src, name }) {
 
 export default function MyResponsesPage() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
+  const canManageResponses = user?.role === 'member'
+  const actionBusyRef = useRef(false)
   const { openChatWithUser } = useChat()
   const [successMessage, setSuccessMessage] = useState(null)
   const [errorMessage, setErrorMessage] = useState(null)
@@ -83,7 +86,8 @@ export default function MyResponsesPage() {
   }, [successMessage])
 
   const handleWithdraw = async () => {
-    if (!confirmWithdrawMatchId) return
+    if (!confirmWithdrawMatchId || !canManageResponses || actionBusyRef.current) return
+    actionBusyRef.current = true
     setActionLoading(true)
     setErrorMessage(null)
     setSuccessMessage(null)
@@ -91,17 +95,21 @@ export default function MyResponsesPage() {
       await api.post(`/api/matches/${confirmWithdrawMatchId}/withdraw`)
       setConfirmWithdrawMatchId(null)
       setSuccessMessage('Your offer to help has been cancelled. You can offer again while the request remains open.')
+      queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['request-matches'] })
       await refetch()
     } catch (err) {
       setErrorMessage(err.message || 'Could not cancel your offer to help.')
     } finally {
+      actionBusyRef.current = false
       setActionLoading(false)
     }
   }
 
   const handleSubmitReport = async (event) => {
     event.preventDefault()
-    if (!reportingMatchId) return
+    if (!reportingMatchId || !canManageResponses || actionBusyRef.current) return
+    actionBusyRef.current = true
     setSubmittingReport(true)
     setErrorMessage(null)
     setSuccessMessage(null)
@@ -110,13 +118,16 @@ export default function MyResponsesPage() {
         match_id: reportingMatchId,
         note: reportNote || null
       })
-      setSuccessMessage('Donation report sent for chapter officer confirmation.')
+      setSuccessMessage('Donation report sent for Admin/Officer confirmation.')
       setReportingMatchId(null)
       setReportNote('')
+      queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['request-matches'] })
       await refetch()
     } catch (err) {
       setErrorMessage(err.message || 'Could not send donation report.')
     } finally {
+      actionBusyRef.current = false
       setSubmittingReport(false)
     }
   }
@@ -272,12 +283,12 @@ export default function MyResponsesPage() {
                   </div>
 
                   <div className={styles.secondaryActions}>
-                    {isResponded && req.match_id && (
+                    {canManageResponses && isResponded && req.status === 'OPEN' && req.match_id && (
                       <Button size="sm" onClick={() => setReportingMatchId(req.match_id)}>
                         Report completed donation
                       </Button>
                     )}
-                    {isResponded && req.match_id && (
+                    {canManageResponses && isResponded && req.status === 'OPEN' && req.match_id && (
                       <Button
                         variant="secondary"
                         size="sm"
@@ -320,7 +331,7 @@ export default function MyResponsesPage() {
             aria-labelledby="report-modal-title"
           >
             <h2 id="report-modal-title">Report completed donation</h2>
-            <p>Your report will be reviewed by a chapter officer before the donation is formally confirmed.</p>
+            <p>Your report will be reviewed by a Admin/Officer before the donation is formally confirmed.</p>
             <label htmlFor="response-report-note">Optional note</label>
             <textarea
               id="response-report-note"

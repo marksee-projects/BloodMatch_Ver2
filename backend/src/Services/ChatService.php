@@ -84,6 +84,11 @@ final class ChatService
             throw new RuntimeException('You are not authorized to send messages in this conversation.');
         }
 
+        $recipient = $this->chatRepo->getOtherParticipant($conversationId, (int) $currentUser['id']);
+        if ($recipient === null || !$this->policy->canMessage($currentUser, $recipient)) {
+            throw new RuntimeException('You are not authorized to message this user.');
+        }
+
         $body = trim($body);
         if ($body === '') {
             throw new RuntimeException('Message body cannot be empty.');
@@ -108,13 +113,13 @@ final class ChatService
         return $this->chatRepo->insertMessage($conversationId, (int) $currentUser['id'], $cleanBody);
     }
 
-    public function markRead(array $currentUser, int $conversationId): void
+    public function markRead(array $currentUser, int $conversationId, int $lastMessageId): void
     {
         if (!$this->policy->canAccessConversation($currentUser, $conversationId)) {
             throw new RuntimeException('You are not authorized to update this conversation.');
         }
 
-        $this->chatRepo->markRead($conversationId, (int) $currentUser['id']);
+        $this->chatRepo->markRead($conversationId, (int) $currentUser['id'], $lastMessageId);
     }
 
     public function getUnreadCount(int $userId): int

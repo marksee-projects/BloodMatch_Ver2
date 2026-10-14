@@ -11,7 +11,7 @@ CREATE TABLE conversation_participants (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     conversation_id BIGINT UNSIGNED NOT NULL,
     user_id BIGINT UNSIGNED NOT NULL,
-    last_read_at DATETIME NULL,
+    last_read_at DATETIME(3) NULL,
     created_at TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
     PRIMARY KEY (id),
     UNIQUE KEY uq_conversation_user (conversation_id, user_id),

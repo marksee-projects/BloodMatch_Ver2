@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
-import { formatPhilippineDateTime } from '../../../services/dateTime'
+import AuditFilterToolbar from '../../../components/AuditFilterToolbar'
 
 export default function AuditLogsView() {
   const [data, setData] = useState(null)
@@ -76,20 +76,34 @@ export default function AuditLogsView() {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Timestamp</th>
+                  <th>Timestamp (UTC)</th>
                   <th>Action</th>
                   <th>Actor</th>
                   <th>Target Type & ID</th>
+                  <th>Context Data</th>
                 </tr>
               </thead>
               <tbody>
                 {data.logs.map((log) => (
                   <tr key={log.id}>
                     <td><code>#{log.id}</code></td>
-                    <td><code>{formatPhilippineDateTime(log.created_at)}</code></td>
+                    <td><code>{log.created_at}</code></td>
                     <td><strong>{log.action}</strong></td>
                     <td>{log.actor_name || (log.actor_id ? `User #${log.actor_id}` : 'System / Unauth')}</td>
                     <td>{log.target_type ? `${log.target_type} #${log.target_id}` : '–'}</td>
+                    <td>
+                      {log.context ? (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => setSelectedContext(log)}
+                        >
+                          Inspect Context
+                        </button>
+                      ) : (
+                        <span className="muted">–</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -145,7 +159,7 @@ export default function AuditLogsView() {
             </div>
 
             <p className="muted" style={{ fontSize: '0.8125rem', marginBottom: 'var(--space-3)' }}>
-              Action: <strong>{selectedContext.action}</strong> · Timestamp: <code>{formatPhilippineDateTime(selectedContext.created_at)}</code>
+              Action: <strong>{selectedContext.action}</strong> · Timestamp: <code>{selectedContext.created_at}</code>
             </p>
 
             <pre style={{ padding: 'var(--space-4)', background: 'var(--color-surface-sunken)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflowX: 'auto', maxHeight: '350px' }}>

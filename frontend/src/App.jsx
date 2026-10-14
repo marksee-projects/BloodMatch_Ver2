@@ -167,6 +167,7 @@ function AppShell() {
 
   const handleLogout = async () => {
     setProfileMenuOpen(false)
+    if (!window.confirm("Are you sure you want to log out?")) return
     setIsLoggingOut(true)
     try {
       await logout()
@@ -225,13 +226,13 @@ function AppShell() {
                 <User size={28} weight={isActive('/profile') ? 'fill' : 'regular'} />
               </Link>
             )}
-            {(user?.role === 'officer' || user?.role === 'admin') && (
+            {user?.role === 'admin' && (
               <Link
-                to={user.role === 'admin' ? '/admin/dashboard' : '/officer/dashboard'}
+                to="/admin/dashboard"
                 className={`nav-link ${isPortalActive || isActive('/officer') ? 'active' : ''}`}
                 aria-current={isPortalActive || isActive('/officer') ? 'page' : undefined}
-                title={user.role === 'admin' ? 'Admin Portal' : 'Officer Portal'}
-                aria-label={user.role === 'admin' ? 'Admin Portal' : 'Officer Portal'}
+                title="Admin/Officer Portal"
+                aria-label="Admin/Officer Portal"
               >
                 <ShieldCheck size={28} weight={isActive('/officer') || isPortalActive ? 'fill' : 'regular'} />
               </Link>
@@ -468,50 +469,16 @@ function AppShell() {
               <Route path="audit-logs" element={<AuditLogsView />} />
             </Route>
 
-            {/* Nested Officer Portal Routes */}
-            <Route
-              path="/officer"
-              element={
-                <RequireAuth roles={['officer']}>
-                  <OfficerLayout />
-                </RequireAuth>
-              }
-            >
-              <Route index element={<Navigate replace to="dashboard" />} />
-              <Route path="dashboard" element={<OfficerDashboardView />} />
-              <Route path="verifications" element={<OfficerVerificationView />} />
-              <Route path="verification" element={<Navigate replace to="verifications" />} />
-              <Route path="confirmations" element={<OfficerConfirmationsView />} />
-              <Route path="audit-logs" element={<OfficerAuditLogsView />} />
-              <Route path="demand-map" element={<DemandMapView />} />
-              <Route path="analytics" element={<AnalyticsView />} />
-            </Route>
-
-            {/* Standalone Demand Map & Analytics Routes (Officers redirect to /officer/*, Admins redirect to /admin/*) */}
-            <Route
-              path="/demand-map"
-              element={
-                <RequireAuth roles={['officer', 'admin']}>
-                  {user?.role === 'admin' ? (
-                    <Navigate replace to="/admin/demand-map" />
-                  ) : (
-                    <Navigate replace to="/officer/demand-map" />
-                  )}
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/analytics"
-              element={
-                <RequireAuth roles={['officer', 'admin']}>
-                  {user?.role === 'admin' ? (
-                    <Navigate replace to="/admin/analytics" />
-                  ) : (
-                    <Navigate replace to="/officer/analytics" />
-                  )}
-                </RequireAuth>
-              }
-            />
+            {/* Legacy bookmarks redirect to the combined staff portal. */}
+            <Route path="/officer" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/dashboard" /></RequireAuth>} />
+            <Route path="/officer/dashboard" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/dashboard" /></RequireAuth>} />
+            <Route path="/officer/verifications" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/verifications" /></RequireAuth>} />
+            <Route path="/officer/verification" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/verifications" /></RequireAuth>} />
+            <Route path="/officer/confirmations" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/confirmations" /></RequireAuth>} />
+            <Route path="/officer/audit-logs" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/audit-logs" /></RequireAuth>} />
+            <Route path="/officer/users" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/users" /></RequireAuth>} />
+            <Route path="/demand-map" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/demand-map" /></RequireAuth>} />
+            <Route path="/analytics" element={<RequireAuth roles={['admin']}><Navigate replace to="/admin/analytics" /></RequireAuth>} />
 
             {/* Standard Member Routes */}
             <Route path="/requests/new" element={<RequireAuth><CreateRequestEntry /></RequireAuth>} />

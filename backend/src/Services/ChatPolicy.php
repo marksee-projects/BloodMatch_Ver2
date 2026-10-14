@@ -38,22 +38,22 @@ final class ChatPolicy
         $senderRole = (string) ($sender['role'] ?? '');
         $recipientRole = (string) ($recipient['role'] ?? '');
 
-        if (!in_array($senderRole, ['member', 'officer', 'admin'], true)) {
+        if (!in_array($senderRole, ['member', 'admin'], true)) {
             return false;
         }
 
-        if (!in_array($recipientRole, ['member', 'officer', 'admin'], true)) {
+        if (!in_array($recipientRole, ['member', 'admin'], true)) {
             return false;
         }
 
         // Officers and admins can message any active user
-        if (in_array($senderRole, ['officer', 'admin'], true)) {
+        if (in_array($senderRole, ['admin'], true)) {
             return true;
         }
 
         // Senders who are regular members:
         // 1. Messaging an officer or admin is always permitted
-        if (in_array($recipientRole, ['officer', 'admin'], true)) {
+        if (in_array($recipientRole, ['admin'], true)) {
             return true;
         }
 

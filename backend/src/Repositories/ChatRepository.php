@@ -30,6 +30,10 @@ final class ChatRepository
         $pdo = Database::pdo();
         $pdo->beginTransaction();
         try {
+            // Serialize conversation creation for this pair without changing the users.
+            $pair = [min($userA, $userB), max($userA, $userB)];
+            $lock = $pdo->prepare('SELECT id FROM users WHERE id IN (?, ?) ORDER BY id FOR UPDATE');
+            $lock->execute($pair);
             $existing = $this->findDirectConversationId($userA, $userB);
             if ($existing !== null) {
                 $pdo->rollBack();
@@ -166,18 +170,24 @@ final class ChatRepository
             $params[] = $afterId;
         }
 
+        // Initial loads show the most recent messages; polling proceeds forward.
+        $initialLoad = $whereAfter === '';
+        $order = $initialLoad ? 'DESC' : 'ASC';
         $stmt = Database::pdo()->prepare(
             "SELECT m.id, m.conversation_id, m.sender_id, m.body, m.created_at,
                     u.full_name AS sender_name, u.profile_picture AS sender_picture
              FROM messages m
              INNER JOIN users u ON u.id = m.sender_id
              WHERE m.conversation_id = ? {$whereAfter}
-             ORDER BY m.id ASC
+             ORDER BY m.id {$order}
              LIMIT {$limit}"
         );
         $stmt->execute($params);
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+        if ($initialLoad) {
+            $rows = array_reverse($rows);
+        }
         $messages = [];
         foreach ($rows as $row) {
             $senderId = (int) $row['sender_id'];
@@ -208,9 +218,6 @@ final class ChatRepository
         $upd = $pdo->prepare('UPDATE conversations SET updated_at = CURRENT_TIMESTAMP(3) WHERE id = ?');
         $upd->execute([$conversationId]);
 
-        // Update sender's last_read_at
-        $this->markRead($conversationId, $senderId);
-
         // Fetch inserted row with sender details
         $fetchStmt = $pdo->prepare(
             'SELECT m.id, m.conversation_id, m.sender_id, m.body, m.created_at,
@@ -233,14 +240,20 @@ final class ChatRepository
         ];
     }
 
-    public function markRead(int $conversationId, int $userId): void
+    public function markRead(int $conversationId, int $userId, int $lastMessageId): void
     {
+        if ($lastMessageId <= 0) {
+            return;
+        }
+        // Mark only messages fetched by the client, never a concurrent incoming message.
         $stmt = Database::pdo()->prepare(
-            'UPDATE conversation_participants 
-             SET last_read_at = CURRENT_TIMESTAMP(3) 
+            'UPDATE conversation_participants
+             SET last_read_at = GREATEST(COALESCE(last_read_at, "1000-01-01 00:00:00"),
+                 COALESCE((SELECT MAX(created_at) FROM messages WHERE conversation_id = ? AND id <= ?),
+                     last_read_at))
              WHERE conversation_id = ? AND user_id = ?'
         );
-        $stmt->execute([$conversationId, $userId]);
+        $stmt->execute([$conversationId, $lastMessageId, $conversationId, $userId]);
     }
 
     public function totalUnreadCount(int $userId): int
