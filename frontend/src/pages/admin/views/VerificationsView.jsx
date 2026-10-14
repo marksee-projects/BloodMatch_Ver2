@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../../../context/NotificationContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, CheckCircle, FileText, ShieldCheck } from '@phosphor-icons/react'
 import { useSearchParams } from 'react-router-dom'
@@ -36,8 +37,8 @@ export default function VerificationsView() {
   const [decision, setDecision] = useState('verified')
   const [acceptDonorCard, setAcceptDonorCard] = useState(false)
   const [reason, setReason] = useState('')
-  const [message, setMessage] = useState(null)
-  const [error, setError] = useState(null)
+  const [message, setMessage] = useActionNoticeState(null, 'success')
+  const [error, setError] = useActionNoticeState(null, 'error')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [previewDocument, setPreviewDocument] = useState(null)
@@ -178,12 +179,7 @@ export default function VerificationsView() {
     <div className={`container ${styles.page}`}>
       {!detail ? (
         <section className={`card ${styles.queueCard}`} aria-labelledby="verification-queue-heading">
-          {message && (
-            <div className={`alert alert-success ${styles.statusNotice}`} role="status">
-              <CheckCircle size={20} weight="fill" aria-hidden="true" />
-              <span>{message}</span>
-            </div>
-          )}
+
           {error && <div className="alert alert-error" role="alert">{error}</div>}
 
           <div className={styles.queueToolbar}>

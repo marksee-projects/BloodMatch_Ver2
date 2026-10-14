@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../../../context/NotificationContext'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
@@ -7,7 +8,7 @@ import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 export default function DashboardView() {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
 
   const fetchDashboard = async () => {
     setLoading(true)

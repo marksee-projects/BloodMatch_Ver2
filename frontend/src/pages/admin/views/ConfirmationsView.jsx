@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../../../context/NotificationContext'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check } from '@phosphor-icons/react'
@@ -10,8 +11,8 @@ import styles from './ConfirmationsView.module.css'
 
 export default function ConfirmationsView() {
   const [queue, setQueue] = useState(null)
-  const [message, setMessage] = useState(null)
-  const [errorAlert, setErrorAlert] = useState(null)
+  const [message, setMessage] = useActionNoticeState(null, 'success')
+  const [errorAlert, setErrorAlert] = useActionNoticeState(null, 'error')
   const [processingId, setProcessingId] = useState(null)
   const [summaryVersion, setSummaryVersion] = useState(0)
   const processingRef = useRef(false)
@@ -70,8 +71,8 @@ export default function ConfirmationsView() {
     <div className="container">
       <h1 className="sr-only">Donation confirmations</h1>
 
-      {message && <div className="alert alert-success" role="status">{message}</div>}
-      {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
+
+
       <ConfirmedDonationSummary version={summaryVersion} />
 
       {queue.length === 0 ? (

@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../context/NotificationContext'
 import React, { useEffect, useState } from 'react'
 import { ArrowsClockwise, CaretDown, Funnel, MapPin, Warning } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -16,7 +17,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
   const { user } = useAuth()
   const [chapters, setChapters] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
   const [selectedBloodType, setSelectedBloodType] = useState('All')
   const [selectedUrgency, setSelectedUrgency] = useState('All')
   const [selectedDays, setSelectedDays] = useState('')
@@ -79,7 +80,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
               <MapPin size={20} weight="fill" color="var(--color-brand-navy)" />
               <h2 style={{ fontSize: 'var(--text-h3)', margin: 0, fontWeight: '700' }}>Chapter Demand Map</h2>
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
               <Button variant="secondary" size="sm" onClick={() => setFiltersOpen(!filtersOpen)}>
                 <Funnel size={16} /> Filters
@@ -155,7 +156,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
         ) : (
           <Card padding="lg" style={{ textAlign: 'center' }}>
             <p style={{ color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-2)' }}>
-              <ArrowsClockwise size={16} style={{ animation: 'spin 1s linear infinite' }} /> 
+              <ArrowsClockwise size={16} style={{ animation: 'spin 1s linear infinite' }} />
               Loading chapter demand…
             </p>
           </Card>
@@ -239,10 +240,10 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                         role="img"
                         aria-label={`${ch.chapter_name}: ${count} matching active ${count === 1 ? 'request' : 'requests'}`}
                       >
-                        <div style={{ 
-                          width: `${pct}%`, 
-                          height: '100%', 
-                          background: barColor, 
+                        <div style={{
+                          width: `${pct}%`,
+                          height: '100%',
+                          background: barColor,
                           borderRadius: 'inherit'
                         }} />
                       </div>
@@ -281,10 +282,10 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
               </div>
 
               {/* Chapter cards with stacked urgency bar */}
-              <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
-                gap: 'var(--space-4)' 
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: 'var(--space-4)'
               }}>
                 {chapters.map((ch) => {
                   const emergencyCount = ch.urgency_counts?.emergency || 0
@@ -310,10 +311,10 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
                       {/* Stacked urgency bar */}
                       {total > 0 && (
-                        <div style={{ 
-                          height: '6px', 
-                          background: 'var(--color-surface-sunken)', 
-                          borderRadius: '3px', 
+                        <div style={{
+                          height: '6px',
+                          background: 'var(--color-surface-sunken)',
+                          borderRadius: '3px',
                           overflow: 'hidden',
                           display: 'flex',
                           marginBottom: 'var(--space-3)'

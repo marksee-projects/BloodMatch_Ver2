@@ -5,19 +5,22 @@ declare(strict_types=1);
 namespace BloodMatch\Services;
 
 use BloodMatch\Repositories\ChatRepository;
-use BloodMatch\Repositories\MatchRepository;
 
 final class ChatPolicy
 {
+    public static function isEligible(array $user): bool
+    {
+        return (int) ($user['id'] ?? 0) > 0
+            && ($user['account_status'] ?? '') === 'active'
+            && in_array($user['role'] ?? '', ['member', 'admin'], true)
+            && ($user['verification_status'] ?? '') === 'verified';
+    }
     private ChatRepository $chatRepo;
-    private MatchRepository $matchRepo;
 
     public function __construct(
-        ?ChatRepository $chatRepo = null,
-        ?MatchRepository $matchRepo = null
+        ?ChatRepository $chatRepo = null
     ) {
         $this->chatRepo = $chatRepo ?? new ChatRepository();
-        $this->matchRepo = $matchRepo ?? new MatchRepository();
     }
 
     public function canMessage(array $sender, array $recipient): bool
@@ -46,37 +49,18 @@ final class ChatPolicy
             return false;
         }
 
-        // Officers and admins can message any active user
-        if (in_array($senderRole, ['admin'], true)) {
-            return true;
+        // Verification is required for both ends, including existing chats.
+        if (!self::isEligible($sender) || !self::isEligible($recipient)) {
+            return false;
         }
 
-        // Senders who are regular members:
-        // 1. Messaging an officer or admin is always permitted
-        if (in_array($recipientRole, ['admin'], true)) {
-            return true;
-        }
-
-        // 2. Verified members can message other regular members
-        $senderVerified = ($sender['verification_status'] ?? '') === 'verified';
-        if ($senderVerified) {
-            return true;
-        }
-
-        // 3. Unverified members cannot initiate cold chats with other regular members
-        // unless they share an active match or request relationship
-        $hasActiveMatchOrRequest = $this->matchRepo->profileViewRelation($senderId, $recipientId) !== null;
-        if ($hasActiveMatchOrRequest) {
-            return true;
-        }
-
-        return false;
+        return true;
     }
 
     public function canAccessConversation(array $user, int $conversationId): bool
     {
         $userId = (int) ($user['id'] ?? 0);
-        if ($userId <= 0 || ($user['account_status'] ?? '') !== 'active') {
+        if (!self::isEligible($user)) {
             return false;
         }
 

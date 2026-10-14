@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useActionNoticeState, useNotify } from '../../../context/NotificationContext'
+import { useEffect, useRef, useState } from 'react'
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
 import { useAuth } from '../../../context/AuthContext'
@@ -10,13 +11,41 @@ import AnalyticsPrintReport from '../../../components/AnalyticsPrintReport'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export default function AnalyticsView() {
+  const notify = useNotify()
+  const exportBusy = useRef(false)
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [chapters,setChapters] = useState([])
   const [version,setVersion] = useState(0)
   useEffect(() => { let active=true; api.get('/api/chapters').then(result => { if(active) setChapters(result.chapters || []) }).catch(() => {}); return () => { active=false } }, [])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
+  const downloadCsv = async (event) => {
+    event.preventDefault()
+    if (exportBusy.current) return
+    exportBusy.current = true
+    try {
+      const url = event.currentTarget.href
+      const response = await fetch(url, { credentials: 'include', cache: 'no-store' })
+      if (!response.ok || !response.headers.get('content-type')?.includes('text/csv')) {
+        const result = await response.json().catch(() => null)
+        throw new Error(result?.error?.message || 'Could not export the report.')
+      }
+      const objectUrl = URL.createObjectURL(await response.blob())
+      const link = document.createElement('a')
+      link.href = objectUrl
+      link.download = 'bloodmatch-aggregate.csv'
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+      notify({ severity: 'success', message: 'Your CSV export is ready.' })
+    } catch (error) {
+      notify({ severity: 'error', message: error.message || 'Could not export the report.' })
+    } finally {
+      exportBusy.current = false
+    }
+  }
 
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date()
@@ -169,7 +198,7 @@ export default function AnalyticsView() {
 
         </div>
           <div className={styles.exportActions}>
-            <a className="btn btn-secondary btn-sm" href={`/api/analytics/export?${new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...(user?.role === 'admin' && chapterId ? { chapter_id: chapterId } : {}) })}`} download>Export aggregate CSV</a>
+            <a className="btn btn-secondary btn-sm" href={`/api/analytics/export?${new URLSearchParams({ date_from: dateFrom, date_to: dateTo, ...(user?.role === 'admin' && chapterId ? { chapter_id: chapterId } : {}) })}`} download onClick={downloadCsv}>Export aggregate CSV</a>
             <button className="btn btn-secondary btn-sm" type="button" disabled={loading || Boolean(error) || !data} onClick={() => window.print()}>Print / Save PDF</button>
             <button
               type="button"

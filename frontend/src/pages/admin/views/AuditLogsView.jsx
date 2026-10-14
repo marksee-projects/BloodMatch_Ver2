@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../../../context/NotificationContext'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
@@ -17,7 +18,7 @@ export default function AuditLogsView() {
   const [chapterId, setChapterId] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
   const [loading, setLoading] = useState(false)
   const [selectedContext, setSelectedContext] = useState(null)
 

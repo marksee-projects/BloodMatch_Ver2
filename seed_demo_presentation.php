@@ -49,17 +49,17 @@ foreach ($requesters as $reqUser) {
     // Insert User
     $stmt = $pdo->prepare("
         INSERT INTO users (
-            email, password_hash, first_name, last_name, role, chapter_id, 
-            verification_status, account_status, date_of_birth, blood_type, 
+            email, password_hash, first_name, last_name, role, chapter_id,
+            verification_status, account_status, date_of_birth, blood_type,
             blood_type_source, blood_type_verified, latitude, longitude
         ) VALUES (?, ?, ?, ?, 'member', ?, 'verified', 'active', '1985-06-15', ?, 'self_reported', 0, ?, ?)
         ON DUPLICATE KEY UPDATE id=LAST_INSERT_ID(id)
     ");
     $stmt->execute([
-        $reqUser['email'], $passHash, $reqUser['first_name'], $reqUser['last_name'], 
+        $reqUser['email'], $passHash, $reqUser['first_name'], $reqUser['last_name'],
         $reqUser['chapter_id'], $reqUser['blood_type'], $reqUser['latitude'], $reqUser['longitude']
     ]);
-    
+
     $userId = (int) $pdo->lastInsertId();
     if ($userId === 0) {
         // If it already existed, fetch ID
@@ -68,7 +68,7 @@ foreach ($requesters as $reqUser) {
 
     // Create Blood Request
     $neededDate = date('Y-m-d H:i:s', strtotime('+3 days'));
-    
+
     $reqRepo = new \BloodMatch\Repositories\BloodRequestRepository();
     $reqId = $reqRepo->create([
         'requester_id' => $userId,
@@ -82,9 +82,9 @@ foreach ($requesters as $reqUser) {
         'longitude' => $reqUser['longitude'] + 0.005,
         'urgency' => 'Urgent',
         'needed_datetime' => $neededDate,
-        'review_status' => 'approved'
+        'review_status' => 'not_required'
     ]);
-    
+
     echo "Created request #{$reqId} for {$reqUser['first_name']} ({$reqUser['blood_type']})\n";
 
     // Run Matching Engine

@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../context/NotificationContext'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { CheckCircle, Clock, Eye, EyeSlash, ShieldCheck } from '@phosphor-icons/react'
@@ -18,7 +19,7 @@ export default function LandingPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
   const [submitting, setSubmitting] = useState(false)
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [privacyReadonly, setPrivacyReadonly] = useState(true)
@@ -90,11 +91,7 @@ export default function LandingPage() {
               <h2 className={styles.cardTitle}>Sign In</h2>
             </div>
 
-            {error && (
-              <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-4)' }}>
-                {error}
-              </div>
-            )}
+
 
             <form className={styles.form} onSubmit={onSubmit} noValidate>
               <Input
@@ -210,8 +207,8 @@ export default function LandingPage() {
           <div className={styles.footerRight}>
             <Link to="/register" className={styles.footerLink}>Join</Link>
             <a href="#how-it-works" className={styles.footerLink}>How It Works</a>
-            <button 
-              className={styles.footerLink} 
+            <button
+              className={styles.footerLink}
               style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
               onClick={openPrivacyNotice}
             >
@@ -221,8 +218,8 @@ export default function LandingPage() {
         </footer>
       </div>
 
-      <PrivacyConsentModal 
-        isOpen={showPrivacyModal} 
+      <PrivacyConsentModal
+        isOpen={showPrivacyModal}
         onClose={() => setShowPrivacyModal(false)}
         onConsentGranted={() => {
           setShowPrivacyModal(false)

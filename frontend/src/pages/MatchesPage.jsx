@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../context/NotificationContext'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
@@ -33,10 +34,10 @@ export default function MatchesPage() {
   const location = useLocation()
   const openCreateRequest = useRequestCreation()
   const { user, refresh } = useAuth()
-  const { openChatWithUser } = useChat()
+  const { openChatWithUser, canChat } = useChat()
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
-  const [errorAlert, setErrorAlert] = useState(null)
-  const [message, setMessage] = useState(null)
+  const [errorAlert, setErrorAlert] = useActionNoticeState(null, 'error')
+  const [message, setMessage] = useActionNoticeState(null, 'success')
   const [confirmation, setConfirmation] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
   const responseBusyRef = useRef(false)
@@ -58,17 +59,12 @@ export default function MatchesPage() {
   })
   useEffect(() => {
     setErrorAlert(null)
-    setMessage(location.state?.requestCreated ? (location.state.matchingStatus === 'failed_retry_required' ? 'Your request is saved, but matching failed and donor alerts were not created. Ask an officer to retry matching; do not post a duplicate request.' : 'Your request is saved and matching completed. Potential donors are shown below when available.') : null)
+    setMessage(null)
     setConfirmation(null)
     setReportingMatchId(null)
     setReportNote('')
     setDonorFilters(emptyMatchFilters)
   }, [id])
-  useEffect(() => {
-    if (!message || location.state?.matchingStatus === 'failed_retry_required') return undefined
-    const timeoutId = window.setTimeout(() => setMessage(null), 5000)
-    return () => window.clearTimeout(timeoutId)
-  }, [message])
 
   const matches = pageData?.matches || []
   const visibleMatches = filterMatches(matches, donorFilters)
@@ -200,8 +196,8 @@ export default function MatchesPage() {
         </div>
       )}
 
-      {message && <div className="alert alert-success" role="status">{message}</div>}
-      {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
+
+
       {matchError && <div className="alert alert-error" role="alert">{matchError.message}</div>}
 
       <section className={styles.requestSurface} aria-labelledby="request-title">
@@ -237,6 +233,7 @@ export default function MatchesPage() {
                   variant="secondary"
                   size="sm"
                   onClick={() => openChatWithUser(request.requester_id, { name: request.requester_name || 'Requester' })}
+                  disabled={!canChat || request.requester_verification_status !== 'verified'}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
                   <ChatCircleDots size={16} weight="regular" /> Message
@@ -313,6 +310,7 @@ export default function MatchesPage() {
                         variant="secondary"
                         size="sm"
                         onClick={() => openChatWithUser(match.profile_user_id, { name: match.display_name })}
+                        disabled={!canChat}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                       >
                         <ChatCircleDots size={16} weight="regular" /> Message

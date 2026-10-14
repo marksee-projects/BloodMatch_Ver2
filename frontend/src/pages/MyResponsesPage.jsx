@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../context/NotificationContext'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -59,9 +60,9 @@ export default function MyResponsesPage() {
   const queryClient = useQueryClient()
   const canManageResponses = user?.role === 'member'
   const actionBusyRef = useRef(false)
-  const { openChatWithUser } = useChat()
-  const [successMessage, setSuccessMessage] = useState(null)
-  const [errorMessage, setErrorMessage] = useState(null)
+  const { openChatWithUser, canChat } = useChat()
+  const [successMessage, setSuccessMessage] = useActionNoticeState(null, 'success')
+  const [errorMessage, setErrorMessage] = useActionNoticeState(null, 'error')
   const [actionLoading, setActionLoading] = useState(false)
   const [confirmWithdrawMatchId, setConfirmWithdrawMatchId] = useState(null)
   const [reportingMatchId, setReportingMatchId] = useState(null)
@@ -79,11 +80,6 @@ export default function MyResponsesPage() {
     enabled: Boolean(user?.id)
   })
 
-  useEffect(() => {
-    if (!successMessage) return undefined
-    const timer = window.setTimeout(() => setSuccessMessage(null), 5000)
-    return () => window.clearTimeout(timer)
-  }, [successMessage])
 
   const handleWithdraw = async () => {
     if (!confirmWithdrawMatchId || !canManageResponses || actionBusyRef.current) return
@@ -160,17 +156,9 @@ export default function MyResponsesPage() {
         </p>
       </header>
 
-      {successMessage && (
-        <div className="alert alert-success" role="status" style={{ marginBottom: 'var(--space-4)' }}>
-          {successMessage}
-        </div>
-      )}
 
-      {errorMessage && (
-        <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-4)' }}>
-          {errorMessage}
-        </div>
-      )}
+
+
 
       {responses.length === 0 ? (
         <section className={styles.emptyState}>
@@ -276,6 +264,7 @@ export default function MyResponsesPage() {
                       variant="secondary"
                       size="sm"
                       onClick={() => openChatWithUser(req.requester_id, { name: req.requester_name || 'Requester' })}
+                      disabled={!canChat || req.requester_verification_status !== 'verified'}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                     >
                       <ChatCircleDots size={16} weight="regular" /> Message

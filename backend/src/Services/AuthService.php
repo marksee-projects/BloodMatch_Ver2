@@ -218,6 +218,8 @@ final class AuthService
         Session::regenerate();
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['role'] = (string) $user['role'];
+        // Bind sessions to the current password, including any login rehash.
+        $_SESSION['password_fingerprint'] = SessionIdentityPolicy::fingerprint($this->users->findById((int) $user['id']));
 
         AuditLogger::log((int) $user['id'], 'auth.login.success', 'user', (string) $user['id']);
 

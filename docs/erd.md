@@ -1,105 +1,188 @@
-# BloodMatch — Entity Relationship Diagram (ERD) — Implemented Schema
+# BloodMatch entity relationship diagram
 
-> **Source of truth:** `database/migrations/001–016` applied to `bloodmatch_dev` (MariaDB 10.4 / XAMPP, port 3307). Verified 2026-08-27 for 001–014 and 2026-09-24 for 015–016 via `SHOW CREATE TABLE`, `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` and `database/run_migrations.php` (16 applied, re-run 0). Historical Phase-17 revision documented 001–014 only (see `docs/test-log-phase17.md`); this file supersedes it for the current 001–016 schema.
+Generated from the actual `bloodmatch` schema on port 3306, 14 October 2026 19:07 Asia/Manila. This snapshot includes all 24 base tables; account count does not change its relationships.
 
----
+**Import repair pending:** these tables have no primary key: `conversations`, `conversation_participants`, `messages`. Chat foreign keys are also absent in this snapshot. Run the reviewed maintenance and regenerate this file before submitting the final ERD.
 
-## Short ERD Explanation
-
-U0 prepared schema change (not yet applied or live-verified): migration
-`019_canonical_emergency_urgency.sql` sets `blood_requests.urgency` to
-`ENUM('routine', 'urgent', 'emergency') NOT NULL DEFAULT 'routine'`.
-The urgency domain is **Routine / Urgent / Emergency**. Relationships are unchanged.
-See [U0 execution and verification](urgency-migration-u0.md).
-
-The Entity Relationship Diagram of BloodMatch shows the main entities and how they are connected in the system. It includes users, chapters, blood requests, matches, donation reports, notifications, verification documents, audit logs and supporting reference data. Information is linked through primary keys, foreign keys with defined actions, unique constraints, CHECK constraints and append-only triggers, reflecting the actual implemented database.
-
----
-
-## ERD (Mermaid) — Current Implemented Schema
+[Open the SVG diagram](erd.svg). PK = primary key; FK = enforced foreign key; UK = single-column unique key. Nullable FK fields permit an absent parent.
 
 ```mermaid
 erDiagram
-    chapters ||--o{ users : "has"
-    bataan_locations ||--o{ users : "locates"
-    bataan_locations ||--o{ blood_requests : "locates"
-    users ||--o{ password_resets : "resets"
-    users ||--o{ audit_log : "actor_of"
-    users ||--o{ member_documents : "owns"
-    users ||--o{ verification_decisions : "target_of"
-    users ||--o{ verification_decisions : "officer_decides"
-    users ||--o{ blood_requests : "requests"
-    chapters ||--o{ blood_requests : "scopes"
-    blood_requests ||--o{ matches : "generates"
-    users ||--o{ matches : "donor_in"
-    matches ||--o{ donation_reports : "reported_via"
-    users ||--o{ donation_reports : "donor_of"
-    users ||--o{ donation_reports : "confirmer_of"
-    users ||--o{ notifications : "receives"
-
+    users |o--o{ audit_log : "actor_id"
+    hospitals |o--o{ blood_requests : "hospital_id"
+    bataan_locations |o--o{ blood_requests : "location_id"
+    users ||--o{ blood_requests : "requester_id"
+    chapters |o--o{ blood_requests : "request_chapter_id"
+    users |o--o{ donation_reports : "confirmed_by"
+    users ||--o{ donation_reports : "donor_id"
+    matches ||--o{ donation_reports : "match_id"
+    users ||--o{ donor_opportunities : "donor_id"
+    notifications |o--o{ donor_opportunities : "notification_id"
+    blood_requests ||--o{ donor_opportunities : "request_id"
+    users ||--o| donor_response_state : "user_id"
+    email_attempts ||--o| email_donor_reservations : "attempt_id"
+    notifications ||--o| email_outbox : "notification_id"
+    bataan_locations |o--o{ hospitals : "location_id"
+    users ||--o{ matches : "donor_id"
+    blood_requests ||--o{ matches : "request_id"
+    users ||--o{ member_documents : "user_id"
+    users ||--o{ notifications : "user_id"
+    users ||--o{ password_resets : "user_id"
+    chapters |o--o{ users : "chapter_id"
+    bataan_locations |o--o{ users : "location_id"
+    users |o--o{ verification_decisions : "officer_id"
+    users ||--o{ verification_decisions : "target_user_id"
+    audit_log {
+        BIGINT id PK
+        BIGINT actor_id FK "nullable"
+        VARCHAR action
+        VARCHAR target_type "nullable"
+        VARCHAR target_id "nullable"
+        LONGTEXT context "nullable"
+        TIMESTAMP created_at
+    }
+    auth_throttle {
+        VARCHAR identifier PK
+        INT failed_count
+        DATETIME locked_until "nullable"
+        TIMESTAMP updated_at
+    }
+    bataan_locations {
+        INT id PK
+        VARCHAR psgc_code UK
+        VARCHAR name
+        ENUM level
+        VARCHAR municipality_code
+        VARCHAR municipality_name
+        DECIMAL latitude "nullable"
+        DECIMAL longitude "nullable"
+        TINYINT is_active
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+    blood_requests {
+        BIGINT id PK
+        BIGINT requester_id FK
+        TINYINT request_chapter_id FK "nullable"
+        ENUM required_blood_type
+        TINYINT quantity_units
+        VARCHAR facility_name
+        INT hospital_id FK "nullable"
+        DECIMAL latitude "nullable"
+        DECIMAL longitude "nullable"
+        ENUM urgency
+        DATETIME needed_datetime
+        ENUM status
+        ENUM review_status
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+        DATETIME expired_at "nullable"
+        INT location_id FK "nullable"
+        TEXT description "nullable"
+    }
     chapters {
         TINYINT id PK
         VARCHAR code UK
         VARCHAR name
         VARCHAR municipality
-        DECIMAL latitude
-        DECIMAL longitude
+        DECIMAL latitude "nullable"
+        DECIMAL longitude "nullable"
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
-
-    users {
-        BIGINT id PK
-        VARCHAR email UK
-        VARCHAR password_hash
-        VARCHAR full_name
-        VARCHAR phone
-        ENUM role
-        TINYINT chapter_id FK
-        ENUM verification_status
-        DATE date_of_birth
-        ENUM blood_type
-        ENUM blood_type_source
-        TINYINT blood_type_verified
-        DATETIME donor_enrolled_at
-        ENUM donor_availability
-        DATETIME last_verified_donation_at
-        INT location_id FK
-        DECIMAL latitude
-        DECIMAL longitude
-        VARCHAR profile_picture
-        ENUM account_status
-        DATETIME deactivated_at
+    compatibility_matrix {
+        VARCHAR recipient_type PK
+        TEXT allowed_donor_types
+    }
+    conversations {
+        BIGINT id
+        VARCHAR type
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
-
-    password_resets {
+    conversation_participants {
+        BIGINT id
+        BIGINT conversation_id
+        BIGINT user_id
+        DATETIME last_read_at "nullable"
+        TIMESTAMP created_at
+    }
+    donation_reports {
         BIGINT id PK
-        BIGINT user_id FK
-        CHAR token_hash UK
+        BIGINT match_id FK
+        BIGINT donor_id FK
+        VARCHAR report_note "nullable"
+        VARCHAR rejection_reason "nullable"
+        ENUM status
+        DATETIME reported_at
+        BIGINT confirmed_by FK "nullable"
+        DATETIME confirmed_at "nullable"
+        TIMESTAMP created_at
+    }
+    donor_opportunities {
+        BIGINT id PK
+        BIGINT request_id FK
+        BIGINT donor_id FK
+        INT generation
+        BIGINT notification_id FK "nullable"
+        DATETIME notified_at
+        DATETIME due_at
+        ENUM status
+    }
+    donor_response_state {
+        BIGINT user_id PK,FK
+        DATETIME standby_started_at "nullable"
+        DATETIME consumed_through "nullable"
+    }
+    email_attempts {
+        BIGINT id PK
+        ENUM mail_class
+        DATETIME attempted_at
+    }
+    email_donor_reservations {
+        BIGINT attempt_id PK,FK
+        BIGINT donor_id
+        DATETIME reserved_at
+        ENUM outcome
+        DATETIME updated_at
+    }
+    email_outbox {
+        BIGINT id PK
+        BIGINT notification_id UK,FK
+        VARCHAR delivery_key UK
+        ENUM priority
+        ENUM status
+        SMALLINT attempts
+        DATETIME next_attempt_at
+        CHAR lease_token "nullable"
+        DATETIME lease_expires_at "nullable"
         DATETIME expires_at
-        DATETIME used_at
-        TIMESTAMP created_at
+        VARCHAR last_error_code "nullable"
+        VARCHAR cancel_reason "nullable"
+        DATETIME created_at
+        DATETIME updated_at
+        DATETIME sent_at "nullable"
     }
-
-    audit_log {
-        BIGINT id PK
-        BIGINT actor_id FK
-        VARCHAR action
-        VARCHAR target_type
-        VARCHAR target_id
-        JSON context
+    hospitals {
+        INT id PK
+        VARCHAR name
+        ENUM type
+        VARCHAR municipality_name
+        INT location_id FK "nullable"
         TIMESTAMP created_at
-    }
-
-    auth_throttle {
-        VARCHAR identifier PK
-        INT failed_count
-        DATETIME locked_until
         TIMESTAMP updated_at
     }
-
+    matches {
+        BIGINT id PK
+        BIGINT request_id FK
+        BIGINT donor_id FK
+        INT generation
+        ENUM status
+        DECIMAL distance_km "nullable"
+        DECIMAL rank_score "nullable"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
     member_documents {
         BIGINT id PK
         BIGINT user_id FK
@@ -110,212 +193,94 @@ erDiagram
         INT size_bytes
         TIMESTAMP uploaded_at
     }
-
-    verification_decisions {
-        BIGINT id PK
-        BIGINT target_user_id FK
-        BIGINT officer_id FK
-        ENUM decision
-        VARCHAR reason
+    messages {
+        BIGINT id
+        BIGINT conversation_id
+        BIGINT sender_id
+        TEXT body
         TIMESTAMP created_at
     }
-
-    blood_requests {
-        BIGINT id PK
-        BIGINT requester_id FK
-        TINYINT request_chapter_id FK
-        ENUM required_blood_type
-        TINYINT quantity_units
-        VARCHAR facility_name
-        INT location_id FK
-        DECIMAL latitude
-        DECIMAL longitude
-        ENUM urgency
-        DATETIME needed_datetime
-        ENUM status
-        ENUM review_status
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
-        DATETIME expired_at
-    }
-
-    bataan_locations {
-        INT id PK
-        VARCHAR psgc_code UK
-        VARCHAR name
-        ENUM level
-        VARCHAR municipality_code
-        VARCHAR municipality_name
-        DECIMAL latitude
-        DECIMAL longitude
-        TINYINT is_active
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
-    }
-
-    compatibility_matrix {
-        VARCHAR recipient_type PK
-        TEXT allowed_donor_types
-    }
-
-    matches {
-        BIGINT id PK
-        BIGINT request_id FK
-        BIGINT donor_id FK
-        INT generation
-        ENUM status
-        DECIMAL distance_km
-        DECIMAL rank_score
-        TIMESTAMP created_at
-        TIMESTAMP updated_at
-    }
-
-    donation_reports {
-        BIGINT id PK
-        BIGINT match_id FK
-        BIGINT donor_id FK
-        VARCHAR report_note
-        ENUM status
-        DATETIME reported_at
-        BIGINT confirmed_by FK
-        DATETIME confirmed_at
-        TIMESTAMP created_at
-    }
-
-    system_settings {
-        VARCHAR setting_key PK
-        VARCHAR value
-        TIMESTAMP updated_at
-    }
-
     notifications {
         BIGINT id PK
         BIGINT user_id FK
         VARCHAR type
         VARCHAR title
         VARCHAR body
-        VARCHAR related_type
-        BIGINT related_id
-        VARCHAR dedup_key
-        INT generation
-        DATETIME emailed_at
-        DATETIME read_at
+        VARCHAR related_type "nullable"
+        BIGINT related_id "nullable"
+        VARCHAR dedup_key "nullable"
+        INT generation "nullable"
+        DATETIME emailed_at "nullable"
+        DATETIME read_at "nullable"
         TIMESTAMP created_at
     }
-
+    password_resets {
+        BIGINT id PK
+        BIGINT user_id FK
+        CHAR token_hash UK
+        DATETIME expires_at
+        DATETIME used_at "nullable"
+        TIMESTAMP created_at
+    }
     schema_migrations {
         VARCHAR name PK
         TIMESTAMP applied_at
     }
+    system_settings {
+        VARCHAR setting_key PK
+        VARCHAR value
+        TIMESTAMP updated_at
+    }
+    users {
+        BIGINT id PK
+        VARCHAR email UK
+        VARCHAR password_hash "nullable"
+        VARCHAR first_name
+        VARCHAR middle_name "nullable"
+        VARCHAR last_name
+        VARCHAR full_name "nullable; generated"
+        VARCHAR phone "nullable"
+        ENUM role
+        TINYINT chapter_id FK "nullable"
+        ENUM verification_status
+        DATE date_of_birth "nullable"
+        ENUM blood_type "nullable"
+        ENUM blood_type_source "nullable"
+        TINYINT blood_type_verified
+        DATETIME donor_enrolled_at "nullable"
+        ENUM donor_availability "nullable"
+        DATETIME last_verified_donation_at "nullable"
+        DECIMAL latitude "nullable"
+        DECIMAL longitude "nullable"
+        ENUM account_status
+        DATETIME email_verified_at "nullable"
+        VARCHAR email_code_hash "nullable"
+        DATETIME email_code_expires_at "nullable"
+        DATETIME deactivated_at "nullable"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+        VARCHAR profile_picture "nullable"
+        INT location_id FK "nullable"
+    }
+    verification_decisions {
+        BIGINT id PK
+        BIGINT target_user_id FK
+        BIGINT officer_id FK "nullable"
+        ENUM decision
+        VARCHAR reason "nullable"
+        TIMESTAMP created_at
+    }
 ```
 
-> **Mermaid rendering:** paste the block into https://mermaid.live or run `npx @mermaid-js/mermaid-cli -i docs/erd.md -o docs/erd.svg` to regenerate `docs/erd.svg`. Regenerated 2026-09-28 (mermaid-cli 12.0.0); verified `docs/erd.svg` contains `bataan_locations`, `profile_picture`, `location_id`. The diagram is layout-grouped: *Identity/Access* (chapters/users/password_resets/auth_throttle/bataan_locations), *Verification* (member_documents/verification_decisions), *Request/Matching* (blood_requests/compatibility_matrix/matches), *Donation* (donation_reports/system_settings), *Notifications/Auditing* (notifications/audit_log). Grouping is visual only.
+## Relationships not enforced by foreign keys
 
----
+- `notifications.related_type` / `related_id` and `audit_log.target_type` / `target_id` are polymorphic application references.
+- `email_donor_reservations.donor_id` is a deliberate accounting reference without a user FK; cleanup explicitly handles removed donors.
+- `auth_throttle.identifier` contains opaque throttle keys, rather than an enforced user relationship.
+- `compatibility_matrix.allowed_donor_types` stores the fixed reference compatibility list used by the matching service.
 
-## Entity Descriptions
+## Chat repair target
 
-**chapters**
-Fixed reference data for the 3 Bataan chapters (Mt. Samat — Orani, Mt. Tarak — Mariveles, Meridian Heights — Balanga City). Seeded once via `001_chapters.sql` with `ON DUPLICATE KEY UPDATE`; not admin-manageable.
+The intended relationship is `users -> conversation_participants -> conversations -> messages`, with a separate sender FK from `messages` to `users`. Chat IDs require primary keys and automatic generation; participant pairs require uniqueness. `last_read_at` must be DATETIME(3). The exporter includes these edges only after the actual database has them.
 
-**users**
-Stores member, Chapter Officer and System Administrator accounts, including email (login identity), password hash, role, chapter assignment, verification and account status, blood type and provenance, donor enrollment and availability, last verified donation time, canonical location (`location_id` FK → `bataan_locations`, backend-resolved `latitude`/`longitude`), profile picture reference (`profile_picture` 64-hex, NULL when none, migration 015), and timestamps.
-
-**password_resets**
-Stores hashed single-use reset tokens (`token_hash` CHAR(64) SHA-256 hex, `expires_at` ~30 min, `used_at` for single-use) linked to a user.
-
-**audit_log**
-Immutable append-only trail of security and operational events (`actor_id`, `action`, polymorphic `target_type`/`target_id`, `context` JSON, millisecond `created_at`). Updates and deletes are blocked by database triggers.
-
-**auth_throttle**
-Counts failed login/reset attempts per `identifier` (`login:<email>` / `reset:<email>`) and locks the identifier until `locked_until` (5 fails / 15 min).
-
-**member_documents**
-Stores uploaded verification evidence (`national_id`, `donor_card`, `parental_consent`) with 64-hex random `stored_name` outside webroot, MIME type, original extension and size, linked to the owner.
-
-**verification_decisions**
-History of verification outcomes for a member (`target_user_id`) decided by an officer (`officer_id` nullable, SET NULL) with decision `verified`/`rejected`/`re_review_requested`/`resubmitted` and reason.
-
-**blood_requests**
-Stores blood requests with required blood type, quantity, facility name, urgency, needed datetime, status (`OPEN`/`FULFILLED`/`CANCELLED`/`EXPIRED`), review provenance (`pending_review` for pending creators), immutable `request_chapter_id` snapshot of the requestor's chapter, canonical facility location (`location_id` FK → `bataan_locations`, backend-resolved coordinates; NULL = location optional), and timestamps.
-
-**bataan_locations** (migration 016 + seed 004)
-Canonical Bataan location reference for user-friendly proximity ranking: 12 PSGC cities/municipalities + 237 barangays (PSGC province 030800000) = 249 rows. Columns: `id INT UNSIGNED AI PK`, `psgc_code VARCHAR(9) UNIQUE`, `name`, `level ENUM(municipality,barangay)`, `municipality_code/name` (barangay parent), `latitude/longitude DECIMAL(9,6)` reference point (municipality poblacion per Wikidata P625; barangays inherit their municipality's point), `is_active`. `users.location_id` and `blood_requests.location_id` FK → `bataan_locations.id` (`ON UPDATE CASCADE`, `ON DELETE SET NULL`); `latitude/longitude` on those tables now hold backend-resolved reference coordinates consumed by the unchanged matching engine (`Geo::distanceKm`).
-
-**compatibility_matrix**
-Standalone lookup of red-cell ABO/Rh compatibility: `recipient_type` PK (8 types) with CSV `allowed_donor_types`. No foreign keys; sole consumer is `BloodCompatibilityService`.
-
-**matches**
-Links a blood request to an eligible donor. One persistent row per `(request_id, donor_id)` unique pair with `generation`, status (`POTENTIAL`→`CLOSED`), Haversine `distance_km` and `rank_score` (Compatibility → Availability → Verification → Proximity).
-
-**donation_reports**
-Donor report of a completed donation linked canonically to `matches.id` (`match_id`) and to the donor; `confirmed_by` references the reviewing officer. Request is derived via `matches.request_id` — no duplicate column.
-
-**system_settings**
-Key-value store for administrative intervals, seeded `standby_hours=42`, `cooldown_days=90` via `INSERT IGNORE` (preserves overrides), validated by `SystemSettingsService`.
-
-**notifications**
-Per-user inbox entries with type, title, body, polymorphic `related_type`/`related_id`, `dedup_key` + `generation` (`UNIQUE`), and `emailed_at`/`read_at` timestamps.
-
-**schema_migrations**
-Runner bookkeeping (`name` PK, `applied_at`) managed by `database/run_migrations.php`; not domain data.
-
----
-
-## Relationship Summary
-
-- **One chapter has many users;** a user may belong to one chapter (admins may be `NULL`) — `users.chapter_id → chapters.id` `ON UPDATE CASCADE`.
-- **One user has many password resets;** the same token hash is globally unique — `password_resets.user_id → users.id` `ON DELETE CASCADE`, `UNIQUE(token_hash)`.
-- **One user (as actor) has many audit logs;** logs survive user deletion (`SET NULL`), target is polymorphic — `audit_log.actor_id → users.id`.
-- **One user has many member documents;** document stored name is globally unique — `member_documents.user_id → users.id` `CASCADE`, `UNIQUE(stored_name)`.
-- **One user (as member) has many verification decisions as target;** one user (as officer) has many decisions as reviewer (`SET NULL` on officer delete) — `verification_decisions.target_user_id`/`officer_id → users.id`.
-- **One user has many blood requests as requester;** one chapter has many blood requests as immutable snapshot — `blood_requests.requester_id → users.id` `CASCADE`, `request_chapter_id → chapters.id`.
-- **One canonical location has many users and many blood requests;** `users.location_id → bataan_locations.id` and `blood_requests.location_id → bataan_locations.id` (`ON UPDATE CASCADE`, `ON DELETE SET NULL`; NULL = legacy/manual record).
-- **One blood request has many matches;** one user (as donor) has many matches — `matches.request_id → blood_requests.id`, `matches.donor_id → users.id`, `UNIQUE(request_id, donor_id)`.
-- **One match has many donation reports;** one user (as donor) has many reports; one user (as confirmer) has many reports (`SET NULL`) — `donation_reports.match_id → matches.id`, `donor_id → users.id`, `confirmed_by → users.id`.
-- **One user has many notifications;** related target is polymorphic — `notifications.user_id → users.id` `CASCADE`, `UNIQUE(dedup_key, generation)`.
-- **Standalone lookup / settings:** `compatibility_matrix` (`recipient_type` PK) and `system_settings` (`setting_key` PK) have no foreign keys; `auth_throttle` (`identifier` PK) is independent (identifier encodes email, not a FK).
-- **Polymorphic / logical references (no FK):** `audit_log.target_type/target_id`, `notifications.related_type/related_id`, `blood_requests.review_status` provenance (derived from `users.verification_status` at create time).
-
----
-
-## Important Constraints & Notes
-
-**Primary / Unique Keys:** All tables use `id` `BIGINT UNSIGNED AI` except `chapters.id` `TINYINT UNSIGNED AI`, `bataan_locations.id` `INT UNSIGNED AI`, `compatibility_matrix.recipient_type` `VARCHAR(3)`, `system_settings.setting_key` `VARCHAR(80)`, `auth_throttle.identifier` `VARCHAR(210)`, `schema_migrations.name`. Unique: `users.email`, `chapters.code`, `bataan_locations.psgc_code`, `password_resets.token_hash`, `member_documents.stored_name`, `matches(request_id, donor_id)`, `notifications(dedup_key, generation)`.
-
-**Foreign-Key Actions:** `ON DELETE CASCADE` for owned children (password resets, documents, decisions target, blood requests by requester, matches by request/donor, donation reports by match/donor, notifications by user); `ON DELETE SET NULL` for actor/reviewer/references (audit actor, verification officer, donation confirmer, `users.location_id`, `blood_requests.location_id`) to preserve history; `ON UPDATE CASCADE` for chapter and location references.
-
-**CHECK Constraints (InnoDB, verified via `SHOW CREATE TABLE` and `ERROR 4025` tests):**
-- `chk_users_blood_type` / `chk_users_blood_source` / `chk_users_blood_verified` — blood type and provenance consistency.
-- `chk_users_geo` / `chk_breq_geo` — latitude/longitude both-or-neither.
-- `chk_users_deactivation` — `active` ↔ `deactivated_at IS NULL`, `deactivated` ↔ `NOT NULL`.
-- `chk_cmatrix_type` — recipient_type in 8 ABO/Rh types.
-
-**Triggers:** `audit_log_block_update` / `audit_log_block_delete` `BEFORE` triggers `SIGNAL 45000` enforce append-only (verified `UPDATE`/`DELETE` rejected).
-
-**Indexes (beyond PK/FK):** `users` (`role`, `verification_status`, `account_status`, `donor_availability`), `password_resets` (`expires_at`), `audit_log` (`action`, `created_at`, `target_type,target_id`), `member_documents` (`user_id,doc_type`), `verification_decisions` (`target_user_id`, `officer_id`), `blood_requests` (`status`, `status+needed_datetime`, `urgency`), `matches` (`request_id,generation`, `status`, `donor_id`), `donation_reports` (`match_id`, `donor_id`, `status`), `notifications` (`user_id,read_at`, `type`). **014** adds composites `blood_requests(request_chapter_id, status, created_at)` and `audit_log(target_type, target_id, created_at)`.
-
-**Polymorphic / Logical References (documented as non-FK):** `audit_log.target_type`/`target_id` (`VARCHAR(60/64)`, no FK) and `notifications.related_type`/`related_id` (`VARCHAR(40)`/`BIGINT UNSIGNED`, `NULL`, no FK) are application-level polymorphic pointers; do not draw as FK in the ERD.
-
-**Seeder Idempotency:** `001_chapters.sql` (`ON DUPLICATE KEY UPDATE`), `003_system_settings.sql` (`INSERT IGNORE`), and `004_bataan_locations.sql` (`ON DUPLICATE KEY UPDATE`) keep fixed reference data at 3 chapters, 2 settings, and 249 Bataan locations (12 + 237).
-
-**Timestamps:** App writes UTC strings; PDO `time_zone='+00:00'`; `created_at`/`updated_at` `TIMESTAMP` (`audit_log`/`notifications`/`verification_decisions` `TIMESTAMP(3)` millisecond), `expired_at`/`reported_at` `DATETIME`.
-
----
-
-## Schema Verification
-
-- **Tables verified:** 15 `INFORMATION_SCHEMA.TABLES` rows in `bloodmatch_dev`: `audit_log`, `auth_throttle`, `bataan_locations`, `blood_requests`, `chapters`, `compatibility_matrix`, `donation_reports`, `matches`, `member_documents`, `notifications`, `password_resets`, `schema_migrations`, `system_settings`, `users`, `verification_decisions` — 14 domain + 1 bookkeeping. All 14 domain tables match migrations 001–013 + 015–016 (plus 014 indexes).
-- **Relationships verified (16 FKs):** via `SHOW CREATE TABLE` and `INFORMATION_SCHEMA.KEY_COLUMN_USAGE` — listed above (14 pre-016 + `fk_users_location`, `fk_requests_location`) — all `CASCADE`/`SET NULL` actions as documented.
-- **Polymorphic / logical references:** 2 pairs (`audit_log` target, `notifications` related) verified as non-FK `VARCHAR`/`BIGINT` nullable, no constraints.
-- **Discrepancies corrected:** historical Phase-17 `docs/erd.md` documented only `001–014` (prior revision 001–013 ASCII sketch, omitted 014 composites, used descriptive types). Corrected here to full `001–016` with exact types, FK actions, CHECKs, triggers and Mermaid, including `users.profile_picture` (015), `users.location_id` / `blood_requests.location_id` + `bataan_locations` (016).
-- **Live checks:** `D:\xampp\mysql\bin\mysql.exe -h 127.0.0.1 -P 3307 -u root -N -B -e "SHOW CREATE TABLE users\G"` / `KEY_COLUMN_USAGE` / `run_migrations.php` re-run 0 applied; FK violation → `ERROR 1452`, CHECK violation → `ERROR 4025`, audit `UPDATE`/`DELETE` → `ERROR 45000` as expected.
-- **Migrations 015–016:** `users.profile_picture` nullable 64-hex verified via `tests/profile_picture.ps1` (P07 64-hex row check); `bataan_locations` (249 rows: 12 + 237) plus location FKs verified via `run_migrations.php` and `tests/location.ps1` (20/20, L01–L20).
-
----
-
-## Files Changed
-
-- `docs/erd.md` — synchronized Mermaid ERD to 001–016 (added `bataan_locations`, `users.profile_picture`, `users.location_id`, `blood_requests.location_id` + FKs/relationships/constraints).
-- `docs/erd.svg` — regenerated 2026-09-28 from current Mermaid block via `npx @mermaid-js/mermaid-cli` (12.0.0); verified contains `bataan_locations`, `profile_picture`, `location_id`, `users`. No application code or database schema was modified.
-
+No tables or columns were removed to simplify this diagram. See [the database review and execution guide](CHAT_DATABASE_NOTIFICATION_HANDOFF.md).

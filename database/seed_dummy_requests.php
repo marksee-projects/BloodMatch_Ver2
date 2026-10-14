@@ -38,9 +38,9 @@ foreach ($dummyUsers as $index => $user) {
     $bloodType = $bloodTypes[array_rand($bloodTypes)];
     $urgency = $urgencies[array_rand($urgencies)];
     $facility = $facilities[array_rand($facilities)];
-    
+
     $neededDate = date('Y-m-d H:i:s', strtotime('+' . rand(1, 5) . ' days'));
-    
+
     $reqId = $repo->create([
         'requester_id' => (int) $user['id'],
         'request_chapter_id' => $user['chapter_id'] ?? 1,
@@ -53,11 +53,11 @@ foreach ($dummyUsers as $index => $user) {
         'longitude' => 120.54,
         'urgency' => $urgency,
         'needed_datetime' => $neededDate,
-        'review_status' => 'approved' 
+        'review_status' => 'not_required'
     ]);
-    
+
     echo "Created request #{$reqId} for {$user['email']} (Type: {$bloodType}, {$facility})" . PHP_EOL;
-    
+
     try {
         $summary = $matchService->generateForRequest($reqId, true, 'request_created', (int) $user['id']);
         echo "  -> Matching run: Found {$summary['matches_found']} potential donors." . PHP_EOL;

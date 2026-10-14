@@ -4,9 +4,9 @@ import FloatingChatTab from './FloatingChatTab'
 import styles from './FloatingChatContainer.module.css'
 
 export default function FloatingChatContainer() {
-  const { openTabs, closeTab, toggleMinimizeTab } = useChat()
+  const { openTabs, closeTab, toggleMinimizeTab, canChat } = useChat()
 
-  if (!openTabs || openTabs.length === 0) {
+  if (!canChat || !openTabs || openTabs.length === 0) {
     return null
   }
 

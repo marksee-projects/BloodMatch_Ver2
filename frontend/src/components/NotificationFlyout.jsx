@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Bell, X, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { useActionNoticeState } from '../context/NotificationContext'
 import { formatNotificationTime, notificationDeepLink, notificationDisplayText } from '../services/notifications'
 
 const PREVIEW_SIZE = 10
@@ -25,7 +26,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   const [filter, setFilter] = useState('all')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
   const rootRef = useRef(null)
   const sheetOutsideRef = useRef(null)
   const closeRef = useRef(null)

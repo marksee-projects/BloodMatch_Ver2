@@ -2,6 +2,8 @@
 
 # BloodMatch — Project Context
 
+> **Ratified user amendment — 2026-10-14:** In-app chat requires active, membership-verified accounts at both ends. Pending, unverified, and rejected users cannot start, send, read, list conversations, fetch unread counts, or mark chat read. Shared matches and contact with Admin/Officer do not bypass this restriction. Existing sessions recheck account state on each chat request.
+
 > **This file is the permanent source of truth for understanding the BloodMatch system before making implementation decisions.**
 > Read this file before writing any code, changing architecture, or making claims about what is implemented.
 > Where any earlier section conflicts with the ratified rules in §9 (Finalized BloodMatch Business Rules), **§9 prevails**.

@@ -1,3 +1,5 @@
+import { requestSavedNotice } from '../services/requestSavedNotice'
+import { useActionNoticeState, useNotify } from '../context/NotificationContext'
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check, WarningCircle } from '@phosphor-icons/react'
@@ -32,6 +34,7 @@ function getTodayLocalDate() {
 }
 
 export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange, onConfirmSave }) {
+  const notify = useNotify()
   const editing = Boolean(id)
   const { user, refresh } = useAuth()
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
@@ -47,7 +50,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
   const [hospitalsList, setHospitalsList] = useState([])
   const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [errors, setErrors] = useState({}); const [stepErrors, setStepErrors] = useState({});
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useActionNoticeState(null, 'error')
   const [submitting, setSubmitting] = useState(false)
   const [loaded, setLoaded] = useState(!editing)
   const [loadError, setLoadError] = useState(null)
@@ -144,7 +147,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
     setSubmitting(true)
     try {
       const payload = { ...form, location_id: location.location_id }
-      
+
       const matchedHospital = hospitalsList.find(
         (h) => h.name.toLowerCase().trim() === payload.facility_name.toLowerCase().trim()
       )
@@ -155,10 +158,11 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
         payload.needed_datetime = new Date(`${payload.needed_date}T${payload.needed_time}`).toISOString().slice(0, 19)
       }
       delete payload.needed_date; delete payload.needed_time
-      
+
       const result = editing
         ? await api.put(`/api/requests/${id}`, payload)
         : await api.post('/api/requests', payload)
+      notify(requestSavedNotice(result, editing, payload.urgency))
       if (onSuccess) onSuccess(result)
     } catch (err) {
       if (err.status === 403 && err.details?.code === 'EMAIL_UNVERIFIED') {
@@ -239,13 +243,6 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
         {editing && <p className="muted">Review your saved request details and update the fields below.</p>}
       </div>
 
-      {message && (
-        <div className="alert alert-error" role="alert">
-          <WarningCircle size={20} weight="fill" color="var(--color-danger)" style={{ flexShrink: 0, marginTop: '2px' }} />
-          <span>{message}</span>
-        </div>
-      )}
-
       <div className={styles.wizardCard}>
         {!editing && <div className={styles.stepperContainer}>
           <div className={styles.stepperTrack}>
@@ -294,10 +291,10 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
         </div>}
 
         <form className="form" onSubmit={onSubmit} noValidate>
-          
+
           {(editing || step === 1) && (
             <div className="form-step">
-              
+
               <div className="field">
                 <label htmlFor="required_blood_type">Required Blood Type *</label>
                 <select
@@ -333,7 +330,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
 
           {(editing || step === 2) && (
             <div className="form-step">
-              
+
               <div className="field">
                 <label htmlFor="facility_name">Healthcare Facility / Hospital Name *</label>
                 <SearchableCombobox
@@ -429,7 +426,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
                   Back
                 </button>
               )}
-              
+
               {!editing && step < 3 ? (
                 <button type="button" className="btn" onClick={nextStep}>
                   Next Step

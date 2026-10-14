@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../../../context/NotificationContext'
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../../../services/apiClient'
 import { useAuth } from '../../../context/AuthContext'
@@ -15,8 +16,8 @@ export default function UsersView() {
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [version, setVersion] = useState(0)
-  const [error, setError] = useState(null)
-  const [message, setMessage] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
+  const [message, setMessage] = useActionNoticeState(null, 'success')
   const [edit, setEdit] = useState(null)
   const [busy, setBusy] = useState(false)
   const busyRef = useRef(false)
@@ -52,7 +53,7 @@ export default function UsersView() {
   }
   return <div className="container">
     <h1 className="sr-only">User management</h1>
-    {message && <p className="alert alert-success" role="status">{message}</p>}
+
     {error && !edit && <div className="alert alert-error" role="alert">{error}<Button variant="secondary" onClick={() => { setError(null); setVersion(value => value + 1) }}>Retry</Button></div>}
     <section className={`card ${styles.managementCard}`} aria-label="User accounts">
     <form className={styles.filters} onSubmit={event => event.preventDefault()}>

@@ -1,15 +1,17 @@
+import { useActionNoticeState, useNotify } from '../context/NotificationContext'
 import { useState } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { Check } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function ResetPasswordPage() {
+  const notify = useNotify()
   const [params] = useSearchParams()
   const navigate = useNavigate()
   const [token, setToken] = useState(params.get('token') || '')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
   const [done, setDone] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
@@ -23,6 +25,7 @@ export default function ResetPasswordPage() {
     setSubmitting(true)
     try {
       await api.post('/api/password-reset/confirm', { token, password })
+      notify({ severity: 'success', message: 'Password reset successfully. Sign in with your new password.' })
       setDone(true)
       setTimeout(() => navigate('/login'), 2000)
     } catch (err) {
@@ -40,16 +43,14 @@ export default function ResetPasswordPage() {
 
       {done ? (
         <div className="card">
-          <div className="alert alert-success" role="status" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <Check size={16} weight="regular" aria-hidden="true" /> Password reset successfully! Redirecting you to sign in…
-          </div>
+          <p>Your password has been reset.</p>
           <Link to="/login" className="btn" style={{ marginTop: 'var(--space-3)' }}>
             Sign In Now
           </Link>
         </div>
       ) : (
         <>
-          {error && <div className="alert alert-error" role="alert">{error}</div>}
+
           <div className="card">
             <form className="form" onSubmit={onSubmit} noValidate>
               <div className="field">

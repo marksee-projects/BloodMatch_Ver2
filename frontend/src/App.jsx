@@ -28,6 +28,9 @@ import AdminVerificationsView from './pages/admin/views/VerificationsView'
 import ConfirmationsView from './pages/admin/views/ConfirmationsView'
 import DemandMapWidget from './components/DemandMapWidget'
 import { api } from './services/apiClient'
+import ConfirmationDialog from './components/ConfirmationDialog'
+import { useActionNoticeState, useNotify } from './context/NotificationContext'
+import { notificationDeepLink, notificationDisplayText } from './services/notifications'
 import LandingPage from './pages/LandingPage'
 import HomeFeedPage from './pages/HomeFeedPage'
 
@@ -69,6 +72,10 @@ export default function App() {
 }
 
 function AppShell() {
+  const notify = useNotify()
+  const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const seenNotifications = useRef(new Set())
+  const notificationsInitialized = useRef(false)
   const openCreateRequest = useRequestCreation()
   const { theme, toggleTheme } = useTheme()
   const { user, loading, logout, refresh } = useAuth()
@@ -80,7 +87,7 @@ function AppShell() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [availabilityUpdating, setAvailabilityUpdating] = useState(false)
-  const [availabilityError, setAvailabilityError] = useState(null)
+  const [availabilityError, setAvailabilityError] = useActionNoticeState(null, 'error')
   const profileMenuRef = useRef(null)
 
   useEffect(() => {
@@ -115,6 +122,21 @@ function AppShell() {
         const d = await api.get('/api/notifications/unread-count')
         if (active && typeof d?.unread_count === 'number') {
           setUnread(d.unread_count)
+          if (d.unread_count > 0) {
+            const latest = await api.get('/api/notifications?read=unread&page_size=50')
+            const initial = !notificationsInitialized.current
+            if (active) notificationsInitialized.current = true
+            if (active) for (const notice of [...(latest.notifications || [])].reverse()) {
+              if (seenNotifications.current.has(notice.id)) continue
+              seenNotifications.current.add(notice.id)
+              if (notice.related_request_status && notice.related_request_status !== 'OPEN' && notice.type === 'match.new') continue
+              const to = notificationDeepLink(notice, user.role)
+              const emergency = notice.type === 'match.new' && notice.related_request_urgency === 'emergency'
+              if (initial && !emergency) continue
+              notify({ severity: emergency ? 'emergency' : 'info', title: emergency ? 'Emergency blood request' : notificationDisplayText(notice, 'title'),
+                message: notificationDisplayText(notice, 'body'), dedupKey: `notification:${notice.id}`, action: to ? { to, label: emergency ? 'View request' : 'View details' } : undefined })
+            }
+          }
         }
       } catch (err) {
         // ignore
@@ -144,7 +166,7 @@ function AppShell() {
       if (timeoutId) clearTimeout(timeoutId)
       document.removeEventListener('visibilitychange', handleVisibility)
     }
-  }, [user])
+  }, [user, notify])
 
   const isActive = (path) => location.pathname === path
   const isResponsesActive = isActive('/responses') || isActive('/my-responses')
@@ -154,7 +176,7 @@ function AppShell() {
     location.pathname === '/demand-map' ||
     location.pathname === '/analytics'
 
-  useEffect(() => { 
+  useEffect(() => {
     setMobileOpen(false)
     setProfileMenuOpen(false)
   }, [location.pathname])
@@ -167,7 +189,7 @@ function AppShell() {
 
   const handleLogout = async () => {
     setProfileMenuOpen(false)
-    if (!window.confirm("Are you sure you want to log out?")) return
+    setLogoutConfirmOpen(false)
     setIsLoggingOut(true)
     try {
       await logout()
@@ -188,6 +210,7 @@ function AppShell() {
       await refresh()
       await queryClient.invalidateQueries({ queryKey: ['profile'] })
       setProfileMenuOpen(false)
+      notify({ severity: 'success', message: `Donor availability set to ${next}.` })
     } catch (error) {
       setAvailabilityError(error.message || 'Availability could not be updated.')
     } finally {
@@ -255,7 +278,7 @@ function AppShell() {
                   <MessengerFlyout variant="desktop" />
                   <NotificationFlyout unread={unread} setUnread={setUnread} variant="desktop" />
                   <div style={{ position: 'relative' }} ref={profileMenuRef}>
-                    <button 
+                    <button
                       type="button"
                       onClick={() => setProfileMenuOpen(!profileMenuOpen)}
                       aria-expanded={profileMenuOpen}
@@ -291,16 +314,16 @@ function AppShell() {
                             <Link to="/profile" className="btn btn-sm" style={{ padding: '4px 12px', fontSize: 'var(--text-xs)', marginTop: '4px' }} onClick={() => setProfileMenuOpen(false)}>See your profile</Link>
                           </div>
                         </div>
-                        
+
                         <hr className="dropdown-divider" />
-                        
+
                         <Link to="/profile" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
                           <div className="dropdown-icon-wrapper"><ClipboardText size={20} weight="fill" /></div>
                           <span className="dropdown-item-text">My Requests</span>
                           <CaretRight size={16} className="dropdown-caret" />
                         </Link>
-                        
-                        
+
+
                         {user.role === 'admin' && (
                           <Link to="/admin/dashboard" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
                             <div className="dropdown-icon-wrapper"><ShieldCheck size={20} weight="fill" /></div>
@@ -308,7 +331,7 @@ function AppShell() {
                             <CaretRight size={16} className="dropdown-caret" />
                           </Link>
                         )}
-                        
+
                         {user.role === 'member' && user.verification_status === 'verified' && user.donor_enrolled && (
                           <button type="button" className="dropdown-menu-item" onClick={handleAvailabilityChange} disabled={availabilityUpdating}>
                             <div className="dropdown-icon-wrapper">
@@ -328,7 +351,7 @@ function AppShell() {
                         )}
 
                         {availabilityError && <p role="alert" style={{ margin: 'var(--space-2) var(--space-4)', color: 'var(--color-emergency-red)', fontSize: 'var(--text-xs)' }}>{availabilityError}</p>}
-                        
+
                         <button type="button" className="dropdown-menu-item" onClick={() => { toggleTheme(); setProfileMenuOpen(false); }}>
                           <div className="dropdown-icon-wrapper">
                             {theme === 'light' ? <Moon size={20} weight="fill" /> : <Sun size={20} weight="fill" />}
@@ -336,8 +359,8 @@ function AppShell() {
                           <span className="dropdown-item-text">{theme === 'light' ? 'Dark Mode' : 'Light Mode'}</span>
                           <CaretRight size={16} className="dropdown-caret" />
                         </button>
-                        
-                        <button type="button" className="dropdown-menu-item" onClick={handleLogout}>
+
+                        <button type="button" className="dropdown-menu-item" onClick={() => setLogoutConfirmOpen(true)}>
                           <div className="dropdown-icon-wrapper"><SignOut size={20} weight="fill" /></div>
                           <span className="dropdown-item-text">Log out</span>
                           <CaretRight size={16} className="dropdown-caret" />
@@ -420,7 +443,7 @@ function AppShell() {
                       <span className="user-status" aria-label={`Role: ${user.role}`}>({user.role})</span>
                     </div>
                   </div>
-                  <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={handleLogout}>Log out</button>
+                  <button type="button" className="btn btn-secondary" style={{ width: '100%' }} onClick={() => setLogoutConfirmOpen(true)}>Log out</button>
                 </>
               ) : (
                 <>
@@ -500,6 +523,10 @@ function AppShell() {
         )}
       </main>
       <FloatingChatContainer />
+      <ConfirmationDialog open={logoutConfirmOpen} title="Log out of BloodMatch?" confirmLabel="Log out" cancelLabel="Stay signed in"
+        busy={isLoggingOut} onConfirm={handleLogout} onCancel={() => setLogoutConfirmOpen(false)}>
+        <p>You can sign in again to return to your account.</p>
+      </ConfirmationDialog>
     </div>
   )
 }

@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle, EnvelopeSimple, WarningCircle, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { useNotify } from '../context/NotificationContext'
 import styles from './EmailVerificationDialog.module.css'
 
 const emptyCode = () => Array(6).fill('')
 
 export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, initialEmail = '' }) {
+  const notify = useNotify()
   const [code, setCode] = useState(emptyCode)
   const [status, setStatus] = useState('idle') // idle, sending, error, success, rate_limited
   const [errorMsg, setErrorMsg] = useState('')
@@ -36,6 +38,7 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
     setStatus('sending')
     try {
       await api.post('/api/auth/verify', { email: initialEmail, code: code.join('') })
+      notify({ severity: 'success', message: 'Your email has been verified.' })
       setStatus('success')
       if (onSuccess) {
         setTimeout(onSuccess, 1500)
@@ -85,6 +88,7 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
     setStatus('sending')
     try {
       await api.post('/api/auth/verify/resend', { email: initialEmail })
+      notify({ severity: 'info', message: 'A new verification code has been requested. Check your inbox.' })
       setStatus('idle')
       setCountdown(60)
       setCode(emptyCode())
@@ -125,7 +129,7 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
               Enter the six-digit code sent to
               {initialEmail && <strong className={styles.email}>{initialEmail}</strong>}.
             </p>
-            
+
             <form onSubmit={handleVerify} className={styles.form}>
               <div className={styles.inputGroup}>
                 <span className={styles.inputLabel}>Verification code</span>
@@ -157,8 +161,8 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
                 </div>
               )}
 
-              <button 
-                type="submit" 
+              <button
+                type="submit"
                 className={styles.submitButton}
                 disabled={code.some((digit) => !digit) || status === 'sending'}
               >
@@ -168,8 +172,8 @@ export default function EmailVerificationDialog({ isOpen, onClose, onSuccess, in
 
             <div className={styles.resendSection}>
               <span>Didn't receive the code?</span>
-              <button 
-                onClick={handleResend} 
+              <button
+                onClick={handleResend}
                 disabled={countdown > 0 || status === 'sending' || status === 'rate_limited'}
                 className={styles.resendButton}
               >

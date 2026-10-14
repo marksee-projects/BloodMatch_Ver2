@@ -8,6 +8,7 @@ use BloodMatch\Middleware\AuthMiddleware;
 use BloodMatch\Repositories\AuthThrottleRepository;
 use BloodMatch\Services\AuthService;
 use BloodMatch\Services\ChatService;
+use BloodMatch\Services\ChatPolicy;
 use BloodMatch\Utils\Request;
 use BloodMatch\Utils\Response;
 use Throwable;
@@ -22,23 +23,33 @@ final class ChatController
         $this->chatService = $chatService ?? new ChatService();
     }
 
+    private static function requireChatUser(string $endpoint): array
+    {
+        $actor = AuthMiddleware::requireActiveUser($endpoint);
+        if (!ChatPolicy::isEligible($actor)) {
+            Response::error('Complete account verification before using chat.', 403);
+            exit;
+        }
+        return $actor;
+    }
+
     public function unreadCount(): void
     {
-        $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.unread');
+        $actor = self::requireChatUser(self::ENDPOINT . '.unread');
         $count = $this->chatService->getUnreadCount((int) $actor['id']);
         Response::success(['unread_count' => $count]);
     }
 
     public function conversations(): void
     {
-        $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.conversations');
+        $actor = self::requireChatUser(self::ENDPOINT . '.conversations');
         $list = $this->chatService->getConversations((int) $actor['id']);
         Response::success(['conversations' => $list]);
     }
 
     public function startConversation(): void
     {
-        $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.start');
+        $actor = self::requireChatUser(self::ENDPOINT . '.start');
         $recipientId = Request::int('recipient_id');
 
         if ($recipientId === null || $recipientId <= 0) {
@@ -56,7 +67,7 @@ final class ChatController
 
     public function conversation(array $params): void
     {
-        $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.detail');
+        $actor = self::requireChatUser(self::ENDPOINT . '.detail');
         $conversationId = (int) ($params['id'] ?? 0);
 
         if ($conversationId <= 0) {
@@ -74,7 +85,7 @@ final class ChatController
 
     public function messages(array $params): void
     {
-        $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.messages');
+        $actor = self::requireChatUser(self::ENDPOINT . '.messages');
         $conversationId = (int) ($params['id'] ?? 0);
 
         if ($conversationId <= 0) {
@@ -101,7 +112,7 @@ final class ChatController
 
     public function sendMessage(array $params): void
     {
-        $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.send');
+        $actor = self::requireChatUser(self::ENDPOINT . '.send');
         $conversationId = (int) ($params['id'] ?? 0);
 
         if ($conversationId <= 0) {
@@ -135,7 +146,7 @@ final class ChatController
 
     public function markRead(array $params): void
     {
-        $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.read');
+        $actor = self::requireChatUser(self::ENDPOINT . '.read');
         $conversationId = (int) ($params['id'] ?? 0);
 
         if ($conversationId <= 0) {

@@ -4,6 +4,7 @@ import { X, Minus, CaretUp, PaperPlaneRight, User, ChatCircleDots } from '@phosp
 import { api } from '../../services/apiClient'
 import { useAuth } from '../../context/AuthContext'
 import { useChat } from '../../context/ChatContext'
+import { useNotify } from '../../context/NotificationContext'
 import styles from './FloatingChatTab.module.css'
 
 const ACTIVE_POLL_INTERVAL_MS = 3000
@@ -20,8 +21,11 @@ function formatTime(isoString) {
 
 export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
   const { user } = useAuth()
+  const notify = useNotify()
   const { fetchUnreadCount } = useChat()
   const { conversationId, recipient, isMinimized } = tab
+  const minimizedRef = useRef(isMinimized)
+  minimizedRef.current = isMinimized
 
   const [messages, setMessages] = useState([])
   const [suggestedChats, setSuggestedChats] = useState(tab.suggestedChats || null)
@@ -33,6 +37,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
 
   const messagesEndRef = useRef(null)
   const lastIdRef = useRef(0)
+  const pollInFlight = useRef(false)
+  const readThroughRef = useRef(0)
   const inputRef = useRef(null)
 
   const scrollToBottom = useCallback((smooth = true) => {
@@ -41,13 +47,15 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
 
   const markAsRead = useCallback(async () => {
     try {
-      if (document.hidden || isMinimized) return
-      await api.post(`/api/chat/conversations/${conversationId}/read`, { last_message_id: lastIdRef.current })
+      if (document.hidden || minimizedRef.current || lastIdRef.current <= readThroughRef.current) return
+      const through = lastIdRef.current
+      await api.post(`/api/chat/conversations/${conversationId}/read`, { last_message_id: through })
+      readThroughRef.current = Math.max(readThroughRef.current, through)
       fetchUnreadCount()
     } catch {
       // Ignored
     }
-  }, [conversationId, fetchUnreadCount, isMinimized])
+  }, [conversationId, fetchUnreadCount])
 
   // Initial load
   useEffect(() => {
@@ -86,16 +94,19 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
 
   // Polling for new messages
   useEffect(() => {
-    if (isMinimized) return undefined
+    if (isMinimized || loading) return undefined
+    let active = true
 
     const poll = async () => {
-      if (document.hidden) return
+      if (document.hidden || pollInFlight.current) return
+      pollInFlight.current = true
 
       try {
         const afterId = lastIdRef.current
         const res = await api.get(
           `/api/chat/conversations/${conversationId}/messages?after_id=${afterId}&limit=50`
         )
+        if (!active) return
         if (Array.isArray(res?.messages)) {
           setLoadError(null)
           setLoading(false)
@@ -115,12 +126,14 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
         }
       } catch {
         // Handled silently
+      } finally {
+        pollInFlight.current = false
       }
     }
 
     const timer = setInterval(poll, ACTIVE_POLL_INTERVAL_MS)
-    return () => clearInterval(timer)
-  }, [conversationId, isMinimized, markAsRead, scrollToBottom])
+    return () => { active = false; clearInterval(timer) }
+  }, [conversationId, isMinimized, loading, markAsRead, scrollToBottom])
 
   const handleSend = async (e) => {
     e.preventDefault()
@@ -153,7 +166,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
         markAsRead()
       }
     } catch (err) {
-      alert(err.message || 'Failed to send message.')
+      notify({ severity: 'error', message: err.message || 'Failed to send message.' })
+      setInputText(text)
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
     } finally {
       setSending(false)
@@ -194,7 +208,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
         markAsRead()
       }
     } catch (err) {
-      alert(err.message || 'Failed to send message.')
+      notify({ severity: 'error', message: err.message || 'Failed to send message.' })
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
       setSuggestedChats(tab.suggestedChats || null)
     } finally {

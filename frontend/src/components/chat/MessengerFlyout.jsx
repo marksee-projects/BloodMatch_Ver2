@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { ChatCircleDots, MagnifyingGlass, User } from '@phosphor-icons/react'
 import { api } from '../../services/apiClient'
 import { useChat } from '../../context/ChatContext'
+import { useActionNoticeState } from '../../context/NotificationContext'
 import styles from './MessengerFlyout.module.css'
 
 function formatSnippetTime(isoString) {
@@ -42,12 +43,12 @@ function ConvAvatar({ src, name }) {
 }
 
 export default function MessengerFlyout({ variant = 'desktop' }) {
-  const { unreadCount, openConversationTab } = useChat()
+  const { unreadCount, openConversationTab, canChat } = useChat()
   const [open, setOpen] = useState(false)
   const [conversations, setConversations] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
   const rootRef = useRef(null)
 
   const loadConversations = useCallback(async () => {
@@ -107,6 +108,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
   }
 
   const badgeText = unreadCount > 0 ? (unreadCount > 99 ? '99+' : String(unreadCount)) : null
+  if (!canChat) return null
 
   return (
     <div ref={rootRef} className={styles.wrap}>

@@ -3,14 +3,16 @@ import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { useActionNoticeState, useNotify } from '../context/NotificationContext'
 import { formatNotificationTime, notificationDeepLink as deepLink, notificationDisplayText } from '../services/notifications'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 export default function NotificationsPage() {
+  const notify = useNotify()
   const { user } = useAuth()
   const [data, setData] = useState(null)
   const [page, setPage] = useState(1)
-  const [errorAlert, setErrorAlert] = useState(null)
+  const [errorAlert, setErrorAlert] = useActionNoticeState(null, 'error')
   const [filterType, setFilterType] = useState('')
   const [filterRead, setFilterRead] = useState('')
   const pageSize = 15
@@ -42,6 +44,7 @@ export default function NotificationsPage() {
   const markAll = async () => {
     try {
       await api.post('/api/notifications/read-all')
+      notify({ severity: 'success', message: 'All notifications marked as read.' })
       await load()
     } catch (err) {
       setErrorAlert(err.message)

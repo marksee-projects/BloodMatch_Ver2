@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../context/NotificationContext'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -60,7 +61,7 @@ export default function RegisterPage() {
 
   const [stepErrors, setStepErrors] = useState({})
   const [serverErrors, setServerErrors] = useState({})
-  const [message, setMessage] = useState(null)
+  const [message, setMessage] = useActionNoticeState(null, 'error')
   const [submitting, setSubmitting] = useState(false)
   const [privacyAck, setPrivacyAck] = useState(() => {
     try {
@@ -311,7 +312,7 @@ export default function RegisterPage() {
         <h1 style={{ marginBottom: '0' }}>Create your account</h1>
       </div>
 
-      {message && <div className="alert alert-error" role="alert">{message}</div>}
+
 
       {chapterError && (
         <div className="alert alert-error" role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-2)' }}>
@@ -860,14 +861,14 @@ export default function RegisterPage() {
       {/* Full Privacy Notice Modal */}
 
       <div className="text-center" style={{ marginTop: 'var(--space-6)' }}>
-        <button 
-          type="button" 
-          onClick={() => setShowReadonlyPrivacyModal(true)} 
-          style={{ 
-            background: 'none', 
-            border: 'none', 
-            color: 'var(--color-text-muted)', 
-            textDecoration: 'underline', 
+        <button
+          type="button"
+          onClick={() => setShowReadonlyPrivacyModal(true)}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: 'var(--color-text-muted)',
+            textDecoration: 'underline',
             cursor: 'pointer',
             fontSize: 'var(--text-sm)',
             marginBottom: 'var(--space-3)'
@@ -881,24 +882,24 @@ export default function RegisterPage() {
       </div>
 
 
-      <PrivacyConsentModal 
-        isOpen={privacyModalOpen} 
+      <PrivacyConsentModal
+        isOpen={privacyModalOpen}
         onConsentGranted={() => {
           setPrivacyAck(true)
           setPrivacyModalOpen(false)
           if (step === 3) {
             submitRegistration()
           }
-        }} 
+        }}
         onDecline={() => {
           setPrivacyModalOpen(false)
           navigate('/', { replace: true })
         }}
-        onClose={() => setPrivacyModalOpen(false)} 
+        onClose={() => setPrivacyModalOpen(false)}
       />
-      <PrivacyConsentModal 
-        isOpen={showReadonlyPrivacyModal} 
-        onClose={() => setShowReadonlyPrivacyModal(false)} 
+      <PrivacyConsentModal
+        isOpen={showReadonlyPrivacyModal}
+        onClose={() => setShowReadonlyPrivacyModal(false)}
         readonly
       />
       <EmailVerificationDialog

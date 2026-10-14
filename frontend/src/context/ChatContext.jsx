@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../services/apiClient'
 import { useAuth } from './AuthContext'
+import { useNotify } from './NotificationContext'
 
 const ChatContext = createContext(null)
 
@@ -13,17 +14,21 @@ function tabLimit() {
 
 export function ChatProvider({ children }) {
   const { user } = useAuth()
+  const notify = useNotify()
+  const canChat = user?.account_status === 'active' && user?.verification_status === 'verified' && ['member', 'admin'].includes(user?.role)
+  const unreadInFlight = useRef(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openTabs, setOpenTabs] = useState([])
   const pollTimerRef = useRef(null)
 
   const fetchUnreadCount = useCallback(async () => {
-    if (!user) {
+    if (!canChat) {
       setUnreadCount(0)
       return
     }
-    if (document.hidden) return
+    if (document.hidden || unreadInFlight.current) return
+    unreadInFlight.current = true
 
     try {
       const res = await api.get('/api/chat/unread-count')
@@ -32,11 +37,13 @@ export function ChatProvider({ children }) {
       }
     } catch {
       // Background poll failure handled silently
+    } finally {
+      unreadInFlight.current = false
     }
-  }, [user])
+  }, [user, canChat])
 
   useEffect(() => {
-    if (!user) {
+    if (!canChat) {
       setUnreadCount(0)
       setOpenTabs([])
       setDrawerOpen(false)
@@ -59,7 +66,7 @@ export function ChatProvider({ children }) {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [user, fetchUnreadCount])
+  }, [user, canChat, fetchUnreadCount])
 
   useEffect(() => {
     const fitTabs = () => setOpenTabs((tabs) => tabs.length > tabLimit() ? tabs.slice(-tabLimit()) : tabs)
@@ -68,6 +75,7 @@ export function ChatProvider({ children }) {
   }, [])
 
   const openConversationTab = useCallback((conv) => {
+    if (!canChat) return
     if (!conv?.id) return
 
     setOpenTabs((prev) => {
@@ -101,9 +109,13 @@ export function ChatProvider({ children }) {
       }
       return [...prev, newTab]
     })
-  }, [])
+  }, [canChat])
 
   const openChatWithUser = useCallback(async (recipientId, fallbackInfo = {}) => {
+    if (!canChat) {
+      notify({ severity: 'warning', message: 'Complete account verification before using chat.', dedupKey: 'chat-verification' })
+      return
+    }
     if (!recipientId) return
 
     try {
@@ -122,9 +134,9 @@ export function ChatProvider({ children }) {
       }
     } catch (err) {
       console.error('Failed to open chat with user:', err)
-      alert(err.message || 'Could not start conversation.')
+      notify({ severity: 'error', message: err.message || 'Could not start conversation.' })
     }
-  }, [openConversationTab])
+  }, [openConversationTab, canChat, notify])
 
   const closeTab = useCallback((conversationId) => {
     setOpenTabs((prev) => prev.filter((t) => t.conversationId !== conversationId))
@@ -138,6 +150,7 @@ export function ChatProvider({ children }) {
   }, [])
 
   const value = {
+    canChat,
     unreadCount,
     setUnreadCount,
     fetchUnreadCount,
@@ -157,6 +170,7 @@ export function useChat() {
   const context = useContext(ChatContext)
   if (!context) {
     return {
+      canChat: false,
       unreadCount: 0,
       setUnreadCount: () => {},
       fetchUnreadCount: () => {},

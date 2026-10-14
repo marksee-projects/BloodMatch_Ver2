@@ -49,7 +49,13 @@ chatCheck(!$policy->canMessage($member, array_replace($other, ['account_status'=
 chatCheck(!$policy->canMessage(array_replace($member, ['account_status'=>'deactivated']), $other), 'Inactive senders are denied');
 chatCheck(!$policy->canMessage(array_replace($member, ['role'=>'officer']), $other), 'Legacy officer role is not elevated');
 chatCheck($policy->canMessage(array_replace($member, ['role'=>'admin']), $other), 'Canonical staff can coordinate with members');
-chatCheck($policy->canMessage(array_replace($member, ['verification_status'=>'pending']), array_replace($other, ['role'=>'admin'])), 'Pending members can contact canonical staff');
+chatCheck(!$policy->canMessage(array_replace($member, ['verification_status'=>'pending']), array_replace($other, ['role'=>'admin'])), 'Pending members cannot contact staff');
+foreach (['pending', 'unverified', 'rejected'] as $status) {
+    $blocked = array_replace($member, ['verification_status'=>$status]);
+    chatCheck(!$policy->canMessage($blocked, $other), "$status senders cannot initiate chat");
+    chatCheck(!$policy->canMessage($other, $blocked), "$status recipients cannot receive chat");
+    chatCheck(!$policy->canAccessConversation($blocked, 7), "$status participants cannot read existing chats");
+}
 $service = new ChatService();
 $pdo->participant = false;
 chatDenied(fn()=> $service->getMessages($member, 7), 'Nonparticipants cannot read a conversation');

@@ -2,6 +2,13 @@
 
 declare(strict_types=1);
 
+// This historical seeder grants the retired officer role and writes the invalid
+// officer_verified provenance. The current representative-account workflow
+// preserves existing accounts and does not use this seeder.
+if (PHP_SAPI!=='cli') { http_response_code(404); exit; }
+fwrite(STDERR, "Legacy demo seeder is retired. Use database/demo_maintenance.php and the current canonical fixtures.\n");
+exit(1);
+
 define('BASE_PATH', dirname(__DIR__));
 
 require BASE_PATH . '/backend/src/autoload.php';

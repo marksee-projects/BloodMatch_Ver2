@@ -10,6 +10,7 @@ import ConfirmationDialog from './ConfirmationDialog'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../services/apiClient'
 import styles from './FeedCard.module.css'
+import { useNotify } from '../context/NotificationContext'
 
 function formatNeededDate(value, includeYear = false) {
   if (!value) return 'Date not provided'
@@ -30,6 +31,7 @@ function formatPostedTime(value) {
 }
 
 export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, children }) {
+  const notify = useNotify()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [confirmingResponse, setConfirmingResponse] = useState(false)
   const { user } = useAuth()
@@ -41,13 +43,14 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
   const response = useMutation({
     mutationFn: () => api.post(`/api/requests/${request.id}/respond`),
     onSuccess: () => {
+      notify({ severity: 'success', message: 'Your offer to help has been sent to the requester.' })
       setConfirmingResponse(false)
       queryClient.invalidateQueries({ queryKey: ['home-feed'] })
       queryClient.invalidateQueries({ queryKey: ['my-responses'] })
       queryClient.invalidateQueries({ queryKey: ['request-matches', request.id] })
       navigate(`/requests/${request.id}/matches`)
     },
-    onError: () => queryClient.invalidateQueries({ queryKey: ['home-feed'] }),
+    onError: (error) => { notify({ severity: 'error', message: error.message || 'Could not send your offer.' }); queryClient.invalidateQueries({ queryKey: ['home-feed'] }) },
     onSettled: () => { responseBusyRef.current = false }
   })
   const responded = request.responded || response.isSuccess

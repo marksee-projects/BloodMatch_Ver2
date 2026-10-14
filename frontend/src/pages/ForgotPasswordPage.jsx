@@ -1,12 +1,14 @@
+import { useActionNoticeState, useNotify } from '../context/NotificationContext'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 
 export default function ForgotPasswordPage() {
+  const notify = useNotify()
   const [email, setEmail] = useState('')
   const [sent, setSent] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useActionNoticeState(null, 'error')
   const [submitting, setSubmitting] = useState(false)
 
   const onSubmit = async (e) => {
@@ -15,6 +17,7 @@ export default function ForgotPasswordPage() {
     setSubmitting(true)
     try {
       await api.post('/api/password-reset/request', { email })
+      notify({ severity: 'success', message: 'If that email exists in our records, a secure password reset link has been issued.' })
       setSent(true)
     } catch (err) {
       setError(err.message || 'Request failed.')
@@ -31,9 +34,7 @@ export default function ForgotPasswordPage() {
 
       {sent ? (
         <div className="card">
-          <div className="alert alert-success" role="status" style={{ marginBottom: 'var(--space-3)' }}>
-            If that email exists in our records, a secure password reset link has been issued.
-          </div>
+          <p>Password reset requested.</p>
           <p className="muted" style={{ fontSize: '0.875rem', margin: 0 }}>
             Please check your inbox. Password reset tokens expire in 30 minutes and can only be used once.
           </p>
@@ -45,7 +46,7 @@ export default function ForgotPasswordPage() {
         </div>
       ) : (
         <>
-          {error && <div className="alert alert-error" role="alert">{error}</div>}
+
           <div className="card">
             <form className="form" onSubmit={onSubmit} noValidate>
               <div className="field">

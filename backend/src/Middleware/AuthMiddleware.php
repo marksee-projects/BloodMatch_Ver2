@@ -7,6 +7,7 @@ namespace BloodMatch\Middleware;
 use BloodMatch\Http\Session;
 use BloodMatch\Repositories\UserRepository;
 use BloodMatch\Services\AuditLogger;
+use BloodMatch\Services\SessionIdentityPolicy;
 use BloodMatch\Utils\Response;
 
 final class AuthMiddleware
@@ -30,6 +31,8 @@ final class AuthMiddleware
 
         $userId = (int) $_SESSION['user_id'];
         $user = (new UserRepository())->findById($userId);
+
+        self::checkPasswordSession($user);
 
         if ($user === null || (string) $user['account_status'] !== 'active') {
             AuditLogger::log(
@@ -57,6 +60,7 @@ final class AuthMiddleware
 
         $userId = (int) $_SESSION['user_id'];
         $user = (new UserRepository())->findById($userId);
+        self::checkPasswordSession($user);
         if ($user === null) {
             AuditLogger::log($userId, 'authz.denied', 'user', (string) $userId, [
                 'endpoint' => $endpoint,
@@ -67,6 +71,15 @@ final class AuthMiddleware
         }
 
         return $user;
+    }
+
+    private static function checkPasswordSession(?array $user): void
+    {
+        if ($user !== null && !SessionIdentityPolicy::matches($user, $_SESSION)) {
+            Session::destroy();
+            Response::error('Your session has expired. Please sign in again.', 401);
+            exit;
+        }
     }
 
     public static function requireRoles(array $roles, string $endpoint = ''): array

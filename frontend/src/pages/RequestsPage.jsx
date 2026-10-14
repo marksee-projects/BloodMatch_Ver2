@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../context/NotificationContext'
 import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, CalendarBlank, Drop, Hospital, PencilSimple, Plus, Users } from '@phosphor-icons/react'
@@ -21,8 +22,8 @@ function formatDate(value) {
 export default function RequestsPage() {
   const { user } = useAuth()
   const openCreateRequest = useRequestCreation()
-  const [message, setMessage] = useState(null)
-  const [errorAlert, setErrorAlert] = useState(null)
+  const [message, setMessage] = useActionNoticeState(null, 'success')
+  const [errorAlert, setErrorAlert] = useActionNoticeState(null, 'error')
   const [filter, setFilter] = useState('ALL')
   const [editingId, setEditingId] = useState(null)
   const [cancelTarget, setCancelTarget] = useState(null)
@@ -42,12 +43,8 @@ export default function RequestsPage() {
     setEditingId(null)
   }, [])
 
-  const handleSaved = async (result) => {
-    const wasEditing = Boolean(editingId)
-    closeForm()
-    await refetch()
-    setMessage(result?.matching_status === 'failed_retry_required' ? 'Request saved, but matching failed. Ask an officer to retry matching; do not post a duplicate request.' : (wasEditing ? 'Request details updated.' : 'Blood request created and matching completed.'))
-  }
+  const handleSaved = async (result) => {    closeForm()
+    await refetch()  }
 
   const onCancel = async () => {
     if (!cancelTarget) return
@@ -83,8 +80,8 @@ export default function RequestsPage() {
         </Button>
       </header>
 
-      {message && <div className="alert alert-success" role="status">{message}</div>}
-      {errorAlert && <div className="alert alert-error" role="alert">{errorAlert}</div>}
+
+
 
       <nav className={styles.filters} aria-label="Filter requests by status">
         {STATUSES.map((status) => {

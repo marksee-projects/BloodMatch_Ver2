@@ -1,3 +1,4 @@
+import { useActionNoticeState } from '../context/NotificationContext'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -14,7 +15,7 @@ import { FeedCard } from '../components/FeedCard'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Badge, StatusPill } from '../components/ui/Badge'
+import { Badge } from '../components/ui/Badge'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import styles from './ProfilePage.module.css'
 
@@ -48,14 +49,14 @@ export default function ProfilePage() {
   const { id: profileId } = useParams()
   const isOtherProfile = Boolean(profileId)
   const { user, refresh } = useAuth()
-  const { openChatWithUser } = useChat()
+  const { openChatWithUser, canChat } = useChat()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [form, setForm] = useState(null)
   const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [errors, setErrors] = useState({})
-  const [message, setMessage] = useState(null)
-  const [errorAlert, setErrorAlert] = useState(null)
+  const [message, setMessage] = useActionNoticeState(null, 'success')
+  const [errorAlert, setErrorAlert] = useActionNoticeState(null, 'error')
   const [submitting, setSubmitting] = useState(false)
   const [enrolling, setEnrolling] = useState(false)
   const [file, setFile] = useState(null)
@@ -107,15 +108,11 @@ export default function ProfilePage() {
   const showError = (error) => setErrorAlert(error?.message || 'The change could not be saved.')
   const clearNotices = () => { setMessage(null); setErrorAlert(null) }
   const closeRequestForm = useCallback(() => { setEditingRequestId(null) }, [])
-  const handleRequestSaved = async (result) => {
-    const wasEditing = Boolean(editingRequestId)
-    closeRequestForm()
+  const handleRequestSaved = async (result) => {    closeRequestForm()
     queryClient.invalidateQueries({ queryKey: ['my-requests'] })
     queryClient.invalidateQueries({ queryKey: ['request-matches', String(editingRequestId)] })
     queryClient.invalidateQueries({ queryKey: ['home-feed'] })
-    await refetch()
-    setMessage(result?.matching_status === 'failed_retry_required' ? 'Request saved, but matching failed. Ask an Admin/Officer to retry matching; do not post a duplicate request.' : (wasEditing ? 'Request details updated.' : 'Blood request created and matching completed.'))
-  }
+    await refetch()  }
 
   const enrollAsDonor = async () => {
     clearNotices()
@@ -274,7 +271,7 @@ export default function ProfilePage() {
               <div className={styles.nameLine}><h1>{profile.full_name}</h1>{profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}</div>
               <p>{profile.chapter_name ? `${profile.chapter_name} member` : profile.role_label}</p>
             </div>
-            {user && user.id !== Number(profileId) && (
+            {canChat && profile.verification_status === 'verified' && user.id !== Number(profileId) && (
               <div className={styles.headerActions}>
                 <Button
                   variant="secondary"
@@ -321,8 +318,8 @@ export default function ProfilePage() {
   return (
     <div className={styles.container}>
       <div className={styles.notices}>
-        {message && <StatusPill variant="active">{message}</StatusPill>}
-        {errorAlert && <StatusPill variant="error">{errorAlert}</StatusPill>}
+
+
       </div>
 
       {profile.verification_status === 'rejected' && (

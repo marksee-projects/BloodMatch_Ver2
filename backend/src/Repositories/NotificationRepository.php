@@ -90,7 +90,7 @@ final class NotificationRepository
         $total = (int) $countStmt->fetchColumn();
 
         $stmt = Database::pdo()->prepare(
-            "SELECT n.id, n.type, n.title, n.body, n.related_type, n.related_id, n.emailed_at, n.read_at, n.created_at, br.status as related_request_status
+            "SELECT n.id, n.type, n.title, n.body, n.related_type, n.related_id, n.emailed_at, n.read_at, n.created_at, br.status as related_request_status, br.urgency as related_request_urgency
              FROM notifications n
              LEFT JOIN blood_requests br ON n.related_type = 'blood_request' AND n.related_id = br.id
              $where
