@@ -21,6 +21,7 @@ export default function ConfirmationsView() {
   const [rejectionError, setRejectionError] = useState(null)
   const reasonId = useId()
   const validationError = rejectionReasonError(rejectionReason)
+  const [evidenceNotes, setEvidenceNotes] = useState({})
 
   const load = useCallback(() => {
     return api
@@ -42,7 +43,7 @@ export default function ConfirmationsView() {
     setProcessingId(reportId)
     try {
       await api.post(`/api/admin/donation-reports/${reportId}/${action}`,
-        action === 'reject' ? { rejection_reason: normalizeRejectionReason(rejectionReason) } : {})
+        action === 'reject' ? { rejection_reason: normalizeRejectionReason(rejectionReason) } : { evidence_note: evidenceNotes[reportId] || null })
       setMessage(`Donation report #${reportId} has been ${action === 'confirm' ? 'CONFIRMED' : 'REJECTED'}.`)
       if (action === 'reject') { setRejectTarget(null); setRejectionReason(''); setRejectionError(null) }
       await load()
@@ -116,13 +117,14 @@ export default function ConfirmationsView() {
                     <span className="muted" style={{ fontWeight: 600 }}>Donor Note:</span> {r.report_note}
                   </div>
                 )}
+                {r.request_status !== 'OPEN' && <div className="field"><label htmlFor={`evidence-${r.id}`}>Evidence for late review</label><textarea id={`evidence-${r.id}`} maxLength={500} value={evidenceNotes[r.id] || ''} onChange={e => setEvidenceNotes(notes => ({ ...notes, [r.id]: e.target.value }))} placeholder="Record the evidence you checked." /><p>Only a report submitted before the deadline can be reviewed after closure. Matching stays closed.</p></div>}
                 {r.can_confirm !== true && <p className={styles.closedNotice}>{r.can_reject === false ? 'You cannot review your own report.' : 'This report can no longer be confirmed. An authorized reviewer must reject it with a reason.'}</p>}
 
                 <div className="button-group" style={{ marginTop: 'var(--space-3)', borderTop: '1px solid var(--color-border-subtle)', paddingTop: 'var(--space-3)' }}>
                   <button
                     type="button"
                     className="btn"
-                    disabled={processingId !== null || r.can_confirm !== true}
+                    disabled={processingId !== null || r.can_confirm !== true || (r.request_status === 'EXPIRED' && !r.report_note?.trim() && !evidenceNotes[r.id]?.trim())}
                     onClick={() => decide(r.id, 'confirm')}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                   >

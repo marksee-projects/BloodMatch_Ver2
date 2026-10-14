@@ -1,0 +1,18 @@
+.page { padding-block: var(--space-4); }
+.layout { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0,1fr); gap: var(--space-4); }
+.list,.thread { padding: var(--space-4); background: var(--color-surface); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-card); min-width: 0; }
+.page h2 { font-size: var(--text-h2); }
+.actions { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
+.actions input { flex: 1; min-width: 100px; }
+.request { padding-block: var(--space-3); border-bottom: 1px solid var(--color-border-hairline); }
+.conversation { display: block; width: 100%; min-height: 44px; text-align: left; padding: var(--space-3); border: none; background: transparent; color: var(--color-text); }
+.conversation:hover,.conversation[aria-pressed=true] { background: var(--color-surface-sunken); }
+.messages { height: 50vh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-3); padding-block: var(--space-4); }
+.message,.own { max-width: 85%; padding: var(--space-3); border-radius: var(--radius-control); background: var(--color-surface-sunken); overflow-wrap: anywhere; }
+.own { align-self: flex-end; }
+.messages p { white-space: pre-wrap; margin-block: var(--space-2); }
+.page input:hover { box-shadow: none; border-color: var(--color-border-hairline); }
+.page input:focus-visible,.conversation:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+@media(max-width:720px) { .layout { grid-template-columns:1fr; } }
+
+@media(max-width:720px) { .hideOnMobile { display: none; } }

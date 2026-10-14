@@ -25,6 +25,7 @@ final class UserAdminController
             [
                 'role' => \BloodMatch\Utils\Request::str('role'),
                 'role_group' => Request::str('role_group'),
+                'donor_window' => Request::str('donor_window'),
                 'verification_status' => \BloodMatch\Utils\Request::str('verification_status'),
                 'account_status' => \BloodMatch\Utils\Request::str('account_status'),
                 'chapter_id' => \BloodMatch\Utils\Request::str('chapter_id'),
@@ -34,6 +35,7 @@ final class UserAdminController
             min(100, max(1, Request::int('page_size') ?? 25))
         );
 
+        $users['source']=\BloodMatch\Config\Database::pdo()->query('SELECT DATABASE() AS database_name,@@port AS port')->fetch();
         Response::success($users);
     }
 

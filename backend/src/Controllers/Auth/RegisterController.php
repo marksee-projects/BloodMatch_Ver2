@@ -27,7 +27,7 @@ final class RegisterController
             Response::error($e->getMessage(), 400, $e->errors());
             return;
         } catch (\RuntimeException $e) {
-            Response::error($e->getMessage(), 400);
+            Response::error($e instanceof \PDOException ? 'Registration is temporarily unavailable.' : $e->getMessage(), $e instanceof \PDOException ? 503 : (in_array((int)$e->getCode(),[400,409,429],true)?(int)$e->getCode():400));
             return;
         }
 

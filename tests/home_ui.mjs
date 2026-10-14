@@ -99,10 +99,10 @@ try {
   const facts = details.match(/<dl class="metadata">([\s\S]*?)<\/dl>/)[1]
   assert.deepEqual([...facts.matchAll(/<dt>(.*?)<\/dt>/g)].map(match => match[1]), ['Hospital', 'Municipality', 'Blood needed', 'Needed by'], 'All four facts are inside the same gray details box')
   assert.equal(details.split(request.facility_name).length - 1, 1, 'Long hospital name occurs once')
-  assert(details.match(/<button(?![^>]*disabled)[^>]*>Respond<\/button>/), 'Eligible Respond is enabled')
+  assert(details.match(/<button(?![^>]*disabled)[^>]*>I can help<\/button>/), 'Eligible I can help is enabled')
   assert(details.includes('href="/requests/17/matches"'), 'View request retains its existing destination')
-  findElement(cardTree, element => element.props?.children === 'Respond').props.onClick()
-  assert.equal(responseCalls.length, 0, 'Respond opens confirmation without submitting')
+  findElement(cardTree, element => element.props?.children === 'I can help').props.onClick()
+  assert.equal(responseCalls.length, 0, 'I can help opens confirmation without submitting')
   const confirmationMarkup = renderCard(request)
   assert(confirmationMarkup.includes('role="alertdialog"') && confirmationMarkup.includes('Confirm I can help'), 'Shared accessible confirmation appears')
   assert(confirmationMarkup.includes('final medical eligibility decision'), 'Facility screening notice is shown before responding')
@@ -110,7 +110,7 @@ try {
   dialog.props.onCancel()
   assert.equal(responseCalls.length, 0, 'Cancellation does not submit a response')
   assert(!renderCard(request).includes('role="alertdialog"'), 'Cancellation dismisses confirmation')
-  findElement(cardTree, element => element.props?.children === 'Respond').props.onClick()
+  findElement(cardTree, element => element.props?.children === 'I can help').props.onClick()
   renderCard(request)
   const confirmedDialog = findElement(cardTree, element => element.props?.confirmLabel === 'Confirm I can help')
   confirmedDialog.props.onConfirm()
@@ -127,11 +127,11 @@ try {
   renderCard(request)
   for (const reason of ['Donation cooldown is active', 'You are unavailable']) {
     const disabled = renderCard({ ...request, can_respond: false, reason_text: reason })
-    assert(disabled.match(/<button[^>]*disabled[^>]*>Respond<\/button>/), 'Ineligible and staff Respond remain disabled')
+    assert(disabled.match(/<button[^>]*disabled[^>]*>I can help<\/button>/), 'Ineligible and staff I can help remain disabled')
     assert(disabled.includes('class="responseReason"') && disabled.includes(reason.replaceAll("'", '&#x27;')), 'Plain safety reason remains visible')
   }
   const staff = renderCard({ ...request, can_respond: false, reason_code: 'staff_account', reason_text: "Staff accounts can't donate" })
-  assert(staff.match(/<button[^>]*disabled[^>]*>Respond<\/button>/), 'Staff Respond stays disabled')
+  assert(staff.match(/<button[^>]*disabled[^>]*>I can help<\/button>/), 'Staff I can help stays disabled')
   assert(!staff.includes('Staff accounts') && !staff.includes('class="responseReason"'), 'Staff-only donation message is omitted')
   assert(renderCard({ ...request, urgency: 'routine' }).includes('ROUTINE'), 'Routine wording retained')
   expanded = false
@@ -140,7 +140,7 @@ try {
   assert(!collapsedResponse.includes('class="expandedContent"'), 'Top status does not require expanded details')
   expanded = true
   const expandedResponse = renderCard({ ...request, responded: true, can_respond: false })
-  assert(!expandedResponse.match(/<button[^>]*>Respond(?:ed)?<\/button>/), 'Already responded action is replaced by the top status')
+  assert(!expandedResponse.match(/<button[^>]*>I can help(?:ed)?<\/button>/), 'Already responded action is replaced by the top status')
   expanded = false
   function home(url, requests) {
     const params = new URLSearchParams(url.split('?')[1] || '')

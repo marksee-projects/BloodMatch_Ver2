@@ -91,7 +91,7 @@ final class DonationService
         return $reason;
     }
 
-    public function decide(array $actor, int $reportId, bool $confirm, mixed $rejectionReason = null): array
+    public function decide(array $actor, int $reportId, bool $confirm, mixed $rejectionReason = null, mixed $evidenceNote = null): array
     {
         $endpoint = $confirm ? 'admin.reports.confirm' : 'admin.reports.reject';
         AuthMiddleware::requireRoles(['admin'], $endpoint);
@@ -109,10 +109,12 @@ final class DonationService
             throw new RuntimeException('You cannot decide on your own donation report.', 403);
         }
 
+        if ($evidenceNote!==null && (!is_string($evidenceNote) || !mb_check_encoding($evidenceNote,'UTF-8') || mb_strlen($evidenceNote)>500)) throw new RuntimeException('Evidence note must be up to 500 characters.',400);
+        $evidenceNote=is_string($evidenceNote)?trim($evidenceNote):null;
         $reason = $confirm ? null : self::normalizeRejectionReason($rejectionReason);
 
         try {
-            $fulfilledNow = WorkflowLockService::transaction(function () use ($actor, $pre, $reportId, $confirm, $reason): bool {
+            $fulfilledNow = WorkflowLockService::transaction(function () use ($actor, $pre, $reportId, $confirm, $reason, $evidenceNote): bool {
                 $request = WorkflowLockService::request((int) $pre['request_id']);
                 $users = WorkflowLockService::users([(int) $actor['id'], (int) $pre['donor_id'], (int) $request['requester_id']]);
                 $reviewer = $users[(int) $actor['id']];
@@ -129,7 +131,9 @@ final class DonationService
                 $nowUtc = AuthService::nowUtc();
                 $fulfilledNow = false;
                 if ($confirm) {
-                    WorkflowLockService::assertOpenBeforeDeadline($request, $nowUtc);
+                    if (in_array($request['status'],['EXPIRED','FULFILLED','CANCELLED'],true)) {
+                        if ($row['reported_at']>$request['needed_datetime'] || (trim((string)$row['report_note'])==='' && empty($evidenceNote))) throw new RuntimeException('Late review requires a timely report and documented evidence.',409);
+                    } else { WorkflowLockService::assertOpenBeforeDeadline($request,$nowUtc); }
                     $donor=$users[(int)$row['donor_id']];
                     if (self::offerInvalid($match,$request,$donor)) {
                         throw new RuntimeException('This invalidated offer requires explicit reasoned rejection.',409);
@@ -138,13 +142,17 @@ final class DonationService
                         throw new RuntimeException('Only a responded match can be confirmed as a donation.', 409);
                     }
                     (new DonationReportRepository())->markConfirmed($reportId, (int) $reviewer['id'], $nowUtc);
+                    if ($evidenceNote!==null && $evidenceNote!=='') { $e=\BloodMatch\Config\Database::pdo()->prepare('UPDATE donation_reports SET review_evidence=? WHERE id=?');$e->execute([$evidenceNote,$reportId]); }
                     $userRepo = new UserRepository();
                     $userRepo->setLastVerifiedDonation((int) $row['donor_id'], $nowUtc);
                     $userRepo->setAvailability((int) $row['donor_id'], 'standby');
                     (new MatchRepository())->setStatus((int) $row['match_id'], 'COMPLETED');
                     $completed = MatchRepository::countCompleted((int) $request['id']);
-                    if ($completed >= (int) $request['quantity_units']) {
-                        $closedCount = MatchRepository::fulfillAndCloseUnresolved((int) $request['id']);
+                    if (in_array($request['status'],['OPEN','EXPIRED'],true) && $completed >= (int) $request['quantity_units']) {
+                        if ($request['status']==='EXPIRED') {
+                            $fulfilled=\BloodMatch\Config\Database::pdo()->prepare("UPDATE blood_requests SET status='FULFILLED' WHERE id=? AND status='EXPIRED'");$fulfilled->execute([$request['id']]);
+                            $closedCount=MatchRepository::closeUnfinishedForRequest((int)$request['id']);
+                        } else { $closedCount = MatchRepository::fulfillAndCloseUnresolved((int) $request['id']); }
                         $fulfilledNow = true;
                         AuditLogger::log((int) $reviewer['id'], 'request.fulfilled', 'blood_request', (string) $request['id'], [
                             'completed_units' => $completed, 'required_units' => (int) $request['quantity_units'],

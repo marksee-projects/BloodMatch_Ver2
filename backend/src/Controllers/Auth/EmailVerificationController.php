@@ -53,6 +53,19 @@ final class EmailVerificationController
             return;
         }
 
+        try {
+            if (\BloodMatch\Services\PendingRegistrationService::verify($email,$code)) {
+                $this->throttle->clear($keyAcct);
+                Response::success(['message'=>'Account created. Sign in to continue.','email_verified'=>true]);return;
+            }
+        } catch (\PDOException $e) {
+            Response::error('Verification is temporarily unavailable. Try again later.',503);return;
+        } catch (\Throwable $e) {
+            if ((int)$e->getCode()===503) { Response::error('Verification is temporarily unavailable. Try again later.',503);return; }
+            $this->throttle->recordFailure($keyAcct,self::MAX_VERIFY_ATTEMPTS,self::VERIFY_LOCK_MINUTES,$now);
+            $this->throttle->recordFailure($keyIp,self::MAX_VERIFY_ATTEMPTS,self::VERIFY_LOCK_MINUTES,$now);
+            Response::error('Invalid or expired verification code.',400);return;
+        }
         $user = $this->users->findByEmail($email);
 
         if ($user === null) {

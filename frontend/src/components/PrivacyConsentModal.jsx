@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ShieldCheck } from '@phosphor-icons/react'
 import styles from './PrivacyConsentModal.module.css'
 
-export const CONSENT_STORAGE_KEY = 'bloodmatch_privacy_consent'
+export const CONSENT_STORAGE_KEY = 'bloodmatch_privacy_consent_2026_10_14'
 
 export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDecline, onClose, readonly = false }) {
   const navigate = useNavigate()
@@ -144,35 +144,21 @@ export default function PrivacyConsentModal({ isOpen, onConsentGranted, onDeclin
           onScroll={handleScroll}
           tabIndex={0}
         >
-          <p style={{ marginTop: 0, fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            <em>In compliance with Republic Act No. 10173 (Data Privacy Act of 2012)</em>
-          </p>
-
-          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            In compliance with Republic Act No. 10173, also known as the Data Privacy Act of 2012, BloodMatch Bataan is dedicated to protecting your personal data and safeguarding your privacy rights. To provide you with secure access to our registry and facilitate blood donation matching, we collect both personal and sensitive personal information. This includes your full name, contact details, chapter or organizational affiliation, and generalized location data such as your municipality and barangay. Additionally, we process sensitive personal information, specifically encrypted government-issued identifiers like your National ID, your blood type, and your donation history or cooldown logs.
-          </p>
-
-          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            Your data is processed strictly based on your explicit consent and solely for the operational functionality of the platform. Your National ID is stored securely and accessed exclusively by authorized Admin/Officer staff to confirm member identity and prevent fraudulent requests. Health data, including blood type and donation history, is used to ensure biological compatibility and enforce medically mandated cooldown periods for donor safety. Furthermore, generalized location data allows the system to calculate donor proximity during urgent emergency requests, while in-app messaging and notifications enable real-time coordination between requesters, donors, and chapter administration.
-          </p>
-
-          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            We enforce strict access controls and industry-standard encryption, both in transit and at rest, to safeguard your information on a role-based, need-to-know basis. Your personal data is never sold, leased, or disclosed to third-party advertisers, and is only shared with active donors or requesters when a specific blood request is initiated and approved. We retain your personal data only as long as your account remains active or as required for historical audit logs of blood donations. Once an account is deleted or becomes permanently inactive, all personal identification is securely purged or anonymized in accordance with National Privacy Commission guidelines.
-          </p>
-
-          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            <strong>Profile visibility.</strong> BloodMatch does not provide a member directory or member search. A logged-in member may view your limited account details: name, profile photo, chapter, role label, member-since date, verification status, blood type, and email address. Other members are never shown your phone number, date of birth, identification documents or OCR data, exact address, barangay, coordinates, donation history, availability, password, credentials, or security tokens.
-          </p>
-
-          <p style={{ fontSize: 'var(--text-sm)', lineHeight: 1.6 }}>
-            Under Section 16 of the Data Privacy Act of 2012, you maintain full rights as a data subject. You have the right to be informed of how your data is processed, request access to your records, rectify inaccurate or outdated information, and request the erasure, blocking, or deletion of your profile from our active registry. You also reserve the right to object to data processing or withdraw your consent at any time, subject to account deactivation for active donation matching. For any privacy inquiries, concerns, or requests to exercise your data subject rights, you may contact the BloodMatch Data Privacy Team or your designated Chapter Administrator at <a href="mailto:admin@bloodmatch.org">admin@bloodmatch.org</a>.
-          </p>
-
-          {!readonly && (
-            <p style={{ fontSize: 'var(--text-xs)', lineHeight: 1.5, margin: 0 }}>
-              By clicking &quot;I Agree,&quot; you acknowledge that another logged-in member may see your limited account details listed above, and you consent to the processing described in this notice.
-            </p>
-          )}
+          <h3>BloodMatch Bataan Privacy Notice</h3>
+          <p>Under Republic Act No. 10173, or the Data Privacy Act of 2012. BloodMatch supports member verification, blood donation coordination and communication.</p>
+          <ul>
+            <li><strong>Information collected:</strong> Name, profile photo, contact details, chapter, date of birth, municipality/barangay, identification documents, blood type, donation history, requests and chat messages.</li>
+            <li><strong>Use:</strong> Identity verification, blood-type matching, location filtering, administrative donation waiting periods, communication and notifications. BloodMatch does not replace medical screening by a blood center.</li>
+            <li><strong>Profile visibility:</strong> Logged-in members may see name, photo, chapter, municipality when provided, role, member-since date, verification status and blood type. Email, phone, birth date, documents, exact address, barangay, coordinates, donation history and availability are hidden through other-member profiles.</li>
+            <li><strong>Chat:</strong> Participants can read messages you send. The designated administrator may review reported messages and necessary surrounding context for abuse or safety investigations. Staff evidence access is restricted and logged. Information you share in chat is visible to recipients even when hidden from your profile.</li>
+            <li><strong>Protection:</strong> Authorized staff access information necessary for verification/administration. Access controls and security measures protect stored data. Your data is not sold or leased to advertisers.</li>
+            <li><strong>Retention:</strong> Necessary account information is retained while active. After identity-confirmed permanent closure, access ends immediately and profile/contact erasure is scheduled within 30 days. Identity documents are removed within 30 days after final verification/appeal. Chat records are retained for up to 12 months after last activity; necessary request/donation/audit records for up to 12 months after final resolution or the end of an active donor restriction, whichever is later. Pending cases may preserve necessary evidence. Restricted backups may retain deleted data for up to 90 additional days. Temporary deactivation and cooldown do not mean permanent closure.</li>
+            <li><strong>Pending registration:</strong> No account is created until a valid email code is entered. Abandoned registration data and temporary documents are removed within 24 hours after expiry.</li>
+            <li><strong>Exceptions:</strong> Limited necessary records may be retained for legal obligations or documented disputes/investigations, with restricted access.</li>
+            <li><strong>Your rights:</strong> Subject to applicable conditions, request access, correction, deletion or blocking; object, withdraw consent, or complain to the National Privacy Commission. Withdrawal may affect features needing your information.</li>
+            <li><strong>Contact:</strong> DeMolay Bataan, Bataan. For privacy concerns, email <a href="mailto:demolaybataan@gmail.com">demolaybataan@gmail.com</a>.</li>
+          </ul>
+          <p>By selecting I Agree, you consent to the processing described here, including blood-type visibility to logged-in members and restricted review of reported chat evidence.</p>
         </div>
 
         <div className={styles.actions}>

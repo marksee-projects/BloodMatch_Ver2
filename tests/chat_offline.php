@@ -7,13 +7,16 @@ use BloodMatch\Services\ChatPolicy;
 use BloodMatch\Services\ChatService;
 
 final class ChatOfflineStatement extends PDOStatement {
+    private array $params=[];
     public function __construct(private ChatOfflinePDO $db, private string $query) {}
-    public function execute(?array $params = null): bool { $this->db->calls[] = [$this->query, $params]; return true; }
+    public function execute(?array $params = null): bool { $this->params=$params??[]; $this->db->calls[] = [$this->query, $params]; return true; }
     public function fetchColumn(int $column = 0): mixed {
+        if (str_contains($this->query, 'chat_requests')) return $this->db->accepted;
         if (str_contains($this->query, 'conversation_participants WHERE')) return $this->db->participant;
         return false;
     }
     public function fetch(int $mode = PDO::FETCH_DEFAULT, int $orientation = PDO::FETCH_ORI_NEXT, int $offset = 0): mixed {
+        if (str_contains($this->query, 'FROM users u WHERE u.id')) return ($this->params[0]??0)===1 ? ['id'=>1,'role'=>'member','account_status'=>'active','verification_status'=>'verified'] : $this->db->recipient;
         if (str_contains($this->query, 'cp.last_read_at')) return $this->db->recipient;
         return ['id'=>101, 'conversation_id'=>7, 'sender_id'=>1, 'sender_name'=>'Donor', 'sender_picture'=>null, 'body'=>'Hello', 'created_at'=>'2026-10-13 01:00:00.123'];
     }
@@ -25,7 +28,14 @@ final class ChatOfflineStatement extends PDOStatement {
 }
 final class ChatOfflinePDO extends PDO {
     public array $calls = [];
+    private bool $transaction=false;
+    public function beginTransaction(): bool { $this->transaction=true;return true; }
+    public function commit(): bool { $this->transaction=false;return true; }
+    public function rollBack(): bool { $this->transaction=false;return true; }
+    public function inTransaction(): bool { return $this->transaction; }
+    public function query(string $query,?int $fetchMode=null,mixed ...$args): PDOStatement|false { return new ChatOfflineStatement($this,$query); }
     public bool $participant = true;
+    public bool $accepted = true;
     public array $recipient = ['id'=>2, 'full_name'=>'Requester', 'profile_picture'=>null, 'role'=>'member', 'account_status'=>'active', 'verification_status'=>'verified', 'last_read_at'=>null];
     public array $messages = [];
     public function __construct() {}
@@ -43,6 +53,8 @@ function chatDenied(callable $fn, string $label): void {
 $member = ['id'=>1, 'role'=>'member', 'account_status'=>'active', 'verification_status'=>'verified'];
 $other = array_replace($member, ['id'=>2]);
 $policy = new ChatPolicy();
+$pdo->accepted=false; chatCheck(!$policy->canAccessConversation($member,7),'Unaccepted existing conversations are denied');
+$pdo->accepted=true; chatCheck($policy->canAccessConversation($member,7),'Accepted verified participant can access');
 chatCheck($policy->canMessage($member, $other), 'Verified active members can chat');
 chatCheck(!$policy->canMessage($member, $member), 'Self-chat is denied');
 chatCheck(!$policy->canMessage($member, array_replace($other, ['account_status'=>'deactivated'])), 'Inactive recipients are denied');
@@ -72,7 +84,7 @@ $pdo->calls = [];
 $service->sendMessage($member, 7, "  Hel\x00lo  ");
 $inserts = array_values(array_filter($pdo->calls, fn($call)=>str_contains($call[0], 'INSERT INTO messages')));
 chatCheck($inserts[0][1] === [7, 1, 'Hello'], 'Sending removes controls and uses the authenticated sender');
-chatCheck(count(array_filter($pdo->calls, fn($call)=>str_contains($call[0], 'SET last_read_at'))) === 0, 'Sending does not mark unseen incoming messages read');
+chatCheck(count(array_filter($pdo->calls, fn($call)=>str_contains($call[0], 'SET last_read_message_id'))) === 0, 'Sending does not mark unseen incoming messages read');
 $pdo->messages = [
     ['id'=>99, 'conversation_id'=>7, 'sender_id'=>2, 'sender_name'=>'Requester', 'sender_picture'=>null, 'body'=>'Earlier', 'created_at'=>'2026-10-13 01:00:00.001'],
     ['id'=>100, 'conversation_id'=>7, 'sender_id'=>2, 'sender_name'=>'Requester', 'sender_picture'=>null, 'body'=>'Latest', 'created_at'=>'2026-10-13 01:00:00.002'],
@@ -81,5 +93,5 @@ $loaded = $service->getMessages($member, 7);
 chatCheck(array_column($loaded, 'id') === [99, 100], 'Recent messages are presented chronologically');
 $pdo->calls = [];
 $service->markRead($member, 7, 99);
-chatCheck($pdo->calls[1][1] === [7, 99, 7, 1], 'Read marker is bounded by the fetched message and authenticated participant');
+chatCheck(array_values(array_filter($pdo->calls,fn($c)=>str_contains($c[0],'SET last_read_message_id')))[0][1] === [7, 99, 7, 99, 7, 1], 'Read marker is bounded by the fetched message and authenticated participant');
 echo "PASS $checks chat checks; connectionless PDO only, no live SQL or network.".PHP_EOL;

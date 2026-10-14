@@ -11,7 +11,7 @@ export default function FloatingChatContainer() {
   }
 
   return (
-    <div className={styles.container} role="region" aria-label="Active chat conversations">
+    <div data-floating-chat={openTabs.some(tab => !tab.isMinimized) ? 'expanded' : 'minimized'} className={styles.container} role="region" aria-label="Active chat conversations">
       {openTabs.map((tab) => (
         <div key={tab.conversationId} className={styles.tabItem}>
           <FloatingChatTab

@@ -97,7 +97,7 @@ export default function HomeFeedPage() {
       <section className={styles.feedLayout}>
         <aside className={styles.leftColumn}>
           <Card>
-            <div className={styles.profileRow}>
+            <Link to="/profile" className={styles.profileRow} aria-label="View your profile">
               <div className={styles.profileAvatarWrapper}>
                 {user?.profile_picture_url ? (
                   <img src={user.profile_picture_url} alt="Profile" className={styles.profileAvatar} />
@@ -112,7 +112,7 @@ export default function HomeFeedPage() {
                 <span className={styles.profileName}>{user?.full_name || 'User'}</span>
                 <span className={styles.profileRole}>{user?.role || 'Member'}</span>
               </div>
-            </div>
+            </Link>
 
             <hr style={{ margin: 'var(--space-3) 0', border: 'none', borderTop: '1px solid var(--color-border-hairline)' }} />
 

@@ -1,3 +1,5 @@
+import ChatReportsView from './pages/admin/views/ChatReportsView'
+import ChatPage from './pages/ChatPage'
 import { useEffect, useState, useRef } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, Users, HandHeart, House, ClipboardText, ShieldCheck, SignOut, CircleNotch } from '@phosphor-icons/react'
@@ -30,7 +32,7 @@ import DemandMapWidget from './components/DemandMapWidget'
 import { api } from './services/apiClient'
 import ConfirmationDialog from './components/ConfirmationDialog'
 import { useActionNoticeState, useNotify } from './context/NotificationContext'
-import { notificationDeepLink, notificationDisplayText } from './services/notifications'
+import { notificationDeepLink, notificationDisplayText, formatNotificationTime } from './services/notifications'
 import LandingPage from './pages/LandingPage'
 import HomeFeedPage from './pages/HomeFeedPage'
 
@@ -87,6 +89,7 @@ function AppShell() {
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [availabilityUpdating, setAvailabilityUpdating] = useState(false)
+  const [availabilityWiggle, setAvailabilityWiggle] = useState(0)
   const [availabilityError, setAvailabilityError] = useActionNoticeState(null, 'error')
   const profileMenuRef = useRef(null)
 
@@ -132,9 +135,9 @@ function AppShell() {
               if (notice.related_request_status && notice.related_request_status !== 'OPEN' && notice.type === 'match.new') continue
               const to = notificationDeepLink(notice, user.role)
               const emergency = notice.type === 'match.new' && notice.related_request_urgency === 'emergency'
-              if (initial && !emergency) continue
+              if (initial && !emergency && !(notice.type === 'request.expired' && !notice.read_at)) continue
               notify({ severity: emergency ? 'emergency' : 'info', title: emergency ? 'Emergency blood request' : notificationDisplayText(notice, 'title'),
-                message: notificationDisplayText(notice, 'body'), dedupKey: `notification:${notice.id}`, action: to ? { to, label: emergency ? 'View request' : 'View details' } : undefined })
+                message: notificationDisplayText(notice, 'body'), dedupKey: `notification:${notice.id}`, action: to ? { to, label: notice.type === 'request.expired' ? 'Extend deadline' : emergency ? 'View request' : 'View details' } : undefined })
             }
           }
         }
@@ -212,7 +215,10 @@ function AppShell() {
       setProfileMenuOpen(false)
       notify({ severity: 'success', message: `Donor availability set to ${next}.` })
     } catch (error) {
-      setAvailabilityError(error.message || 'Availability could not be updated.')
+      const window = error.details?.availability_window
+      const eligibleAt = window?.eligible_again_at_utc
+      setAvailabilityError(eligibleAt ? `Donation waiting period ends ${formatNotificationTime(eligibleAt)}.` : (error.message || 'Availability could not be updated.'), { action: { to: '/profile', label: 'View eligibility' } })
+      if (window || [403,409].includes(error.status)) setAvailabilityWiggle(Date.now())
     } finally {
       setAvailabilityUpdating(false)
     }
@@ -244,11 +250,7 @@ function AppShell() {
                 <HandHeart size={28} weight={isResponsesActive ? 'fill' : 'regular'} />
               </Link>
             )}
-            {user && (
-              <Link to="/profile" className={`nav-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} title="Profile">
-                <User size={28} weight={isActive('/profile') ? 'fill' : 'regular'} />
-              </Link>
-            )}
+
             {user?.role === 'admin' && (
               <Link
                 to="/admin/dashboard"
@@ -269,7 +271,7 @@ function AppShell() {
                   <button
                     type="button"
                     onClick={openCreateRequest}
-                    className="nav-icon-btn nav-icon-btn--accent"
+                    className="nav-icon-btn nav-create-plain"
                     title="Create request"
                     aria-label="Create blood request"
                   >
@@ -333,7 +335,7 @@ function AppShell() {
                         )}
 
                         {user.role === 'member' && user.verification_status === 'verified' && user.donor_enrolled && (
-                          <button type="button" className="dropdown-menu-item" onClick={handleAvailabilityChange} disabled={availabilityUpdating}>
+                          <button type="button" className={availabilityWiggle ? "dropdown-menu-item feedback-wiggle" : "dropdown-menu-item"} key={availabilityWiggle} onAnimationEnd={event => event.currentTarget.classList.remove('feedback-wiggle')} onClick={handleAvailabilityChange} disabled={availabilityUpdating}>
                             <div className="dropdown-icon-wrapper">
                               <Circle size={20} weight="fill" style={{ color: user.availability === 'available' ? 'var(--color-success-green)' : 'var(--color-text-subtle)' }} />
                             </div>
@@ -350,7 +352,7 @@ function AppShell() {
                           </Link>
                         )}
 
-                        {availabilityError && <p role="alert" style={{ margin: 'var(--space-2) var(--space-4)', color: 'var(--color-emergency-red)', fontSize: 'var(--text-xs)' }}>{availabilityError}</p>}
+
 
                         <button type="button" className="dropdown-menu-item" onClick={() => { toggleTheme(); setProfileMenuOpen(false); }}>
                           <div className="dropdown-icon-wrapper">
@@ -378,7 +380,7 @@ function AppShell() {
                   <button
                     type="button"
                     onClick={openCreateRequest}
-                    className="nav-icon-btn nav-icon-btn--accent nav-icon-btn--mobile"
+                    className="nav-icon-btn nav-create-plain nav-icon-btn--mobile"
                     title="Create request"
                     aria-label="Create blood request"
                   >
@@ -425,7 +427,7 @@ function AppShell() {
                   <Link to="/matches" className={`mobile-link ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Matches</Link>
                   <Link to="/responses" className={`mobile-link ${isResponsesActive ? 'active' : ''}`} aria-current={isResponsesActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>My Responses</Link>
                   <div className="mobile-section-label">Account</div>
-                  <Link to="/profile" className={`mobile-link ${isActive('/profile') ? 'active' : ''}`} aria-current={isActive('/profile') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Profile</Link>
+
                   <Link to="/profile" className="mobile-link" onClick={() => setMobileOpen(false)}>My Requests</Link>
                   <Link to="/notifications" className={`mobile-link ${isActive('/notifications') ? 'active' : ''}`} aria-label={`Notifications, ${unread} unread`} aria-current={isActive('/notifications') ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Notifications {unread > 0 && <span className="nav-badge">{unread}</span>}</Link>
                   {user.role === 'admin' && (
@@ -467,6 +469,7 @@ function AppShell() {
           <Routes>
             <Route path="/" element={user ? <HomeFeedPage /> : <LandingPage />} />
 
+            <Route path="/chat" element={<RequireAuth><ChatPage /></RequireAuth>} />
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -483,7 +486,8 @@ function AppShell() {
               }
             >
               <Route index element={<Navigate replace to="dashboard" />} />
-              <Route path="dashboard" element={<DashboardView />} />
+              <Route path="chat-reports" element={<ChatReportsView />} />
+                <Route path="dashboard" element={<DashboardView />} />
               <Route path="verifications" element={<AdminVerificationsView />} />
               <Route path="users" element={<UsersView />} />
               <Route path="confirmations" element={<ConfirmationsView />} />
@@ -522,11 +526,9 @@ function AppShell() {
           </Routes>
         )}
       </main>
-      <FloatingChatContainer />
+      {location.pathname !== '/chat' && <FloatingChatContainer />}
       <ConfirmationDialog open={logoutConfirmOpen} title="Log out of BloodMatch?" confirmLabel="Log out" cancelLabel="Stay signed in"
-        busy={isLoggingOut} onConfirm={handleLogout} onCancel={() => setLogoutConfirmOpen(false)}>
-        <p>You can sign in again to return to your account.</p>
-      </ConfirmationDialog>
+        busy={isLoggingOut} onConfirm={handleLogout} onCancel={() => setLogoutConfirmOpen(false)} />
     </div>
   )
 }

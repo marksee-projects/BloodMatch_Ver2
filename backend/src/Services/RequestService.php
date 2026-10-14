@@ -304,6 +304,8 @@ final class RequestService
             'urgency' => (string) $row['urgency'],
             'needed_datetime' => (string) $row['needed_datetime'],
             'status' => (string) $row['status'],
+            'closure_reason'=>$row['closure_reason']??null,
+            'renewed_from_id'=>isset($row['renewed_from_id'])?(int)$row['renewed_from_id']:null,
             'review_status' => (string) $row['review_status'],
             'created_at' => (string) $row['created_at'],
             'match_count' => isset($row['match_count']) ? (int) $row['match_count'] : null,

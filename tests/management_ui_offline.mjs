@@ -54,7 +54,7 @@ function Fixture({ Component, ...props }) {
   index = 0; inPage = true
   try { fixtureTree = Component(props); return fixtureTree } finally { inPage = false }
 }
-const self = { id: 1, full_name: 'Current admin', email: 'admin@example.test', role: 'admin', chapter_id: 1, account_status: 'active', verification_status: 'verified' }
+const self = { id: 1, full_name: 'Current admin', email: 'markseejr@gmail.com', role: 'admin', chapter_id: 1, account_status: 'active', verification_status: 'verified' }
 const other = { ...self, id: 2, full_name: 'Other member', email: 'member@example.test', role: 'member', verification_status: 'pending' }
 React.useState = initial => {
   if (!inPage) return original(initial)
@@ -80,8 +80,8 @@ try {
   let html = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Fixture, { Component: Users })))
   assert(html.includes('User management') && html.includes('Name or email'))
   const selfCard = html.slice(html.indexOf('Current admin'), html.indexOf('Other member'))
-  assert.equal((selfCard.match(/disabled=""/g) || []).length, 3)
-  assert(html.includes('Change role') && html.includes('Change chapter') && html.includes('Deactivate') && html.includes('Previous') && html.includes('Next'))
+  assert.equal((selfCard.match(/disabled=""/g) || []).length, 2)
+  assert(!html.includes('Change role') && html.includes('Change chapter') && html.includes('Deactivate') && html.includes('Previous') && html.includes('Next'))
   mode = 'confirmations'; index = 0
   html = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Fixture, { Component: Confirmations, admin: true })))
   assert(html.includes('Donation confirmations') && !html.includes('Chapter Queue'))

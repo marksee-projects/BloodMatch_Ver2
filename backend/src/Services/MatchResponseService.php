@@ -67,6 +67,7 @@ final class MatchResponseService
                     ];
                 }
                 return [
+                    'chat_request' => ChatConsentService::request($donor,(int)$request['requester_id']),
                     'message' => $wasResponded ? 'Already responded.' : 'Response recorded.',
                     'match_id' => $matchId, 'status' => 'RESPONDED',
                     'created' => $created, 'already_responded' => $wasResponded,

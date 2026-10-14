@@ -35,6 +35,17 @@ use BloodMatch\Controllers\Admin\MembershipVerificationController;
 use BloodMatch\Routing\Router;
 
 return static function (Router $router): void {
+    $router->add('GET','/api/chat/requests',[new \BloodMatch\Controllers\ChatRequestsController(),'index']);
+    $router->add('POST','/api/chat/requests',[new \BloodMatch\Controllers\ChatRequestsController(),'create']);
+    $router->add('POST','/api/chat/requests/{id}/decision',[new \BloodMatch\Controllers\ChatRequestsController(),'decide']);
+    $router->add('POST','/api/account/delete',[new \BloodMatch\Controllers\AccountDeletionController(),'delete']);
+    $router->add('POST','/api/chat/conversations/{id}/reports',[new \BloodMatch\Controllers\ChatReportsController(),'create']);
+    $router->add('GET','/api/admin/chat-reports',[new \BloodMatch\Controllers\ChatReportsController(),'index']);
+    $router->add('GET','/api/admin/chat-reports/{id}',[new \BloodMatch\Controllers\ChatReportsController(),'detail']);
+    $router->add('POST','/api/admin/chat-reports/{id}/decision',[new \BloodMatch\Controllers\ChatReportsController(),'decide']);
+    $router->add('POST','/api/requests/{id}/renew',[new \BloodMatch\Controllers\RequestActionsController(),'renew']);
+    $router->add('POST','/api/requests/{id}/close',[new \BloodMatch\Controllers\RequestActionsController(),'close']);
+    $router->add('POST','/api/requests/{id}/followup',[new \BloodMatch\Controllers\RequestActionsController(),'followup']);
     $router->add('GET', '/api/health', [new HealthController(), 'check']);
     $router->add('GET', '/api/csrf', [new CsrfController(), 'token']);
     $router->add('GET', '/api/csrf-token', [new CsrfController(), 'token']);
@@ -62,7 +73,7 @@ return static function (Router $router): void {
     $router->add('GET', '/api/officer/users', [new ChapterUsersController(), 'index']);
 
     $router->add('GET', '/api/profile', [new ProfileController(), 'get']);
-   
+
     $router->add('PUT', '/api/profile', [new ProfileController(), 'update']);
     $router->add('POST', '/api/profile/resubmit', [new ProfileController(), 'resubmit']);
     $router->add('POST', '/api/profile/enroll-donor', [new ProfileController(), 'enrollDonor']);

@@ -174,7 +174,7 @@ final class MatchRepository
         \BloodMatch\Services\NonResponseStandbyService::resolve($requestId,null,'invalidated');
         $close = Database::pdo()->prepare(
             "UPDATE matches SET status = 'CLOSED'
-             WHERE request_id = ? AND status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED')"
+             WHERE request_id = ? AND status IN ('POTENTIAL', 'NOTIFIED', 'RESPONDED') AND NOT EXISTS (SELECT 1 FROM donation_reports dr WHERE dr.match_id=matches.id AND dr.status='PENDING')"
         );
         $close->execute([$requestId]);
         return $close->rowCount();

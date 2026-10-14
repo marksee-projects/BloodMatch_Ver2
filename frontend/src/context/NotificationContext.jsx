@@ -6,31 +6,28 @@ import styles from '../components/NotificationPopup.module.css'
 
 // Isolated component renders can omit the app shell. The shell installs the provider.
 const NotificationContext = createContext(() => {})
-const labels = { success: 'Completed', info: 'Notice', warning: 'Action needed', error: 'Could not complete', emergency: 'Emergency blood request' }
 
 function Popup({ notice, dismiss }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const paused = hovered || focused
-  const remaining = useRef(6000)
-  const persistent = ['warning', 'error', 'emergency'].includes(notice.severity)
+  const remaining = useRef(5000)
   useEffect(() => {
-    if (persistent || paused) return undefined
+    if (paused) return undefined
     const started = performance.now()
     const timer = window.setTimeout(() => dismiss(notice.id), remaining.current)
     return () => {
       window.clearTimeout(timer)
       remaining.current = Math.max(0, remaining.current - (performance.now() - started))
     }
-  }, [notice.id, paused, persistent, dismiss])
+  }, [notice.id, paused, dismiss])
   const Icon = notice.severity === 'success' ? CheckCircle : ['error', 'warning', 'emergency'].includes(notice.severity) ? WarningCircle : Info
   return <section className={`${styles.popup} ${styles[notice.severity] || ''}`}
     onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false) }}>
     <Icon size={24} weight="regular" aria-hidden="true" className={styles.icon} />
     <div className={styles.content} role={['error', 'emergency'].includes(notice.severity) ? 'alert' : 'status'} aria-atomic="true">
-      <strong>{notice.title || labels[notice.severity]}</strong>
-      <p>{notice.message}</p>
+      <strong title={notice.message}>{notice.title || notice.message}</strong>
       {notice.action?.to && <Link className={styles.action} to={notice.action.to} onClick={() => dismiss(notice.id)}>{notice.action.label || 'View details'}</Link>}
     </div>
     <button type="button" className={styles.close} aria-label="Dismiss notification" onClick={() => dismiss(notice.id)}><X size={20} aria-hidden="true" /></button>

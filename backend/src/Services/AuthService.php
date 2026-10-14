@@ -73,6 +73,7 @@ final class AuthService
             ->length('last_name', $lastName, 2, 50, 'Last name')
             ->required('email', $email, 'Email')
             ->email('email', $email)
+            ->length('email',$email,3,190,'Email')
             ->required('password', $password, 'Password')
             ->required('chapter_id', $chapterId, 'Chapter')
             ->required('date_of_birth', $dob, 'Date of birth');
@@ -89,6 +90,8 @@ final class AuthService
             $v->addError('password', 'Password must contain at least one number.');
         }
 
+        if ($bloodType!==null && $bloodType!=='' && !in_array($bloodType,$allowedBloodTypes,true)) $v->addError('blood_type','Select a supported blood type.');
+        if ($bloodType==='') $bloodType=null;
         if ($dob !== null) {
             $dt = \DateTimeImmutable::createFromFormat('!Y-m-d', $dob);
             if ($dt === false || $dt->format('Y-m-d') !== $dob) {
@@ -127,7 +130,7 @@ final class AuthService
             throw new Exceptions\ValidationException($v->errors());
         }
 
-        $userId = $this->users->create([
+        $payload = [
             'email' => $email,
             'password_hash' => password_hash((string) $password, PASSWORD_BCRYPT),
             'first_name' => (string) $firstName,
@@ -146,40 +149,11 @@ final class AuthService
             'latitude' => $latitude,
             'longitude' => $longitude,
             'email_verified_at' => null,
-        ]);
+            'privacy_notice_version'=>'2026-10-15',
+            'privacy_acknowledged_at'=>self::nowUtc(),
+        ];
 
-        AuditLogger::log($userId, 'user.registered', 'user', (string) $userId, [
-            'verification_status' => 'pending',
-        ]);
-
-        EmailVerificationService::sendVerificationCode($userId, $email);
-
-        if ($nationalIdFile !== null && ($nationalIdFile['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK) {
-            try {
-                $stored = DocumentStorageService::store((string) $nationalIdFile['tmp_name']);
-                $docId = (new \BloodMatch\Repositories\DocumentRepository())->create(
-                    $userId,
-                    'national_id',
-                    $stored,
-                    self::nowUtc()
-                );
-                AuditLogger::log($userId, 'document.uploaded', 'member_document', (string) $docId, [
-                    'doc_type' => 'national_id',
-                    'mime_type' => $stored['mime_type'],
-                    'source' => 'registration',
-                ]);
-                NotificationService::notifyVerificationRequested(
-                    $userId,
-                    trim((string) $firstName . ' ' . (string) $lastName),
-                    $docId
-                );
-            } catch (\RuntimeException $e) {
-                // Throw validation-level exception so user is alerted if their ID format is invalid
-                throw new \RuntimeException('National ID upload failed: ' . $e->getMessage(), 0, $e);
-            }
-        }
-
-        return $this->publicUser($this->users->findById($userId));
+        return PendingRegistrationService::stage($payload,$nationalIdFile);
     }
 
     public function login(string $email, string $password): array

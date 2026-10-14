@@ -15,6 +15,10 @@ export function notificationDisplayText(notification, field) {
 
 export function notificationDeepLink(n, role = 'admin') {
   if (!n) return null
+  if (n.type === 'request.expired') return '/profile?section=expired'
+  if (n.related_type === 'chat_report') return role === 'admin' ? '/admin/chat-reports' : null
+  if (n.related_type === 'chat_request') return '/chat'
+  if (n.type === 'donation.followup' && role === 'admin') return `/requests/${n.related_id}/matches`
   if (n.related_type === 'blood_request' && n.related_id) {
     return `/requests/${n.related_id}/matches`
   }

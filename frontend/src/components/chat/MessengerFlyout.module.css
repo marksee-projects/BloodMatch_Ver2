@@ -269,3 +269,8 @@
 @media (prefers-reduced-motion: reduce) {
   .triggerBtn, .searchInput, .convItem { transition: none; }
 }
+
+.searchInput:hover { border-color: var(--color-border-hairline); box-shadow: none; }
+.searchInput:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+
+input.searchInput.searchInput:hover { border-color: var(--color-border-hairline); box-shadow: none; }

@@ -37,3 +37,8 @@
   white-space: nowrap;
   border: 0;
 }
+
+.form-step > .field + .field { margin-top: var(--space-4); }
+@keyframes feedback-wiggle { 0%,100% { transform: translateX(0); } 25%,75% { transform: translateX(-4px); } 50% { transform: translateX(4px); } }
+.feedback-wiggle { animation: feedback-wiggle .3s ease; }
+@media (prefers-reduced-motion: reduce) { .feedback-wiggle { animation: none; } }

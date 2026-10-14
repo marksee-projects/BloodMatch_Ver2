@@ -1,3 +1,4 @@
+import { useChat } from '../context/ChatContext'
 import React, { useId, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -32,6 +33,7 @@ function formatPostedTime(value) {
 
 export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, children }) {
   const notify = useNotify()
+  const { canChat, openChatWithUser } = useChat()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [confirmingResponse, setConfirmingResponse] = useState(false)
   const { user } = useAuth()
@@ -139,8 +141,9 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                       response.reset()
                       setConfirmingResponse(true)
                     }}>
-                    Respond
+                    I can help
                   </Button>}
+                  <Button variant="secondary" disabled={!canChat || Number(request.requester_id) === Number(user?.id)} onClick={() => openChatWithUser(request.requester_id)}>Request message</Button>
                   <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
                 </footer>
                 {isNotEnrolled ? (

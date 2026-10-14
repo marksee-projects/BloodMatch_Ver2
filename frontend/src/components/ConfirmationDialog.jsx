@@ -54,9 +54,9 @@ export default function ConfirmationDialog({ open, title, children, confirmLabel
   if (!open) return null
   const dialog = (
     <div className={styles.backdrop}>
-      <section ref={panelRef} className={styles.panel} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId} aria-busy={busy} tabIndex={-1}>
+      <section ref={panelRef} className={styles.panel} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={children ? descriptionId : undefined} aria-busy={busy} tabIndex={-1}>
         <h2 id={titleId}>{title}</h2>
-        <div id={descriptionId} className={styles.description}>{children}</div>
+        {children && <div id={descriptionId} className={styles.description}>{children}</div>}
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <div className={styles.actions}>
           <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>

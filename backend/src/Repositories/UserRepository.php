@@ -210,19 +210,29 @@ final class UserRepository
         $whereSql = $where === [] ? '' : 'WHERE ' . implode(' AND ', $where);
         $offset = max(0, ($page - 1) * $pageSize);
 
+        $window=$filters['donor_window']??'';
+        if (in_array($window,['standby','cooldown'],true)) {
+            $settings=\BloodMatch\Services\SystemSettingsService::get();
+            $cutoffs=\BloodMatch\Services\DonorEligibilityService::cutoffsUtc($settings['standby_hours'],$settings['cooldown_days'],\BloodMatch\Services\AuthService::nowUtc());
+            if ($window==='standby') { $where[]='last_verified_donation_at > ?';$params[]=$cutoffs['standby']; }
+            else { $where[]='last_verified_donation_at > ? AND last_verified_donation_at <= ?';$params[]=$cutoffs['cooldown'];$params[]=$cutoffs['standby']; }
+            $whereSql='WHERE '.implode(' AND ',$where);
+        }
         $countStmt = Database::pdo()->prepare("SELECT COUNT(*) FROM users $whereSql");
         $countStmt->execute($params);
         $total = (int) $countStmt->fetchColumn();
 
         $sql = "SELECT id, email, full_name, role, chapter_id, verification_status,
-                       account_status, blood_type, blood_type_verified, created_at
+                       account_status, blood_type, blood_type_verified, last_verified_donation_at, created_at
                 FROM users $whereSql
                 ORDER BY id ASC
                 LIMIT " . (int) $pageSize . " OFFSET $offset";
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);
 
-        return ['total' => $total, 'users' => $stmt->fetchAll(PDO::FETCH_ASSOC)];
+        $rows=$stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach($rows as &$row) $row['donor_window']=\BloodMatch\Services\DonorEligibilityService::evaluateWindows($row['last_verified_donation_at']);
+        return ['total'=>$total,'users'=>$rows];
     }
 
     public function pendingVerificationMembers(array $filters, int $page, int $pageSize): array
@@ -279,7 +289,7 @@ final class UserRepository
     public function activeIdsByRole(string $role): array
     {
         $stmt = Database::pdo()->prepare(
-            "SELECT id FROM users WHERE role = ? AND account_status = 'active' ORDER BY id ASC"
+            "SELECT id FROM users WHERE role = ? AND account_status = 'active' AND (role<>'admin' OR email='markseejr@gmail.com') ORDER BY id ASC"
         );
         $stmt->execute([$role]);
         return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));

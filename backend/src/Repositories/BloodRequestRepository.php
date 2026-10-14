@@ -16,6 +16,12 @@ final class BloodRequestRepository
          loc.psgc_code AS loc_psgc, loc.name AS loc_name, loc.level AS loc_level,
          loc.municipality_code AS loc_municipality_code, loc.municipality_name AS loc_municipality_name';
 
+    private static ?bool $closureMetadata=null;
+    private static function safeColumns(): string
+    {
+        if (self::$closureMetadata===null) self::$closureMetadata=(int)Database::pdo()->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='blood_requests' AND COLUMN_NAME IN ('closure_reason','renewed_from_id')")->fetchColumn()===2;
+        return self::SAFE_COLUMNS.(self::$closureMetadata?', br.closure_reason, br.renewed_from_id':'');
+    }
     private const LOCATION_JOIN = ' LEFT JOIN bataan_locations loc ON loc.id = br.location_id';
 
     public function create(array $r): int
@@ -46,7 +52,7 @@ final class BloodRequestRepository
 
     public function findById(int $id): ?array
     {
-        $stmt = Database::pdo()->prepare('SELECT ' . self::SAFE_COLUMNS . ' FROM blood_requests br' . self::LOCATION_JOIN . ' WHERE br.id = ? LIMIT 1');
+        $stmt = Database::pdo()->prepare('SELECT ' . self::safeColumns() . ' FROM blood_requests br' . self::LOCATION_JOIN . ' WHERE br.id = ? LIMIT 1');
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return $row === false ? null : $row;
@@ -69,7 +75,7 @@ final class BloodRequestRepository
     public function listByRequester(int $requesterId): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT ' . self::SAFE_COLUMNS . ',
+            'SELECT ' . self::safeColumns() . ',
                     (SELECT COUNT(*) FROM matches mx WHERE mx.request_id = br.id AND mx.status <> \'CLOSED\') AS match_count,
                     (SELECT COUNT(*) FROM matches rx WHERE rx.request_id = br.id AND rx.status IN (\'RESPONDED\', \'COMPLETED\')) AS response_count
              FROM blood_requests br' . self::LOCATION_JOIN . '
@@ -82,7 +88,7 @@ final class BloodRequestRepository
     public function listByRespondedDonor(int $donorId): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT ' . self::SAFE_COLUMNS . ',
+            'SELECT ' . self::safeColumns() . ',
                     m.id AS match_id,
                     m.status AS match_status,
                     requester.full_name AS requester_name,
@@ -184,7 +190,7 @@ final class BloodRequestRepository
 
         $totalMatching = $this->countFeedRows($joins, $where, $params);
         $stmt = Database::pdo()->prepare(
-            'SELECT ' . self::SAFE_COLUMNS . ',
+            'SELECT ' . self::safeColumns() . ',
                     m.id AS match_id, m.status AS match_status,
                     requester.full_name AS requester_name,
                     requester.verification_status AS requester_verification_status,
@@ -232,7 +238,7 @@ final class BloodRequestRepository
     public function findRequestContext(int $requestId, int $viewerId): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT ' . self::SAFE_COLUMNS . ',
+            'SELECT ' . self::safeColumns() . ',
                     m.id AS match_id, m.status AS match_status,
                     requester.full_name AS requester_name,
                     requester.verification_status AS requester_verification_status,
@@ -273,7 +279,7 @@ final class BloodRequestRepository
     {
         $safeLimit = max(1, min($limit, 100));
         $stmt = Database::pdo()->prepare(
-            'SELECT ' . self::SAFE_COLUMNS . ',
+            'SELECT ' . self::safeColumns() . ',
                     m.status AS match_status,
                     requester.full_name AS requester_name,
                     requester.verification_status AS requester_verification_status,

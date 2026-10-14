@@ -1,5 +1,7 @@
 # Chat, database, notifications, and demo accounts
 
+**15 October execution update:** use [CHAT_PRIVACY_IMPLEMENTATION_HANDOFF.md](CHAT_PRIVACY_IMPLEMENTATION_HANDOFF.md) for the current branch, migration order and live checks. The older commands below predate migration 025 and must not be followed unchanged. Approved amendments are now source-prepared; database apply, credential resets, scheduled workers and browser verification remain user-run. ERD generation remains deferred.
+
 14 October 2026. Application code is prepared; database repair and account deletion are deliberately user-run. The 100/500-user load test remains cancelled.
 
 ## Current database findings
@@ -138,6 +140,24 @@ powershell -ExecutionPolicy Bypass -File scripts/chat_demo_maintenance.ps1 -Targ
 Each script invocation returns a nonzero exit on failure. Do not continue to the application step if the test copy or functional test fails. Keep backups and the printed private credential file. Restart the website and sign in with the new passwords.
 
 ## Verification status
+
+Consolidated pending scope also includes identity-confirmed account deletion with immediate closure/session revocation and scheduled erasure, and participant-reported chat review limited to necessary evidence/context by the designated administrator, with authorization and access logging. No unrestricted staff chat access is authorized. Exact retention periods are proposed product policy, not NPC deadlines; publish only after approval/enforcement and resolving notice contact placeholders. These workflows are documented, not implemented.
+
+Latest documentation-only scope: privacy-notice revision tied to verified behavior; email removed from profile display and other-member profile API; chat-dropdown expansion to a dedicated chat/message-request page; registration/location persistence investigation; removal of center Profile link with profile access through page card and retained avatar dropdown. Read-only screenshot-account check found user ID 3 has location_id NULL, explaining its empty current location but not the origin. Do not fabricate/backfill location from chapter, expose private barangay data on other-member profiles, or claim these amendments are implemented.
+
+Additional UI plan-only scope: compact logout confirmation without its paragraph and balanced adjacent buttons; concise popup layout; request-form header/field spacing; removal of unintended chat-search/composer hover lines; plain navigation plus icon; avatar-only profile hover highlight with existing animation/accessibility preserved. Recommendations recorded: allow administrator requests through normal validations and retain My Responses for structured offers/reports; neither recommendation changes runtime policy in this amendment.
+
+Latest scope override: ERD generation/export is deferred; do not run the export_erd.php command above or regenerate existing diagrams. New plan-only requests: expiry-time owner renewal prompt (also available on next visit), derived cooldown indicator/filter in user management, compact bottom-right transient notices with five-second dismissal, unread chat-badge investigation and accepted-only chat-list transition. Read-only configured-target check still found bloodmatch:3306 with 97 members/18 admins; bloodmatch_test:3306 has 206 members/75 admins. User management reads filtered users through the API, not a hardcoded count. The reported 15-row database view and running browser/API target still need reconciliation before cleanup.
+
+Latest approved planning scope and checkpoints: see [CHAT_DATABASE_NOTIFICATION_CHECKPOINT.md](CHAT_DATABASE_NOTIFICATION_CHECKPOINT.md). Add owner deadline extension/expired-post renewal, a profile Expired posts tab, successful I can help -> pending chat request, reasoned request closure, unreported-donation follow-up, evidence-based late-report review, and single-administrator enforcement. Deactivation must remain separate from donor cooldown. These are documentation-only additions. Review/update the earlier maintenance scripts and fixtures for the final schema and administrator policy before using the above commands for a final rollout; they do not implement these new features.
+
+Additional plan-only requests: fix step-2 navigation after clearing a rejected optional ID file; remove Next: from registration navigation labels; inspect overdue-post visibility/expiry scheduling; diagnose demo chat participants and the profile Message button; add recipient-approved message requests from profiles and request cards before normal chat access. Existing records must not be silently deleted or treated as accepted. No implementation or database changes were made for these amendments.
+
+Pending registration amendment: inspect account creation timing and, if registration currently inserts users before email OTP verification, defer account creation until successful OTP validation. This is recorded in the plan only; no implementation or database changes have been made for this amendment.
+
+Pending registration upload UI amendment: replace the red National ID upload error paragraph with the shared notification popup and a brief upload-box wiggle when file validation fails. Preserve validation, visible file requirements and accessible/reduced-motion feedback. Plan only; not implemented.
+
+Pending UI amendment (14 October 2026): replace the red post-donation error paragraph inside the account dropdown with a brief wiggle on a blocked Set available attempt. Keep the concise reason/date in the shared notification popup, preserve backend restrictions, and provide a static alternative for reduced motion. This amendment is noted in the plan and not yet implemented.
 
 - Read-only inspection and complete application SQL backup: completed. Restore verification is pending the user-run test-copy step.
 - Chat policy: 27 offline checks passed.

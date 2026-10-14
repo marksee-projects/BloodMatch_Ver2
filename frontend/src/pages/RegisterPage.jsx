@@ -1,4 +1,4 @@
-import { useActionNoticeState } from '../context/NotificationContext'
+import { useActionNoticeState, useNotify } from '../context/NotificationContext'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
@@ -56,6 +56,8 @@ export default function RegisterPage() {
 
   const [idFile, setIdFile] = useState(null)
   const [idPreview, setIdPreview] = useState(null)
+  const notify = useNotify()
+  const [uploadWiggle, setUploadWiggle] = useState(0)
   const [idError, setIdError] = useState(null)
   const [dragOver, setDragOver] = useState(false)
 
@@ -115,7 +117,11 @@ export default function RegisterPage() {
   const processFile = (file) => {
     const error = validateFile(file)
     if (error) {
-      setIdError(error)
+      setIdError(error); setUploadWiggle(Date.now()); setIdFile(null)
+      if (idPreview) URL.revokeObjectURL(idPreview)
+      setIdPreview(null)
+      notify({ severity: 'error', message: error })
+      const input = document.getElementById('national_id_input'); if (input) input.value = ''
       return
     }
     setIdError(null)
@@ -158,6 +164,9 @@ export default function RegisterPage() {
     if (idPreview) URL.revokeObjectURL(idPreview)
     setIdPreview(null)
     setIdError(null)
+    const input = document.getElementById('national_id_input'); if (input) input.value = ''
+    setStepErrors(errors => { const { idFile, ...rest } = errors; return rest })
+    setServerErrors(errors => { const { national_id, idFile, ...rest } = errors; return rest })
   }
 
   const calculateAge = (dobString) => {
@@ -225,7 +234,7 @@ export default function RegisterPage() {
         errors.date_of_birth = 'Registration requires a minimum age of 16 years.'
       }
 
-      if (idError) {
+      if (idFile && idError) {
         errors.idFile = idError
       }
       if (location.municipality_code && !location.location_id) {
@@ -281,6 +290,7 @@ export default function RegisterPage() {
       } else {
         registration = await api.post('/api/register', payload)
       }
+      if (registration?.user?.existing_pending) notify({ severity: 'info', message: 'Pending signup found. Verify its original email code.' })
       setRegisteredEmail(registration?.user?.email || form.email.trim().toLowerCase())
       if (registration?.user?.email_verified !== true) {
         setVerifyDialogOpen(true)
@@ -570,7 +580,7 @@ export default function RegisterPage() {
                   onClick={handleNext}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
                 >
-                  Next: Personal Details &amp; ID <ArrowRight size={16} />
+                  Personal Details &amp; ID <ArrowRight size={16} />
                 </button>
               </div>
             </div>
@@ -666,7 +676,7 @@ export default function RegisterPage() {
 
                 {!idFile ? (
                   <div
-                    className={`${styles.dropzone} ${dragOver ? styles.dropzoneDragOver : ''}`}
+                    key={uploadWiggle} className={`${styles.dropzone} ${uploadWiggle ? 'feedback-wiggle' : ''} ${dragOver ? styles.dropzoneDragOver : ''}`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
@@ -686,8 +696,8 @@ export default function RegisterPage() {
                         id="national_id_input"
                         type="file"
                         accept="image/jpeg,image/png,image/webp,application/pdf"
-                        onChange={handleFileChange}
-                        style={{ display: 'none' }}
+                        aria-invalid={Boolean(idError)} aria-describedby={idError ? 'national-id-error' : undefined} onChange={handleFileChange}
+                        className="sr-only"
                       />
                     </label>
                   </div>
@@ -742,7 +752,7 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                {idError && <span className="field-error">{idError}</span>}
+                {idError && <span id="national-id-error" className="sr-only" role="status">{idError}</span>}
                 <small className="field-hint">
                   Your ID document is securely encrypted and accessible only to assigned chapter officers for verification.
                 </small>
@@ -763,7 +773,7 @@ export default function RegisterPage() {
                   onClick={handleNext}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
                 >
-                  Next: Review &amp; Consent <ArrowRight size={16} />
+                  Review &amp; Consent <ArrowRight size={16} />
                 </button>
               </div>
             </div>

@@ -3,5 +3,7 @@
 .panel h2 { margin: 0 0 var(--space-4); font-size: var(--text-h1); }
 .description { color: var(--color-text-muted); line-height: 1.5; }
 .description p { margin: 0; overflow-wrap: anywhere; }
-.actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-5); }
-@media (max-width: 480px) { .actions { flex-direction: column; } .actions > * { width: 100% !important; } }
+.actions { display: flex; justify-content: stretch; gap: var(--space-3); margin-top: var(--space-5); }
+
+
+.actions > * { flex: 1; min-width: 0; }

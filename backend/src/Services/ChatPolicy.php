@@ -64,6 +64,8 @@ final class ChatPolicy
             return false;
         }
 
-        return $this->chatRepo->isParticipant($conversationId, $userId);
+        if (!$this->chatRepo->isParticipant($conversationId,$userId) || !ChatConsentService::accepted($conversationId,$userId)) return false;
+        $other=$this->chatRepo->getOtherParticipant($conversationId,$userId);
+        return $other!==null && $this->canMessage($user,$other);
     }
 }

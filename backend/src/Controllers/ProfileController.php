@@ -228,7 +228,12 @@ final class ProfileController
         }
 
         try {
-            \BloodMatch\Services\DonorEligibilityService::assertAvailabilityChangeAllowed($actor);
+            \BloodMatch\Services\WorkflowLockService::transaction(function() use($actor,$value): void {
+                $locked=\BloodMatch\Services\WorkflowLockService::users([(int)$actor['id']])[(int)$actor['id']];
+                \BloodMatch\Services\WorkflowLockService::assertActiveActor($locked);
+                \BloodMatch\Services\DonorEligibilityService::assertAvailabilityChangeAllowed($locked);
+                (new UserRepository())->setAvailability((int)$actor['id'],$value);
+            });
         } catch (\BloodMatch\Services\Exceptions\WindowBlockedException $e) {
             Response::error($e->getMessage(), 409, [
                 'availability_window' => $e->window(),

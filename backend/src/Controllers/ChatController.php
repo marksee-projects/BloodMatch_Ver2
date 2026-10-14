@@ -36,15 +36,13 @@ final class ChatController
     public function unreadCount(): void
     {
         $actor = self::requireChatUser(self::ENDPOINT . '.unread');
-        $count = $this->chatService->getUnreadCount((int) $actor['id']);
-        Response::success(['unread_count' => $count]);
+        try { $count = $this->chatService->getUnreadCount((int)$actor['id']);Response::success(['unread_count'=>$count]); } catch (\Throwable $e) { Response::error('Chat is temporarily unavailable.',503); }
     }
 
     public function conversations(): void
     {
         $actor = self::requireChatUser(self::ENDPOINT . '.conversations');
-        $list = $this->chatService->getConversations((int) $actor['id']);
-        Response::success(['conversations' => $list]);
+        try { $list = $this->chatService->getConversations((int)$actor['id']);Response::success(['conversations'=>$list]); } catch (\Throwable $e) { Response::error('Chat is temporarily unavailable.',503); }
     }
 
     public function startConversation(): void
@@ -61,7 +59,7 @@ final class ChatController
             $conversation = $this->chatService->getOrCreateDirectConversation($actor, $recipientId);
             Response::success(['conversation' => $conversation]);
         } catch (Throwable $e) {
-            Response::error($e->getMessage(), 400);
+            Response::error($e instanceof \PDOException ? 'Chat is temporarily unavailable.' : $e->getMessage(), in_array((int)$e->getCode(),[400,403,409,429],true)?(int)$e->getCode():400);
         }
     }
 
@@ -79,7 +77,7 @@ final class ChatController
             $conv = $this->chatService->getConversationDetails($actor, $conversationId);
             Response::success(['conversation' => $conv]);
         } catch (Throwable $e) {
-            Response::error($e->getMessage(), 403);
+            Response::error($e instanceof \PDOException ? 'Chat requires the reviewed database migration.' : $e->getMessage(), 403);
         }
     }
 
@@ -97,7 +95,7 @@ final class ChatController
         $limit = Request::int('limit') ?? 50;
 
         try {
-            $messages = $this->chatService->getMessages($actor, $conversationId, $afterId, $limit);
+            $messages = $this->chatService->getMessages($actor, $conversationId, $afterId, $limit, Request::int('before_id'));
             $meta = $this->chatService->getConversationMetadata($actor, $conversationId);
             Response::success([
                 'messages' => $messages,
@@ -106,7 +104,7 @@ final class ChatController
                 'suggested_chats' => $meta['suggested_chats'],
             ]);
         } catch (Throwable $e) {
-            Response::error($e->getMessage(), 403);
+            Response::error($e instanceof \PDOException ? 'Chat requires the reviewed database migration.' : $e->getMessage(), 403);
         }
     }
 
@@ -140,7 +138,7 @@ final class ChatController
             $message = $this->chatService->sendMessage($actor, $conversationId, $body);
             Response::success(['message' => $message]);
         } catch (Throwable $e) {
-            Response::error($e->getMessage(), 400);
+            Response::error($e instanceof \PDOException ? 'Chat requires the reviewed database migration.' : $e->getMessage(), 400);
         }
     }
 
@@ -164,7 +162,7 @@ final class ChatController
             $this->chatService->markRead($actor, $conversationId, $lastMessageId);
             Response::success(['status' => 'ok']);
         } catch (Throwable $e) {
-            Response::error($e->getMessage(), 400);
+            Response::error($e instanceof \PDOException ? 'Chat requires the reviewed database migration.' : $e->getMessage(), 400);
         }
     }
 }

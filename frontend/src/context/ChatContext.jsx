@@ -17,6 +17,7 @@ export function ChatProvider({ children }) {
   const notify = useNotify()
   const canChat = user?.account_status === 'active' && user?.verification_status === 'verified' && ['member', 'admin'].includes(user?.role)
   const unreadInFlight = useRef(false)
+  const unreadRefreshQueued = useRef(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openTabs, setOpenTabs] = useState([])
@@ -27,7 +28,8 @@ export function ChatProvider({ children }) {
       setUnreadCount(0)
       return
     }
-    if (document.hidden || unreadInFlight.current) return
+    if (document.hidden) return
+    if (unreadInFlight.current) { unreadRefreshQueued.current = true; return }
     unreadInFlight.current = true
 
     try {
@@ -39,6 +41,7 @@ export function ChatProvider({ children }) {
       // Background poll failure handled silently
     } finally {
       unreadInFlight.current = false
+      if (unreadRefreshQueued.current) { unreadRefreshQueued.current = false; fetchUnreadCount() }
     }
   }, [user, canChat])
 
@@ -119,6 +122,8 @@ export function ChatProvider({ children }) {
     if (!recipientId) return
 
     try {
+      const consent = await api.post('/api/chat/requests', { recipient_id: Number(recipientId) })
+      if (consent.request?.status !== 'accepted') { notify({ severity: 'info', message: 'Message request pending acceptance.', action: { to: '/chat', label: 'View requests' } }); return }
       const res = await api.post('/api/chat/conversations', { recipient_id: Number(recipientId) })
       if (res?.conversation) {
         const conv = res.conversation

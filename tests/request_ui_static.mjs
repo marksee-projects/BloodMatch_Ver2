@@ -168,6 +168,7 @@ check('Other member profile does not expose rejection history', () => {
   const otherData = { profile: { ...profile, id: 88, full_name: 'Other member' }, reports: [{ status: 'REJECTED', rejection_reason: 'PRIVATE-REJECTION-REASON' }], requests: [] }
   const html = render(ProfilePage, '/profile/88', [], null, undefined, null, [[['member-profile', '88', 7], otherData]])
   assert.ok(html.includes('Other member'))
+  assert.ok(!html.includes('mailto:') && !html.includes(profile.email), 'Other-member profile hides email')
   assert.ok(!html.includes('PRIVATE-REJECTION-REASON') && !html.includes('Rejection reason:'))
 })
 check('Admin Profile does not display a previous member cache while loading', () => {

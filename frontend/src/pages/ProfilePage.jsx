@@ -1,7 +1,9 @@
+import RequestHistoryActions from '../components/RequestHistoryActions'
+import DeleteAccount from '../components/DeleteAccount'
 import { useActionNoticeState } from '../context/NotificationContext'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
@@ -68,7 +70,9 @@ export default function ProfilePage() {
   const [pictureUploading, setPictureUploading] = useState(false)
   const [pictureFailed, setPictureFailed] = useState(false)
   const pictureInputRef = useRef(null)
+  const profileRoute = useLocation()
   const [activeSection, setActiveSection] = useState('overview')
+  useEffect(() => { if (new URLSearchParams(profileRoute.search).get('section') === 'expired') setActiveSection('expired') }, [profileRoute.search])
   const [requestFilter, setRequestFilter] = useState('ALL')
   const [editingRequestId, setEditingRequestId] = useState(null)
   const openCreateRequest = useRequestCreation()
@@ -278,7 +282,7 @@ export default function ProfilePage() {
                   onClick={() => openChatWithUser(Number(profileId), { name: profile.full_name, avatar: profile.profile_picture_url })}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  <ChatCircleDots size={18} weight="regular" /> Message
+                  <ChatCircleDots size={18} weight="regular" /> Request message
                 </Button>
               </div>
             )}
@@ -293,7 +297,6 @@ export default function ProfilePage() {
               <div><dt>Municipality</dt><dd>{profile.municipality_name || 'Municipality not provided'}</dd></div>
               <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
               <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
-              {profile.email && <div><dt>Email</dt><dd><a href={`mailto:${profile.email}`}>{profile.email}</a></dd></div>}
               {profile.role_label && <div><dt>Role</dt><dd>{profile.role_label}</dd></div>}
             </dl>
           </Card>
@@ -371,7 +374,7 @@ export default function ProfilePage() {
           </div>
         </div>
         <nav className={styles.headerNav} aria-label="Profile sections">
-          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History']].map(([section, label]) => (
+          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History'], ['expired', 'Expired posts'], ['requests', 'My requests']].map(([section, label]) => (
             <button key={section} type="button" title={section === 'history' ? 'Donation History' : undefined} aria-current={activeSection === section || (section === 'overview' && activeSection === 'edit') ? 'page' : undefined}
               onClick={() => { setActiveSection(section); setEditingRequestId(null); setCancelTarget(null) }}>{label}</button>
           ))}
@@ -385,7 +388,7 @@ export default function ProfilePage() {
             <dl className={styles.aboutDetails}>
               <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
               <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
-              <div><dt>Municipality</dt><dd>{profile.location?.municipality_name || 'Municipality not provided'}</dd></div>
+              <div><dt>Municipality</dt><dd>{profile.location?.municipality_name || 'Municipality not provided'}</dd></div><div><dt>Barangay</dt><dd>{profile.location?.barangay_code ? profile.location?.name : 'Barangay not provided'}</dd></div>
               <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
               <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
               {profile.role === 'member' && <div><dt>Donor status</dt><dd>{availabilityStatus}</dd></div>}
@@ -546,6 +549,8 @@ export default function ProfilePage() {
         </div>
       </main>
 
+      {['expired','requests'].includes(activeSection) && <section className="card"><h2>{activeSection === 'expired' ? 'Expired posts' : 'My requests'}</h2>{requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(r => <article key={r.id}><h3>{r.required_blood_type} &middot; {r.facility_name}</h3><p>{r.status} &middot; Needed by {new Date(r.needed_datetime.replace(' ', 'T') + 'Z').toLocaleString()}</p><RequestHistoryActions request={r} onSaved={refetch} /></article>)}{!requestHistory.some(r => activeSection !== 'expired' || r.status === 'EXPIRED') && <p>No requests here.</p>}</section>}
+      <DeleteAccount />
       <RequestFormModal open={Boolean(editingRequestId)} id={editingRequestId} onSuccess={handleRequestSaved} onClose={closeRequestForm} />
       <ConfirmationDialog open={Boolean(cancelTarget)} title="Cancel this blood request?" confirmLabel="Cancel request" cancelLabel="Keep request"
         destructive busy={cancelling} error={cancelError} onConfirm={cancelRequest} onCancel={() => { if (!cancelBusyRef.current) setCancelTarget(null) }}>

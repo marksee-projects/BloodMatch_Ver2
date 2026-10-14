@@ -45,7 +45,8 @@ final class ChatService
         }
 
         $existingId = $this->chatRepo->findDirectConversationId($currentUserId, $recipientId);
-        $convId = $existingId ?? $this->chatRepo->createDirectConversation($currentUserId, $recipientId);
+        if ($existingId === null || !ChatConsentService::accepted($existingId,$currentUserId)) throw new RuntimeException('Send a message request and wait for acceptance.',403);
+        $convId = $existingId;
 
         $other = $this->chatRepo->getOtherParticipant($convId, $currentUserId);
         $hasMessages = $this->chatRepo->hasMessages($convId);
@@ -69,17 +70,24 @@ final class ChatService
         return $this->chatRepo->listConversationsForUser($userId);
     }
 
-    public function getMessages(array $currentUser, int $conversationId, ?int $afterId = null, int $limit = 50): array
+    public function getMessages(array $currentUser, int $conversationId, ?int $afterId = null, int $limit = 50, ?int $beforeId = null): array
     {
         if (!$this->policy->canAccessConversation($currentUser, $conversationId)) {
             throw new RuntimeException('You are not authorized to view this conversation.');
         }
 
-        return $this->chatRepo->listMessages($conversationId, $afterId, $limit);
+        return $this->chatRepo->listMessages($conversationId, $afterId, $limit, $beforeId);
     }
 
     public function sendMessage(array $currentUser, int $conversationId, string $body): array
     {
+        return WorkflowLockService::transaction(function() use($currentUser,$conversationId,$body): array {
+            $other=$this->chatRepo->getOtherParticipant($conversationId,(int)$currentUser['id']);
+            if ($other===null) throw new RuntimeException('Conversation unavailable.',403);
+            $locked=WorkflowLockService::users([(int)$currentUser['id'],(int)$other['id']]);
+            $currentUser=$locked[(int)$currentUser['id']];
+            if (!$this->policy->canMessage($currentUser,$locked[(int)$other['id']])) throw new RuntimeException('Both accounts must remain active and verified.',403);
+
         if (!$this->policy->canAccessConversation($currentUser, $conversationId)) {
             throw new RuntimeException('You are not authorized to send messages in this conversation.');
         }
@@ -111,6 +119,7 @@ final class ChatService
         }
 
         return $this->chatRepo->insertMessage($conversationId, (int) $currentUser['id'], $cleanBody);
+        });
     }
 
     public function markRead(array $currentUser, int $conversationId, int $lastMessageId): void

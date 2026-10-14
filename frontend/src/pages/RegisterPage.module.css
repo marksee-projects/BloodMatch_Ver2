@@ -318,3 +318,8 @@
     grid-template-columns: 1fr;
   }
 }
+
+.wizardCard .field + .field { margin-top: var(--space-4); }
+.stepperContainer { margin-bottom: var(--space-4); }
+
+.dropzone:focus-within { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }

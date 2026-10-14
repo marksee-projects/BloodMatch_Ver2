@@ -22,9 +22,33 @@ try {
     $fixturePath=(& $PhpPath (Join-Path $PSScriptRoot 'chat_api_fixture.php') --create | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Fixture preparation failed.' }
     $fixture=Get-Content -LiteralPath $fixturePath -Raw | ConvertFrom-Json
+    $anonSession=New-Object Microsoft.PowerShell.Commands.WebRequestSession
+    $anonToken=(Invoke-RestMethod "$BaseUrl/api/csrf" -WebSession $anonSession).data.csrf_token
+    $anon=@{session=$anonSession;csrf=$anonToken}
+    $chapter=(Call $anon 'GET' '/api/chapters').data.chapters[0].id
+    $municipality=(Call $anon 'GET' '/api/locations/municipalities').data.municipalities[0]
+    $registered=Call $anon 'POST' '/api/register' @{first_name='Signup';last_name='Fixture';email=$fixture.registration.email;password=$fixture.registration.password;chapter_id=$chapter;date_of_birth='1990-01-01';blood_type='O+';location_id=$municipality.location_id;municipality_code=$municipality.psgc_code;privacy_acknowledged=$true}
+    Check ($registered.status -eq 201 -and $registered.data.user.pending_registration) 'registration stages data before OTP'
+    $state=(& $PhpPath (Join-Path $PSScriptRoot 'chat_api_fixture.php') "--signup-status=$fixturePath" | Out-String | ConvertFrom-Json)
+    Check ($state.user_count -eq 0 -and $state.pending_count -eq 1) 'no account exists before OTP'
+    & $PhpPath (Join-Path $PSScriptRoot 'chat_api_fixture.php') "--otp=$fixturePath" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Could not prepare owned test OTP.' }
+    Check ((Call $anon 'POST' '/api/auth/verify' @{email=$fixture.registration.email;code='654321'}).status -eq 400) 'incorrect OTP denied'
+    Check ((Call $anon 'POST' '/api/auth/verify' @{email=$fixture.registration.email;code='123456'}).status -eq 200) 'correct OTP creates account'
+    $state=(& $PhpPath (Join-Path $PSScriptRoot 'chat_api_fixture.php') "--signup-status=$fixturePath" | Out-String | ConvertFrom-Json)
+    Check ($state.user_count -eq 1 -and $state.pending_count -eq 0 -and $state.verification_status -eq 'pending' -and $state.location_id -eq $municipality.location_id) 'OTP preserves location and requires membership review'
     $a=Login $fixture.accounts.a; $b=Login $fixture.accounts.b
     $pending=Login $fixture.accounts.pending; $rejected=Login $fixture.accounts.rejected; $outsider=Login $fixture.accounts.outsider
     $null=Login $fixture.accounts.inactive 403
+    Check ((Call $a 'GET' '/api/chat/unread-count').data.unread_count -eq 0) 'unaccepted imported messages do not inflate badge'
+    Check ((Call $a 'GET' "/api/chat/conversations/$($fixture.legacy_conversation_id)/messages").status -eq 403) 'existing participant cannot bypass acceptance'
+    Check ((Call $a 'POST' '/api/chat/conversations' @{recipient_id=$fixture.accounts.b.id}).status -eq 403) 'direct start cannot bypass recipient consent'
+    $requested=Call $a 'POST' '/api/chat/requests' @{recipient_id=$fixture.accounts.b.id}
+    Check ($requested.status -eq 200 -and $requested.data.request.status -eq 'pending') 'sender creates pending request'
+    $requestId=[int]$requested.data.request.id
+    Check ((Call $outsider 'POST' "/api/chat/requests/$requestId/decision" @{action='accept'}).status -eq 403) 'outsider cannot accept request'
+    Check ((Call $a 'GET' '/api/chat/conversations').data.conversations.Count -eq 0) 'pending contacts do not appear in normal chat'
+    Check ((Call $b 'POST' "/api/chat/requests/$requestId/decision" @{action='accept'}).status -eq 200) 'recipient accepts request'
     $started=Call $a 'POST' '/api/chat/conversations' @{recipient_id=$fixture.accounts.b.id}
     Check ($started.status -eq 200 -and $started.data.conversation.id -gt 0) 'verified users start a direct conversation'
     $id=[int]$started.data.conversation.id
@@ -53,11 +77,19 @@ try {
     Check ((Call $b 'POST' "/api/chat/conversations/$id/read" @{last_message_id=$reply.data.message.id}).status -eq 200) 'read marker is updated'
     Check ((Call $b 'GET' '/api/chat/unread-count').data.unread_count -eq 0) 'read conversation clears recipient unread count'
     Check ((Call $a 'GET' "/api/chat/conversations/$id/messages").data.messages.Count -eq 2) 'reloading retains both messages'
+    $report=Call $a 'POST' "/api/chat/conversations/$id/reports" @{reason='Owned test report';message_ids=@([int]$sent.data.message.id)}
+    Check ($report.status -eq 200) 'participant can report selected conversation messages'
+    Check ((Call $outsider 'POST' "/api/chat/conversations/$id/reports" @{reason='Not a participant';message_ids=@([int]$sent.data.message.id)}).status -eq 403) 'outsider cannot report/read unrelated thread'
+    Check ((Call $outsider 'GET' '/api/admin/chat-reports').status -eq 403) 'member cannot access administrator reports'
     & $PhpPath (Join-Path $PSScriptRoot 'chat_api_fixture.php') "--revoke=$fixturePath" | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Could not revoke fixture verification.' }
     Check ((Call $b 'GET' "/api/chat/conversations/$id/messages").status -eq 403) 'verification revocation blocks an existing session'
     $blocked=Call $a 'POST' "/api/chat/conversations/$id/messages" @{body='Cannot contact pending recipient'}
     Check ($blocked.status -in @(400,403)) 'existing conversation cannot bypass recipient verification'
+    Check ((Call $b 'POST' '/api/account/delete' @{password='incorrect';confirmation='DELETE'}).status -eq 400) 'incorrect password cannot close account'
+    $closed=Call $b 'POST' '/api/account/delete' @{password=$fixture.accounts.b.password;confirmation='DELETE'}
+    Check ($closed.status -eq 200 -and $closed.data.closed) 'identity-confirmed member closes account'
+    Check ((Call $b 'GET' '/api/profile').status -eq 401) 'closed account session is revoked'
     Write-Host "PASS $passed functional chat API checks. No load test was run."
 } finally {
     if ($fixturePath -and (Test-Path -LiteralPath $fixturePath)) {

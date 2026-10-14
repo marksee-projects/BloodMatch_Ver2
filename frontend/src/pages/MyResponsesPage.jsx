@@ -267,7 +267,7 @@ export default function MyResponsesPage() {
                       disabled={!canChat || req.requester_verification_status !== 'verified'}
                       style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                     >
-                      <ChatCircleDots size={16} weight="regular" /> Message
+                      <ChatCircleDots size={16} weight="regular" /> Request message
                     </Button>
                   </div>
 

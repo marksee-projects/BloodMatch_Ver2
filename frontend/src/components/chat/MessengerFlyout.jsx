@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { ChatCircleDots, MagnifyingGlass, User } from '@phosphor-icons/react'
 import { api } from '../../services/apiClient'
@@ -129,7 +130,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
         <div className={styles.popover} role="dialog" aria-label="Chats menu">
           <div className={styles.header}>
             <div className={styles.headerTop}>
-              <h3 className={styles.title}>Chats</h3>
+              <h3 className={styles.title}>Chats</h3><Link to="/chat" onClick={() => setOpen(false)}>Open full chat</Link>
             </div>
             <div className={styles.searchWrap}>
               <MagnifyingGlass size={16} className={styles.searchIcon} aria-hidden="true" />

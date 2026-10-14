@@ -271,3 +271,7 @@
 @media (prefers-reduced-motion: reduce) {
   .mapCaret, .mapCaretOpen { transition: none; }
 }
+
+.profileRow { color: inherit; text-decoration: none; border-radius: var(--radius-control); }
+.profileRow:hover { background: var(--color-surface-sunken); }
+.profileRow:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }

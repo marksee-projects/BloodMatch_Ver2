@@ -16,6 +16,9 @@ final class AccountLifecycleService
             WorkflowLockService::assertActiveActor($actor);
             if ($actor['role']!=='admin' || $actorId===$targetId) { throw new \RuntimeException('Forbidden.',403); }
             $repo=new UserRepository();
+            if (strtolower((string)$actor['email'])!=='markseejr@gmail.com' || isset($fields['role']) || strtolower((string)$target['email'])==='markseejr@gmail.com') throw new \RuntimeException('Administrator role assignment is locked.',403);
+            $closed=Database::pdo()->prepare('SELECT 1 FROM account_closures WHERE user_id=?');$closed->execute([$targetId]);
+            if ($closed->fetchColumn()!==false) throw new \RuntimeException('This account is permanently closed.',409);
             $role=$fields['role']??$target['role'];
             $chapter=array_key_exists('chapter_id',$fields)?$fields['chapter_id']:$target['chapter_id'];
             if (!in_array($role, ['member', 'admin'], true)) { throw new \RuntimeException('Role must be member or admin.',422); }

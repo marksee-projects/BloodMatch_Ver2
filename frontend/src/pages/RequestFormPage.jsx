@@ -236,8 +236,8 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
 
   return (
       <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%' }}>
-      <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
-        <h1 style={{ marginBottom: '0' }}>
+      <div style={{ marginBottom: 'var(--space-3)', textAlign: 'center' }}>
+        <h1 style={{ marginBottom: '0', fontSize: 'var(--text-h1)' }}>
           {editing ? 'Edit request' : 'Create blood request'}
         </h1>
         {editing && <p className="muted">Review your saved request details and update the fields below.</p>}

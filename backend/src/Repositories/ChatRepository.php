@@ -13,7 +13,7 @@ final class ChatRepository
     public function findDirectConversationId(int $userA, int $userB): ?int
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT c.id 
+            'SELECT c.id
              FROM conversations c
              INNER JOIN conversation_participants p1 ON p1.conversation_id = c.id AND p1.user_id = ?
              INNER JOIN conversation_participants p2 ON p2.conversation_id = c.id AND p2.user_id = ?
@@ -28,7 +28,8 @@ final class ChatRepository
     public function createDirectConversation(int $userA, int $userB): int
     {
         $pdo = Database::pdo();
-        $pdo->beginTransaction();
+        $ownsTransaction = !$pdo->inTransaction();
+        if ($ownsTransaction) $pdo->beginTransaction();
         try {
             // Serialize conversation creation for this pair without changing the users.
             $pair = [min($userA, $userB), max($userA, $userB)];
@@ -36,7 +37,7 @@ final class ChatRepository
             $lock->execute($pair);
             $existing = $this->findDirectConversationId($userA, $userB);
             if ($existing !== null) {
-                $pdo->rollBack();
+                if ($ownsTransaction) $pdo->rollBack();
                 return $existing;
             }
 
@@ -49,10 +50,10 @@ final class ChatRepository
             );
             $partStmt->execute([$convId, $userA, $convId, $userB]);
 
-            $pdo->commit();
+            if ($ownsTransaction) $pdo->commit();
             return $convId;
         } catch (\Throwable $e) {
-            if ($pdo->inTransaction()) {
+            if ($ownsTransaction && $pdo->inTransaction()) {
                 $pdo->rollBack();
             }
             // If duplicate caught, try to find existing
@@ -115,7 +116,7 @@ final class ChatRepository
                         FROM messages unread_m
                         WHERE unread_m.conversation_id = c.id
                           AND unread_m.sender_id != ?
-                          AND (cp.last_read_at IS NULL OR unread_m.created_at > cp.last_read_at)
+                          AND unread_m.id > COALESCE(cp.last_read_message_id,0)
                     ) AS unread_count
              FROM conversation_participants cp
              INNER JOIN conversations c ON c.id = cp.conversation_id
@@ -126,7 +127,7 @@ final class ChatRepository
                  FROM messages sub_m
                  WHERE sub_m.conversation_id = c.id
              )
-             WHERE cp.user_id = ?
+             WHERE cp.user_id = ? AND EXISTS (SELECT 1 FROM conversation_participants peer JOIN users eligible ON eligible.id=peer.user_id WHERE peer.conversation_id=cp.conversation_id AND peer.user_id<>cp.user_id AND eligible.account_status=\'active\' AND eligible.verification_status=\'verified\') AND EXISTS (SELECT 1 FROM chat_requests consent WHERE consent.conversation_id=cp.conversation_id AND consent.status=\'accepted\')
              ORDER BY COALESCE(last_m.created_at, c.updated_at) DESC'
         );
         $stmt->execute([$userId, $userId, $userId]);
@@ -159,7 +160,7 @@ final class ChatRepository
         return $results;
     }
 
-    public function listMessages(int $conversationId, ?int $afterId = null, int $limit = 50): array
+    public function listMessages(int $conversationId, ?int $afterId = null, int $limit = 50, ?int $beforeId = null): array
     {
         $limit = max(1, min(100, $limit));
         $params = [$conversationId];
@@ -170,8 +171,12 @@ final class ChatRepository
             $params[] = $afterId;
         }
 
+        if ($beforeId!==null && $beforeId>0) {
+            if ($afterId!==null && $afterId>0) throw new \RuntimeException('Choose one message cursor.',400);
+            $whereAfter='AND m.id < ?';$params[]=$beforeId;
+        }
         // Initial loads show the most recent messages; polling proceeds forward.
-        $initialLoad = $whereAfter === '';
+        $initialLoad = $afterId===null || $afterId<=0;
         $order = $initialLoad ? 'DESC' : 'ASC';
         $stmt = Database::pdo()->prepare(
             "SELECT m.id, m.conversation_id, m.sender_id, m.body, m.created_at,
@@ -248,12 +253,13 @@ final class ChatRepository
         // Mark only messages fetched by the client, never a concurrent incoming message.
         $stmt = Database::pdo()->prepare(
             'UPDATE conversation_participants
-             SET last_read_at = GREATEST(COALESCE(last_read_at, "1000-01-01 00:00:00"),
+             SET last_read_message_id = GREATEST(COALESCE(last_read_message_id,0), COALESCE((SELECT MAX(id) FROM messages WHERE conversation_id = ? AND id <= ?),0)),
+                 last_read_at = GREATEST(COALESCE(last_read_at, "1000-01-01 00:00:00"),
                  COALESCE((SELECT MAX(created_at) FROM messages WHERE conversation_id = ? AND id <= ?),
                      last_read_at))
              WHERE conversation_id = ? AND user_id = ?'
         );
-        $stmt->execute([$conversationId, $lastMessageId, $conversationId, $userId]);
+        $stmt->execute([$conversationId, $lastMessageId, $conversationId, $lastMessageId, $conversationId, $userId]);
     }
 
     public function totalUnreadCount(int $userId): int
@@ -262,9 +268,9 @@ final class ChatRepository
             'SELECT COUNT(m.id)
              FROM conversation_participants cp
              INNER JOIN messages m ON m.conversation_id = cp.conversation_id
-             WHERE cp.user_id = ?
+             WHERE cp.user_id = ? AND EXISTS (SELECT 1 FROM chat_requests consent WHERE consent.conversation_id=cp.conversation_id AND consent.status=\'accepted\') AND EXISTS (SELECT 1 FROM conversation_participants peer JOIN users eligible ON eligible.id=peer.user_id WHERE peer.conversation_id=cp.conversation_id AND peer.user_id<>cp.user_id AND eligible.account_status=\'active\' AND eligible.verification_status=\'verified\')
                AND m.sender_id != ?
-               AND (cp.last_read_at IS NULL OR m.created_at > cp.last_read_at)'
+               AND m.id > COALESCE(cp.last_read_message_id,0)'
         );
         $stmt->execute([$userId, $userId]);
         return (int) $stmt->fetchColumn();

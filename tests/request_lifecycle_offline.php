@@ -35,14 +35,14 @@ foreach (['CANCELLED', 'EXPIRED', 'FULFILLED'] as $status) {
 }
 $owner = ['id' => 1, 'role' => 'member', 'chapter_id' => 3, 'account_status' => 'active'];
 $officer = ['id' => 2, 'role' => 'officer', 'chapter_id' => 2, 'account_status' => 'active'];
-$admin = ['id' => 3, 'role' => 'admin', 'chapter_id' => null, 'account_status' => 'active'];
+$admin = ['id' => 3, 'role' => 'admin', 'email'=>'markseejr@gmail.com', 'chapter_id' => null, 'account_status' => 'active'];
 RequestLifecycleService::assertCanEdit($owner, $request);
 check('Active owner retains edit permission', true);
 check('Same-chapter officer cannot edit another owner request', blocked(fn () => RequestLifecycleService::assertCanEdit($officer, $request), 403));
 check('Admin does not gain edit permission', blocked(fn () => RequestLifecycleService::assertCanEdit($admin, $request), 403));
 check('Inactive owner edit blocked', blocked(fn () => RequestLifecycleService::assertCanEdit(array_replace($owner, ['account_status' => 'deactivated']), $request), 403));
 check('Owner cancellation retains priority', RequestLifecycleService::cancellationMode($owner, $request) === 'owner');
-check('Same-chapter officer retains cancellation', RequestLifecycleService::cancellationMode($officer, $request) === 'officer');
+check('Legacy officer cannot cancel another request', blocked(fn()=>RequestLifecycleService::cancellationMode($officer,$request),403));
 check('Admin retains global cancellation', RequestLifecycleService::cancellationMode($admin, $request) === 'admin');
 check('Other member cancellation denied', blocked(fn () => RequestLifecycleService::cancellationMode(array_replace($officer, ['role' => 'member']), $request), 403));
 check('Cross-chapter officer cancellation denied', blocked(fn () => RequestLifecycleService::cancellationMode(array_replace($officer, ['chapter_id' => 1]), $request), 403));

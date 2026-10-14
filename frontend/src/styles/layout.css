@@ -707,3 +707,15 @@ button.mobile-link:hover:not(:disabled) {
   th, td { padding: 0.6rem var(--space-3); }
 }
 
+
+.nav-avatar-trigger:hover { border: none; box-shadow: none; background: transparent; }
+.nav-avatar-trigger:hover::after { display: none; }
+.nav-avatar-trigger:hover .avatar { filter: brightness(.9); transform: scale(1.04); }
+.nav-avatar-trigger .avatar { transition: transform .15s ease, filter .15s ease; }
+@media (prefers-reduced-motion: reduce) { .nav-avatar-trigger .avatar { transition: none; transform: none; } }
+
+button.nav-avatar-trigger:hover:not(:disabled) { background: transparent; border-color: transparent; box-shadow: none; }
+button.nav-icon-btn:hover:not(:disabled) { box-shadow: none; }
+
+button.nav-create-plain { background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-brand-navy); }
+button.nav-create-plain:hover:not(:disabled) { background: transparent; border-color: transparent; box-shadow: none; color: var(--color-brand-navy-hover); transform: scale(1.05); }

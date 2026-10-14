@@ -82,8 +82,8 @@ final class DonationReportController
             'match_status' => (string) $r['match_status'],
             'can_reject' => (int) $r['donor_id'] !== (int) $actor['id'],
             'can_confirm' => (int) $r['donor_id'] !== (int) $actor['id']
-                && (string) $r['request_status'] === 'OPEN' && (string) $r['match_status'] === 'RESPONDED'
-                && !\BloodMatch\Services\RequestService::hasDeadlinePassed($r)
+                && (string) $r['match_status'] === 'RESPONDED'
+                && (((string)$r['request_status']==='OPEN' && !\BloodMatch\Services\RequestService::hasDeadlinePassed($r)) || (in_array((string)$r['request_status'],['EXPIRED','FULFILLED','CANCELLED'],true) && $r['reported_at']<=$r['needed_datetime']))
                 && !DonationService::offerInvalid(['id'=>$r['match_id'],'generation'=>$r['match_generation']],
                     array_replace($r,['status'=>$r['request_status']]),(new \BloodMatch\Repositories\UserRepository())->findById((int)$r['donor_id'])),
         ], $rows)]);
@@ -108,7 +108,8 @@ final class DonationReportController
                 $actor,
                 (int) $params['id'],
                 $confirm,
-                Request::json()['rejection_reason'] ?? null
+                Request::json()['rejection_reason'] ?? null,
+                Request::json()['evidence_note'] ?? null
             );
         } catch (ValidationException $e) {
             Response::error($e->getMessage(), 400, $e->errors());
