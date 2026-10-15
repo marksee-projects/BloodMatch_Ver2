@@ -122,7 +122,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                 <dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd>
               </div>
               <div>
-                <dt>Needed by</dt>
+                <dt>{request.status === 'EXPIRED' ? 'Previous deadline' : 'Needed by'}</dt>
                 <dd>{formatNeededDate(request.needed_datetime, showNeededYear)}</dd>
               </div>
             </dl>

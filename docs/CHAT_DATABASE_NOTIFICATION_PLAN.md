@@ -1,8 +1,26 @@
 # Chat, database, and notification plan
 
-## Planned UI pass: Chat Reports, chat layout and shared navigation hover
+## Approved: compact report review and request-card actions
 
-Requested 15 October 2026. **Planning only for this pass; application styles/components have not been changed for these screenshots.** Use the existing navy/neutral design tokens, shared controls and current API/permission behavior.
+Approved and source-implemented 15 October 2026. Browser appearance/interaction acceptance remains open because no computer-use browser surface is enabled.
+
+- Chat Reports: visible list heading removed, compact toolbar, separate review view with Back to reports. Names now come from the protected evidence endpoint; missing names show Deleted account. Reference # is secondary, not the title. Evidence scrolls within a compact panel; report details and decisions appear beside it on desktop and below on narrow screens. Existing evidence auditing and conflict restrictions are preserved.
+- Profile request cards: compact equal-width action row, status badge no longer stretched, collapsed extension/closure forms, separate required New date and New time fields, Reason for closing dropdown and existing destructive confirmation. View request is grouped with actions. Local date/time is still converted to UTC and must be in the future.
+- Request donation follow-up / Request admin review removed from these cards. My Responses still offers Report completed donation and posts to /api/donation-reports for administrator verification. The existing follow-up backend endpoint was not removed or repurposed.
+- Moderation inspection: Resolve only saves report status/findings/resolution time and an audit entry. It does not apply warnings, chat restrictions or deactivation. UI now states this explicitly. No account penalty policy was implemented.
+- Validation: production build passed (existing nonfatal chunk warning); 29 static rendering checks passed; PHP syntax check passed; 68 isolated chat API assertions passed on bloodmatch_test, including names and evidence/conflict access. Test fixtures removed, test server stopped, environment restored. No application account or database cleanup/migration was performed.
+
+## Latest follow-up - 15 October 2026
+
+- User confirmed the notification test switches accounts in one browser. Only the authenticated account receives unread polling; signing back in loads that account's persisted unread messages. Simultaneous delivery needs separate browser/private-session stores. Messages fetched in an open visible thread are marked read by design.
+- Source updated: navigation unread polling now checks one account total every five seconds while visible (previously 30 seconds), with immediate focus/visibility/dropdown refresh and existing overlap/account isolation guards. This is polling, not server push; inactive/signed-out accounts are not monitored.
+- Source updated: chat fields use one inset focus outline with a transparent underlying border, removing the border-plus-detached-ring appearance. Hover retains one border.
+- Source updated: remove the visible Chats page heading, retain its screen-reader heading, remove the centered maximum width, and fill the space beneath the navigation with 8 px outer/pane gaps. The app shell reserves the actual navigation height with flex layout; only sidebar/history scroll.
+- Browser visual acceptance remains pending. This amendment supersedes the earlier centered-heading/bounded-width requirement for the dedicated chat page only.
+
+## Approved UI pass: Chat Reports, chat layout and shared navigation hover
+
+Requested and approved 15 October 2026. **Source implementation complete for items 1-9; browser acceptance remains pending.** The existing navy/neutral tokens, controls and permission rules are preserved. A send precondition now rejects a stale displayed account that differs from the authenticated sender. See [UI implementation results](CHAT_UI_IMPLEMENTATION_RESULTS.md) for changes, checks and remaining acceptance.
 
 Inspection: Chat Reports has header-only scoped styling; its status select is outside the shared `.field` wrapper, with the empty message, table header and pager rendered together. The dedicated chat page also contains bare inputs with incomplete local styling. Central navigation uses underline hover rules, the chat trigger uses module-specific rules, and the bell uses separate global rules. These overlapping/global styles must be traced in rendered states before attributing every reported double effect to a specific selector.
 
@@ -39,7 +57,7 @@ Inspection: Chat Reports has header-only scoped styling; its status select is ou
 
 ### 5. Profile tab placement and account deletion entry
 
-Added at the user request, 15 October; planning only. Inspection confirms the Expired posts/My requests section is rendered after the profile grid closes, so it appears as a full-width block below the About card instead of inside the main content column. `DeleteAccount` is also rendered unconditionally below that grid, producing the large Account settings block shown in the screenshot.
+Added at the user request, 15 October; implemented in this UI pass, with browser acceptance pending. Inspection confirms the Expired posts/My requests section is rendered after the profile grid closes, so it appears as a full-width block below the About card instead of inside the main content column. `DeleteAccount` is also rendered unconditionally below that grid, producing the large Account settings block shown in the screenshot.
 
 - Move Expired posts and My requests into the existing `profileContent` column, beside the About card and beneath the profile tab navigation. Match the Overview request area’s width, card styling, padding and vertical spacing. On narrow screens, stack the existing columns naturally.
 - Render only the active tab’s content. Keep `/profile?section=expired` navigation working, including expiry-notification links. Use the existing request-card pattern with a compact empty state and consistently styled deadline/closure/follow-up controls; retain backend lifecycle rules.
@@ -51,7 +69,7 @@ Added at the user request, 15 October; planning only. Inspection confirms the Ex
 
 ### 6. Create blood request modal spacing
 
-Added from the user's request-form screenshot, 15 October; planning only. Here, “progress bar” refers to the three-step Requirements / Facility & Location / Timing & Urgency indicator, not the notification dismissal bar.
+Added from the user's request-form screenshot, 15 October; implemented in this UI pass, with browser acceptance pending. Here, “progress bar” refers to the three-step Requirements / Facility & Location / Timing & Urgency indicator, not the notification dismissal bar.
 
 - Increase vertical separation between complete field groups, targeting 24 px between a textbox/select and the next field's label. Keep each label close to its own control (about 8 px) and use existing spacing tokens.
 - Give the three-step indicator its own breathing room and about 24 px between the step captions and the first field. Keep circles, connectors and captions aligned without enlarging the modal title/header.
@@ -61,7 +79,7 @@ Added from the user's request-form screenshot, 15 October; planning only. Here, 
 
 ### 7. Expired-post request cards and renewal controls
 
-Added from the expired-post screenshot, 15 October; planning only. Extend the profile placement work to the actual populated expired-request cards, not only the empty state.
+Added from the expired-post screenshot, 15 October; implemented in this UI pass, with browser acceptance pending. Extend the profile placement work to the actual populated expired-request cards, not only the empty state.
 
 - Reuse the established request-card visual pattern: blood-type block, readable facility/location, Expired status badge and a clearly labelled previous deadline. Long facility names must wrap without overlapping controls or widening the page.
 - Place each expired request in its own consistently padded card in the main profile content column. Separate request details, renewal form and secondary actions using the existing 16–24 px spacing rhythm; avoid one unstructured full-width block.
@@ -74,7 +92,7 @@ Added from the expired-post screenshot, 15 October; planning only. Extend the pr
 
 ### 8. Chat unread-badge investigation and refresh
 
-Added 15 October; planning/diagnosis only. The badge represents incoming unread messages, not messages the signed-in user has sent. Read-only metadata inspection of the Regular/Fire conversation (ID 6) currently found zero incoming unread for account 64 and two incoming unread for Fire account 137. No message bodies were inspected. An absent badge on the sender alone does not establish a badge failure; the recipient UI/API must be checked before classifying it.
+Added 15 October; diagnosis below is historical. Refresh/sender fixes are implemented; independent-browser acceptance is pending. The badge represents incoming unread messages, not messages the signed-in user has sent. Read-only metadata inspection of the Regular/Fire conversation (ID 6) currently found zero incoming unread for account 64 and two incoming unread for Fire account 137. No message bodies were inspected. An absent badge on the sender alone does not establish a badge failure; the recipient UI/API must be checked before classifying it.
 
 - Verify both accounts separately: the sender receives no extra unread count from sending; the recipient gets the incoming count on desktop/mobile navigation and the conversation row.
 - Current source refreshes the navigation total every 30 seconds, while an open floating conversation polls messages every three seconds. Opening the chat dropdown fetches conversation rows without explicitly refreshing the navigation total, so the row and badge can temporarily disagree. Trace actual API counts/state and read cursors before choosing the fix.
@@ -105,7 +123,7 @@ Added 15 October; planning/diagnosis only. Read-only metadata shows both current
 - [ ] CP9: Sender/recipient unread behavior verified end to end; recipient badge/row counts refresh consistently without list-only read marking or duplicate polling.
 - [ ] CP10: Actual sender identity, cross-tab account state and optimistic/persisted bubble alignment verified with independent login sessions on floating/full chat.
 
-Only documentation was edited for this planning request. No database changes, account changes or load testing are included. Browser rendering remains a verification dependency; source inspection alone does not complete these checkpoints.
+Implementation checkpoint, 15 October: items 1-9 are source-complete. Production build passed, 27 static rendering checks passed, management UI offline checks passed, and 67 isolated chat API checks passed against bloodmatch_test. The application database/accounts were not changed in this UI pass; disposable test fixtures were removed. No load test was run. The unchecked checkpoints above include visual/interaction acceptance and remain open because the computer-use tool exposes no browser surface (opening the in-app browser also failed). Source/API checks do not prove desktop/mobile rendering, keyboard layout, hover or cross-tab interaction.
 
 Notification/login follow-up, 15 October: `officeradmin24@gmail.com` is retained as active verified member ID 64; direct API login succeeds with its reset password from the private application account list. No additional password reset or authentication bypass was made. Shared notices now use a narrower surface, reduced vertical padding, a close button centered with the text, and a five-second progress bar that pauses with hover/focus (static under reduced motion). The dismissal timer and progress animation share one duration constant. Frontend production build passed; visual browser verification is pending because no browser surface is enabled.
 

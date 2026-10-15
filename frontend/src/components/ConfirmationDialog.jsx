@@ -59,7 +59,7 @@ export default function ConfirmationDialog({ open, title, children, confirmLabel
         {children && <div id={descriptionId} className={styles.description}>{children}</div>}
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <div className={styles.actions}>
-          <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>
+          {cancelLabel && <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>}
           <Button type="button" variant={destructive ? 'destructive' : 'primary'} disabled={confirmDisabled} isLoading={busy} onClick={onConfirm}>{confirmLabel}</Button>
         </div>
       </section>

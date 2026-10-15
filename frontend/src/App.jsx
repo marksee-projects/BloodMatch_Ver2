@@ -31,6 +31,7 @@ import ConfirmationsView from './pages/admin/views/ConfirmationsView'
 import DemandMapWidget from './components/DemandMapWidget'
 import { api } from './services/apiClient'
 import ConfirmationDialog from './components/ConfirmationDialog'
+import DeleteAccount from './components/DeleteAccount'
 import { useActionNoticeState, useNotify } from './context/NotificationContext'
 import { notificationDeepLink, notificationDisplayText, formatNotificationTime } from './services/notifications'
 import LandingPage from './pages/LandingPage'
@@ -76,6 +77,8 @@ export default function App() {
 function AppShell() {
   const notify = useNotify()
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
+  const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
+  const deleteReturnFocusRef = useRef(null)
   const seenNotifications = useRef(new Set())
   const notificationsInitialized = useRef(false)
   const openCreateRequest = useRequestCreation()
@@ -92,6 +95,16 @@ function AppShell() {
   const [availabilityWiggle, setAvailabilityWiggle] = useState(0)
   const [availabilityError, setAvailabilityError] = useActionNoticeState(null, 'error')
   const profileMenuRef = useRef(null)
+  const openDeleteAccount = event => {
+    deleteReturnFocusRef.current = event.currentTarget.closest('#mobile-panel')
+      ? document.querySelector('.hamburger [role="button"], .hamburger button')
+      : profileMenuRef.current?.querySelector('.nav-avatar-trigger')
+    setProfileMenuOpen(false); setMobileOpen(false); setDeleteAccountOpen(true)
+  }
+  const closeDeleteAccount = () => {
+    setDeleteAccountOpen(false)
+    window.requestAnimationFrame(() => deleteReturnFocusRef.current?.focus())
+  }
 
   useEffect(() => {
     if (!profileMenuOpen) return undefined
@@ -225,7 +238,7 @@ function AppShell() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={location.pathname === '/chat' ? 'app-shell app-shell--chat' : 'app-shell'}>
       <a href="#main-content" className="skip-link">Skip to main content</a>
       <header className="topbar">
         <div className="topbar-inner">
@@ -237,16 +250,16 @@ function AppShell() {
           </div>
 
           <nav className="nav nav--desktop" aria-label="Main Navigation">
-            <Link to="/" className={`nav-link ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined} title="Home">
+            <Link to="/" className={`nav-link nav-control ${isActive('/') ? 'active' : ''}`} aria-current={isActive('/') ? 'page' : undefined} title="Home">
               <House size={28} weight={isActive('/') ? 'fill' : 'regular'} />
             </Link>
             {user && (
-              <Link to="/matches" className={`nav-link ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} aria-label="Matches" title="Matches">
+              <Link to="/matches" className={`nav-link nav-control ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} aria-label="Matches" title="Matches">
                 <Users size={28} weight={isMatchesActive ? 'fill' : 'regular'} />
               </Link>
             )}
             {user && (
-              <Link to="/responses" className={`nav-link ${isResponsesActive ? 'active' : ''}`} aria-current={isResponsesActive ? 'page' : undefined} aria-label="My Responses" title="My Responses">
+              <Link to="/responses" className={`nav-link nav-control ${isResponsesActive ? 'active' : ''}`} aria-current={isResponsesActive ? 'page' : undefined} aria-label="My Responses" title="My Responses">
                 <HandHeart size={28} weight={isResponsesActive ? 'fill' : 'regular'} />
               </Link>
             )}
@@ -254,7 +267,7 @@ function AppShell() {
             {user?.role === 'admin' && (
               <Link
                 to="/admin/dashboard"
-                className={`nav-link ${isPortalActive || isActive('/officer') ? 'active' : ''}`}
+                className={`nav-link nav-control ${isPortalActive || isActive('/officer') ? 'active' : ''}`}
                 aria-current={isPortalActive || isActive('/officer') ? 'page' : undefined}
                 title="Admin/Officer Portal"
                 aria-label="Admin/Officer Portal"
@@ -271,7 +284,7 @@ function AppShell() {
                   <button
                     type="button"
                     onClick={openCreateRequest}
-                    className="nav-icon-btn nav-create-plain"
+                    className="nav-control nav-create-plain"
                     title="Create request"
                     aria-label="Create blood request"
                   >
@@ -362,6 +375,11 @@ function AppShell() {
                           <CaretRight size={16} className="dropdown-caret" />
                         </button>
 
+                        <button type="button" className="dropdown-menu-item" onClick={openDeleteAccount}>
+                          <div className="dropdown-icon-wrapper"><User size={20} /></div>
+                          <span className="dropdown-item-text">Delete account</span>
+                          <CaretRight size={16} className="dropdown-caret" />
+                        </button>
                         <button type="button" className="dropdown-menu-item" onClick={() => setLogoutConfirmOpen(true)}>
                           <div className="dropdown-icon-wrapper"><SignOut size={20} weight="fill" /></div>
                           <span className="dropdown-item-text">Log out</span>
@@ -380,7 +398,7 @@ function AppShell() {
                   <button
                     type="button"
                     onClick={openCreateRequest}
-                    className="nav-icon-btn nav-create-plain nav-icon-btn--mobile"
+                    className="nav-control nav-create-plain nav-icon-btn--mobile"
                     title="Create request"
                     aria-label="Create blood request"
                   >
@@ -437,6 +455,7 @@ function AppShell() {
                     </>
                   )}
 
+                  <button type="button" className="mobile-link" onClick={openDeleteAccount}>Delete account</button>
                   <div className="mobile-section-label">Session</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
                     <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} />
@@ -459,7 +478,7 @@ function AppShell() {
         )}
       </header>
 
-      <main id="main-content" className={isPortalActive ? 'main--portal' : (location.pathname === '/' && !user) ? 'main--landing' : 'container'}>
+      <main id="main-content" className={location.pathname === '/chat' ? 'main--chat' : isPortalActive ? 'main--portal' : (location.pathname === '/' && !user) ? 'main--landing' : 'container'}>
         {loading || isLoggingOut ? (
           <div className="card text-center" style={{ padding: 'var(--space-12) var(--space-8)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)', minHeight: '40vh', border: 'none', background: 'transparent' }}>
             <CircleNotch className="spinning" size={48} color="var(--color-brand-navy)" />
@@ -527,6 +546,7 @@ function AppShell() {
         )}
       </main>
       {location.pathname !== '/chat' && <FloatingChatContainer />}
+      {user && <DeleteAccount open={deleteAccountOpen} onClose={closeDeleteAccount} />}
       <ConfirmationDialog open={logoutConfirmOpen} title="Log out of BloodMatch?" confirmLabel="Log out" cancelLabel="Stay signed in"
         busy={isLoggingOut} onConfirm={handleLogout} onCancel={() => setLogoutConfirmOpen(false)} />
     </div>

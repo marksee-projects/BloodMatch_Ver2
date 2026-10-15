@@ -65,10 +65,10 @@ final class ChatReportsController
     public function detail(array $params): void {
         $a=$this->staff();$id=(int)$params['id'];
         $this->run(function() use($a,$id){
-            $p=Database::pdo();$s=$p->prepare('SELECT * FROM chat_reports WHERE id=?');$s->execute([$id]);$r=$s->fetch();if (!$r) throw new RuntimeException('Report not found.',404);
+            $p=Database::pdo();$s=$p->prepare('SELECT r.*,u.full_name AS reporter_name FROM chat_reports r LEFT JOIN users u ON u.id=r.reporter_id WHERE r.id=?');$s->execute([$id]);$r=$s->fetch();if (!$r) throw new RuntimeException('Report not found.',404);
             if ((int)$r['reporter_id']===(int)$a['id'] || ($r['conversation_id'] && (new ChatRepository())->isParticipant((int)$r['conversation_id'],(int)$a['id']))) throw new RuntimeException('Independent review is required for a report involving your account.',403);
             if (AuditLogger::log((int)$a['id'],'chat.report.evidence_accessed','chat_report',(string)$id,['purpose'=>'reported-conversation investigation'])===null) throw new RuntimeException('Evidence access could not be recorded. Try again later.',503);
-            $s=$p->prepare('SELECT message_id,sender_id,body,message_created_at,is_selected FROM chat_report_evidence WHERE report_id=? ORDER BY message_id');$s->execute([$id]);return ['report'=>$r,'evidence'=>$s->fetchAll()];
+            $s=$p->prepare('SELECT e.message_id,e.sender_id,e.body,e.message_created_at,e.is_selected,u.full_name AS sender_name FROM chat_report_evidence e LEFT JOIN users u ON u.id=e.sender_id WHERE e.report_id=? ORDER BY e.message_id');$s->execute([$id]);return ['report'=>$r,'evidence'=>$s->fetchAll()];
         });
     }
     public function decide(array $params): void {

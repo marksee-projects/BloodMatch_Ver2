@@ -1,0 +1,8 @@
+.page { width: 100%; max-width: 640px; margin: 0 auto; }
+.formCard.formCard { padding: var(--space-5) var(--space-6) var(--space-4); }
+.stepper.stepper { padding-top: var(--space-3); margin-bottom: var(--space-5); }
+.step { display: grid; gap: var(--space-5); }
+.step :global(.field) { gap: var(--space-3); }
+.step > :global(.field) + :global(.field) { margin-top: 0; }
+.footer { flex-wrap: wrap; gap: var(--space-4); }
+@media(max-width:640px) { .formCard.formCard { padding-inline: var(--space-4); } }

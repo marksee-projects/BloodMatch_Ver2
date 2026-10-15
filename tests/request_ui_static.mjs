@@ -211,4 +211,78 @@ check('Pending cancellation disables both popup actions; failure remains visible
   const failed = renderToStaticMarkup(h(ConfirmationDialog, { ...props, error: 'Unable to cancel. Try again.' }))
   assert.ok(failed.includes('role="alert"')); assert.ok(failed.includes('Unable to cancel. Try again.')); assert.ok(!failed.includes('disabled=""'))
 })
+
+const DeleteAccount = await loadPage('../components/DeleteAccount')
+const ChatReportsView = await loadPage('admin/views/ChatReportsView')
+check('Expired profile tab renders renewal cards inside the profile content column', () => {
+  const originalState = React.useState
+  React.useState = initial => { const state = originalState(initial); return initial === 'overview' ? ['expired', state[1]] : state }
+  try {
+    const html = render(ProfilePage, '/profile', [], null, undefined, { profile, reports: [], requests: [{...request, status: 'EXPIRED'}] })
+    assert.ok(html.indexOf('class="profileContent"') < html.indexOf('id="request-history-heading"'))
+    assert.ok(html.includes('Renew request') && html.includes('Previous deadline'))
+    assert.ok(!html.includes('type="date"') && !html.includes('type="time"'))
+    assert.ok(!html.includes('Request donation follow-up') && html.includes('View request'))
+    assert.ok(!html.includes('Account settings') && !html.includes('Delete account'))
+    assert.equal((html.match(/id="request-history-heading"/g) || []).length, 1)
+  } finally { React.useState = originalState }
+})
+check('Expired profile tab has one compact empty state and no renewal form when empty', () => {
+  const originalState = React.useState
+  React.useState = initial => { const state = originalState(initial); return initial === 'overview' ? ['expired', state[1]] : state }
+  try {
+    const html = render(ProfilePage, '/profile', [], null, undefined, { profile, reports: [], requests: [] })
+    assert.ok(html.includes('No expired requests.')); assert.ok(!html.includes('Renew request'))
+  } finally { React.useState = originalState }
+})
+check('Account deletion is a controlled dialog, preserves identity fields and starts disabled', () => {
+  globalThis.requestUiUser = {id:7, role:'member'}
+  const show = open => renderToStaticMarkup(h(MemoryRouter, null, h(DeleteAccount, {open, onClose:()=>{}})))
+  assert.equal(show(false), '')
+  const html = show(true)
+  for (const text of ['role="alertdialog"', 'Current password', 'Type DELETE to confirm', 'Keep account']) assert.ok(html.includes(text), text)
+  assert.ok(html.includes('disabled=""') && html.includes('>Delete account</button>'))
+})
+check('Sole administrator deletion dialog offers explanation without deletion inputs', () => {
+  globalThis.requestUiUser = {id:3, role:'admin'}
+  const html = renderToStaticMarkup(h(MemoryRouter, null, h(DeleteAccount, {open:true, onClose:()=>{}})))
+  assert.ok(html.includes('Administrator responsibility must be transferred'))
+  assert.ok(html.includes('Understood')); assert.ok(!html.includes('Current password') && !html.includes('Keep editing'))
+})
+check('Chat Reports loading does not display an empty table or pagination', () => {
+  const html = renderToStaticMarkup(h(ChatReportsView))
+  assert.ok(html.includes('Loading reports...')); assert.ok(!html.includes('<table') && !html.includes('Report pages'))
+})
+check('Chat Reports empty view renders one empty state without table or pager', () => {
+  const originalState = React.useState
+  React.useState = initial => { const state = originalState(initial); return initial === true ? [false,state[1]] : state }
+  try {
+    const html = renderToStaticMarkup(h(ChatReportsView))
+    assert.ok(html.includes('No reports in this view')); assert.ok(!html.includes('<table') && !html.includes('Report pages'))
+  } finally { React.useState = originalState }
+})
+
+const RequestHistoryActions = await loadPage('../components/RequestHistoryActions')
+check('Expanded extension uses separate required date and time fields; closure uses a labelled reason', () => {
+  const originalState = React.useState
+  try {
+    for (const mode of ['renew', 'close']) {
+      React.useState = initial => { const state = originalState(initial); return initial === null ? [mode,state[1]] : state }
+      const html = renderToStaticMarkup(h(MemoryRouter, null, h(RequestHistoryActions, {request, onSaved:()=>{}})))
+      if (mode === 'renew') { assert.ok(html.includes('type="date"') && html.includes('type="time"')); assert.ok(html.includes('New date') && html.includes('New time')); assert.ok(!html.includes('<select')) }
+      else { assert.ok(html.includes('Reason for closing')); assert.ok(html.includes('Need met elsewhere')); assert.ok(!html.includes('type="date"')) }
+      assert.ok(!html.includes('follow-up'))
+    }
+  } finally { React.useState = originalState }
+})
+check('Report review replaces the list, uses names and preserves labelled evidence', () => {
+  const originalState = React.useState
+  const detail = {report:{id:1, reporter_id:7, reporter_name:'Reporter Name',status:'open',reason:'Reason text',created_at:'2026-10-15 00:00:00'}, evidence:[{message_id:9,sender_id:8,sender_name:'Member Name',body:'Reported body',is_selected:1,message_created_at:'2026-10-15 00:00:00'},{message_id:8,sender_id:7,sender_name:'Reporter Name',body:'Context body',is_selected:0,message_created_at:'2026-10-15 00:00:00'}]}
+  React.useState = initial => { const state = originalState(initial); return initial === null ? [detail,state[1]] : state }
+  try {
+    const html = renderToStaticMarkup(h(ChatReportsView))
+    for (const text of ['Back to reports','Review conversation','Reference #1','Member Name','Reporter Name','Reported body','Context body','does not change account access']) assert.ok(html.includes(text),text)
+    assert.ok(!html.includes('Account #') && !html.includes('<table') && !html.includes('chat-report-filter'))
+  } finally { React.useState = originalState }
+})
 console.log(`${passed} static checks passed. Browser interactions and backend behavior were not exercised.`)

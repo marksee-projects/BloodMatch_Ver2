@@ -1,5 +1,4 @@
 import RequestHistoryActions from '../components/RequestHistoryActions'
-import DeleteAccount from '../components/DeleteAccount'
 import { useActionNoticeState } from '../context/NotificationContext'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -398,6 +397,14 @@ export default function ProfilePage() {
         </aside>
 
         <div className={styles.profileContent}>
+          {['expired','requests'].includes(activeSection) && <section className={styles.activitySection} aria-labelledby="request-history-heading">
+            <div className={styles.cardHeader}><h2 id="request-history-heading">{activeSection === 'expired' ? 'Expired posts' : 'My requests'}</h2></div>
+            {!requestHistory.some(r => activeSection !== 'expired' || r.status === 'EXPIRED') ? <Card className={styles.compactCard}><p className={styles.emptyText}>{activeSection === 'expired' ? 'No expired requests.' : 'No requests yet.'}</p></Card> : requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(request => <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{...request, requester_name: profile.full_name, requester_chapter_name: profile.chapter_name, requester_profile_picture_url: profile.profile_picture_url, requester_verification_status: profile.verification_status}}>
+              <div className={styles.postCounts}><Badge variant={request.status === 'OPEN' ? 'brand' : 'neutral'}>{titleCase(request.status)}</Badge></div>
+              <RequestHistoryActions request={request} onSaved={handleRequestSaved} />
+            </FeedCard>)}
+          </section>}
+
           {activeSection === 'edit' && (
             <div>
               <Card className={styles.personalCard}>
@@ -549,8 +556,6 @@ export default function ProfilePage() {
         </div>
       </main>
 
-      {['expired','requests'].includes(activeSection) && <section className="card"><h2>{activeSection === 'expired' ? 'Expired posts' : 'My requests'}</h2>{requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(r => <article key={r.id}><h3>{r.required_blood_type} &middot; {r.facility_name}</h3><p>{r.status} &middot; Needed by {new Date(r.needed_datetime.replace(' ', 'T') + 'Z').toLocaleString()}</p><RequestHistoryActions request={r} onSaved={refetch} /></article>)}{!requestHistory.some(r => activeSection !== 'expired' || r.status === 'EXPIRED') && <p>No requests here.</p>}</section>}
-      <DeleteAccount />
       <RequestFormModal open={Boolean(editingRequestId)} id={editingRequestId} onSuccess={handleRequestSaved} onClose={closeRequestForm} />
       <ConfirmationDialog open={Boolean(cancelTarget)} title="Cancel this blood request?" confirmLabel="Cancel request" cancelLabel="Keep request"
         destructive busy={cancelling} error={cancelError} onConfirm={cancelRequest} onCancel={() => { if (!cancelBusyRef.current) setCancelTarget(null) }}>

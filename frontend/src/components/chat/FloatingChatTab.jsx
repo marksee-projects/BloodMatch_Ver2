@@ -158,7 +158,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
     scrollToBottom(true)
 
     try {
-      const res = await api.post(`/api/chat/conversations/${conversationId}/messages`, { body: text })
+      const res = await api.post(`/api/chat/conversations/${conversationId}/messages`, { body: text, expected_sender_id: Number(user?.id) })
       if (res?.message) {
         setMessages((prev) =>
           [...prev.filter((m) => m.id !== tempId && m.id !== res.message.id), res.message]
@@ -200,6 +200,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
     try {
       const res = await api.post(`/api/chat/conversations/${conversationId}/messages`, {
         body: cleanText,
+        expected_sender_id: Number(user?.id),
       })
       if (res?.message) {
         setMessages((prev) =>
@@ -323,7 +324,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
               </div>
             ) : (
               messages.map((m) => {
-                const isSentByMe = m.sender_id === user?.id
+                const isSentByMe = Number(m.sender_id) === Number(user?.id)
                 return (
                   <div
                     key={m.id}
@@ -380,7 +381,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
             <input
               ref={inputRef}
               type="text"
-              className={styles.chatInput}
+              className={`chat-control ${styles.chatInput}`}
               placeholder="Type a message…"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}

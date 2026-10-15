@@ -5,33 +5,7 @@
   flex: none;
 }
 
-.triggerBtn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  border-radius: var(--radius-md, 12px);
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--color-text-muted, #64748b);
-  cursor: pointer;
-  transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
-  flex: none;
-}
-
-.triggerBtn:hover:not(:disabled) {
-  color: var(--color-text, #0f172a);
-  background: var(--color-surface-hover, rgba(15, 23, 42, 0.06));
-  border-color: var(--color-border, rgba(15, 23, 42, 0.12));
-}
-
-.triggerBtn:focus-visible {
-  outline: 2px solid var(--color-focus-ring, #020066);
-  outline-offset: 2px;
-}
+.triggerBtn { position: relative; }
 
 .badge {
   position: absolute;
@@ -104,23 +78,7 @@
   pointer-events: none;
 }
 
-.searchInput {
-  width: 100%;
-  padding: 8px 12px 8px 32px;
-  border-radius: 20px;
-  border: 1px solid var(--color-border, rgba(15, 23, 42, 0.12));
-  background: var(--color-bg, #f1f5f9);
-  font-family: var(--font-sans, '"Inter", system-ui, sans-serif');
-  font-size: 0.8125rem;
-  color: var(--color-text, #0f172a);
-  outline: none;
-  transition: border-color 0.15s ease, background 0.15s ease;
-}
-
-.searchInput:focus {
-  border-color: var(--color-brand-navy, #020066);
-  background: var(--color-surface, #ffffff);
-}
+.searchInput { padding-left: var(--space-6) !important; }
 
 .listArea {
   flex: 1;
@@ -269,8 +227,3 @@
 @media (prefers-reduced-motion: reduce) {
   .triggerBtn, .searchInput, .convItem { transition: none; }
 }
-
-.searchInput:hover { border-color: var(--color-border-hairline); box-shadow: none; }
-.searchInput:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-
-input.searchInput.searchInput:hover { border-color: var(--color-border-hairline); box-shadow: none; }

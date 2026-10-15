@@ -111,6 +111,11 @@ final class ChatController
     public function sendMessage(array $params): void
     {
         $actor = self::requireChatUser(self::ENDPOINT . '.send');
+        $expectedSenderId = Request::int('expected_sender_id');
+        if ($expectedSenderId !== null && $expectedSenderId !== (int) $actor['id']) {
+            Response::error('Your signed-in account changed. Refresh the page before sending.', 409);
+            return;
+        }
         $conversationId = (int) ($params['id'] ?? 0);
 
         if ($conversationId <= 0) {

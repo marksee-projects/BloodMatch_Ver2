@@ -79,6 +79,7 @@ try {
     }
     Check ((Call $outsider 'GET' "/api/chat/conversations/$id/messages").status -eq 403) 'nonparticipant member cannot read private chat'
     Check ((Call $a 'POST' "/api/chat/conversations/$id/messages" @{body='No CSRF'} $false).status -eq 403) 'sending requires CSRF'
+    Check ((Call $a 'POST' "/api/chat/conversations/$id/messages" @{body='Stale displayed account';expected_sender_id=$fixture.accounts.outsider.id}).status -eq 409) 'stale displayed account cannot send under another session identity'
     $sent=Call $a 'POST' "/api/chat/conversations/$id/messages" @{body='Hello from A';sender_id=$fixture.accounts.outsider.id}
     Check ($sent.status -eq 200 -and $sent.data.message.sender_id -eq $fixture.accounts.a.id) 'sender identity comes from session'
     $first=[int]$sent.data.message.id
@@ -103,6 +104,7 @@ try {
         $reportId=[int]$report.data.report_id
         $evidence=Call $admin 'GET' "/api/admin/chat-reports/$reportId"
         Check ($evidence.status -eq 200 -and @($evidence.data.evidence).Count -eq 2 -and @($evidence.data.evidence | Where-Object { $_.is_selected -eq 1 }).Count -eq 1) 'administrator sees selected evidence and bounded adjacent context'
+        Check (-not [string]::IsNullOrWhiteSpace($evidence.data.report.reporter_name) -and @($evidence.data.evidence | Where-Object { [string]::IsNullOrWhiteSpace($_.sender_name) }).Count -eq 0) 'authorized evidence identifies reporter and message senders by name'
         Check ((Call $admin 'POST' "/api/admin/chat-reports/$reportId/decision" @{status='under_review';findings='Owned fixture investigation'}).status -eq 200) 'administrator can record an investigation'
         Check ((Call $admin 'POST' "/api/admin/chat-reports/$reportId/decision" @{status='resolved';findings='Owned fixture resolved'}).status -eq 200) 'administrator can resolve a report'
         Check ((Call $admin 'POST' "/api/admin/chat-reports/$reportId/decision" @{status='dismissed';findings='Duplicate fixture decision'}).status -eq 409) 'resolved reports reject duplicate decisions'

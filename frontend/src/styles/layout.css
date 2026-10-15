@@ -21,6 +21,9 @@
   max-width: 100%;
   padding-block: var(--space-2);
 }
+.app-shell--chat { height: 100dvh; min-height: 0; overflow: hidden; }
+.app-shell--chat > .topbar { flex-shrink: 0; }
+.main--chat { flex: 1; min-height: 0; width: 100%; padding: var(--space-3); display: flex; flex-direction: column; overflow: hidden; }
 /* Wide page shell: page-level containers use the viewport width with
    controlled gutters. Inner reading widths (hero text, forms, modals)
    keep their own constraints. `.narrow` auth/form cards stay centered. */
@@ -247,18 +250,17 @@ main.container > .container:not(.narrow) {
   font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: -0.01em;
-  padding: 0.35rem 0 0.4rem;
+  padding: 0;
   border-bottom: 1.5px solid transparent;
   transition: color var(--transition-fast), border-color var(--transition-fast), opacity var(--transition-fast);
   white-space: nowrap;
   line-height: 1;
-  border-radius: 0;
+  border-radius: var(--radius-md);
   background: transparent;
 }
 .nav-link:hover {
   color: var(--color-text);
   text-decoration: none;
-  border-bottom-color: var(--color-border-strong);
 }
 .nav-link.active,
 .nav-link[aria-current="page"] {
@@ -717,22 +719,13 @@ button.mobile-link:hover:not(:disabled) {
 button.nav-avatar-trigger:hover:not(:disabled) { background: transparent; border-color: transparent; box-shadow: none; }
 button.nav-icon-btn:hover:not(:disabled) { box-shadow: none; }
 
-button.nav-create-plain { background: transparent; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--color-text-muted); }
-button.nav-create-plain:hover:not(:disabled) { background: var(--color-surface-hover); border-color: var(--color-border); box-shadow: none; color: var(--color-text); transform: none; }
-button.nav-create-plain:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-
-.nav-create-plain > svg, .notif-bell > svg {
-  transition: transform var(--transition-fast);
-}
-
-@media (hover: hover) and (prefers-reduced-motion: no-preference) {
-  .nav-create-plain:hover:not(:disabled) > svg, .notif-bell:hover:not(:disabled) > svg {
-    transform: translateY(-1px) scale(1.05);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  button.nav-create-plain, .nav-create-plain > svg, .notif-bell, .notif-bell > svg {
-    transition: none;
-  }
-}
+/* Shared navigation interaction surface. */
+.nav-control { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; min-height: 44px; padding: 0; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--color-text-muted); cursor: pointer; text-decoration: none; flex: none; transition: color var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast); }
+:is(button,a).nav-control:hover:not(:disabled) { color: var(--color-text); background: var(--color-surface-hover); border-color: var(--color-border); box-shadow: none; transform: none; text-decoration: none; opacity: 1; }
+.nav-control:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.nav-control > svg { transition: transform var(--transition-fast); }
+.nav-link.active::after, .nav-link[aria-current='page']::after { content: ''; position: absolute; bottom: -6px; left: var(--space-3); right: var(--space-3); height: 2px; background: var(--color-brand-navy); }
+.nav-link.active, .nav-link[aria-current='page'] { border-color: transparent; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) { .nav-control:hover:not(:disabled) > svg { transform: translateY(-1px) scale(1.05); } }
+@media (prefers-reduced-motion: reduce) { .nav-control, .nav-control > svg { transition: none; } }
+@media (min-width: 1024px) { .nav-control.nav-icon-btn--mobile { display: none; } }

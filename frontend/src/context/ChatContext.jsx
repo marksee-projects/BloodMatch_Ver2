@@ -6,7 +6,8 @@ import { useNotify } from './NotificationContext'
 const ChatContext = createContext(null)
 
 const MAX_DESKTOP_TABS = 3
-const UNREAD_POLL_INTERVAL_MS = 30000
+// One lightweight total for the signed-in account, not one poll per conversation.
+const UNREAD_POLL_INTERVAL_MS = 5000
 
 function tabLimit() {
   return Math.max(1, Math.min(MAX_DESKTOP_TABS, Math.floor((window.innerWidth - 32) / 344)))
@@ -75,10 +76,12 @@ export function ChatProvider({ children }) {
       }
     }
     document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('focus', onVisibilityChange)
 
     return () => {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', onVisibilityChange)
+      window.removeEventListener('focus', onVisibilityChange)
     }
   }, [user, canChat, fetchUnreadCount])
 

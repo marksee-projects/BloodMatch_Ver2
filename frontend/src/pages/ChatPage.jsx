@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
 import { useNotify } from '../context/NotificationContext'
 import { Button } from '../components/ui/Button'
+import { ChatCircleDots, MagnifyingGlass, User } from '@phosphor-icons/react'
 import styles from './ChatPage.module.css'
 
 export default function ChatPage() {
@@ -64,12 +65,12 @@ function ChatWorkspace() {
       if (document.hidden || inFlight.current) return
       inFlight.current = true
       try {
-        const data = await api.get(`/api/chat/conversations/${thread.id}/messages?limit=100&after_id=${pollCursor.current}`)
+        const data = await api.get(`/api/chat/conversations/${thread.id}/messages?limit=100${pollCursor.current ? '&after_id=' + pollCursor.current : ''}`)
         if (!active) return
-        const rows = data.messages || []; const area = messageArea.current; const follow = !area || area.scrollHeight - area.scrollTop - area.clientHeight < 80; setMessages(current => [...new Map([...current, ...rows].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id))
+        const rows = data.messages || []; if (!pollCursor.current) setHasOlder(rows.length === 100); const area = messageArea.current; const follow = !area || area.scrollHeight - area.scrollTop - area.clientHeight < 80; setMessages(current => [...new Map([...current, ...rows].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id))
         if (follow) window.requestAnimationFrame(() => { if (active && messageArea.current) messageArea.current.scrollTop = messageArea.current.scrollHeight })
         if (rows.length) pollCursor.current = Math.max(pollCursor.current, rows.at(-1).id)
-        if (pollCursor.current > readCursor.current) { const fetchedId = pollCursor.current; await api.post(`/api/chat/conversations/${thread.id}/read`, { last_message_id: fetchedId }); if (!active) return; readCursor.current = fetchedId; await fetchUnreadCount() }
+        if (!document.hidden && pollCursor.current > readCursor.current) { const fetchedId = pollCursor.current; await api.post(`/api/chat/conversations/${thread.id}/read`, { last_message_id: fetchedId }); if (!active) return; readCursor.current = fetchedId; await fetchUnreadCount() }
       } catch (e) { if (active) setError(e.message) }
       finally { inFlight.current = false }
     }
@@ -79,7 +80,10 @@ function ChatWorkspace() {
   const older = async () => {
     if (busy || !messages.length) return
     setBusy(true)
-    try { const r = await api.get(`/api/chat/conversations/${thread.id}/messages?before_id=${messages[0].id}&limit=100`); if (!mounted.current) return; const rows = r.messages || []; setHasOlder(rows.length === 100); setMessages(current => [...new Map([...rows, ...current].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id)) }
+    const area = messageArea.current
+    const previousHeight = area?.scrollHeight || 0
+    const previousTop = area?.scrollTop || 0
+    try { const r = await api.get(`/api/chat/conversations/${thread.id}/messages?before_id=${messages[0].id}&limit=100`); if (!mounted.current) return; const rows = r.messages || []; setHasOlder(rows.length === 100); setMessages(current => [...new Map([...rows, ...current].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id)); window.requestAnimationFrame(() => { if (mounted.current && area === messageArea.current) area.scrollTop = previousTop + area.scrollHeight - previousHeight }) }
     catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
     finally { if (mounted.current) setBusy(false) }
   }
@@ -93,7 +97,7 @@ function ChatWorkspace() {
   const send = async (event) => {
     event.preventDefault(); if (busy || !body.trim()) return
     setBusy(true)
-    try { const r = await api.post(`/api/chat/conversations/${thread.id}/messages`, { body }); if (!mounted.current) return; setMessages(rows => [...rows.filter(m => m.id !== r.message.id), r.message].sort((a,b) => a.id-b.id)); setBody('') }
+    try { const r = await api.post(`/api/chat/conversations/${thread.id}/messages`, { body, expected_sender_id: Number(user.id) }); if (!mounted.current) return; setMessages(rows => [...rows.filter(m => m.id !== r.message.id), r.message].sort((a,b) => a.id-b.id)); setBody('') }
     catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
     finally { if (mounted.current) setBusy(false) }
   }
@@ -104,30 +108,36 @@ function ChatWorkspace() {
     catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
     finally { if (mounted.current) setBusy(false) }
   }
-  if (!canChat) return <p>Complete account verification before using chat.</p>
+  if (!canChat) return <section className={styles.page}><h1>Chats</h1><p className={styles.empty}>Complete account verification before using chat.</p></section>
+  const filtered = conversations.filter(c => c.recipient?.full_name?.toLowerCase().includes(search.trim().toLowerCase()))
   return <section className={styles.page}>
-    <h1>Chats</h1>
-    {error && <div role="alert">{error}<Button onClick={load}>Retry</Button></div>}
+    <h1 className="sr-only">Chats</h1>
+    {error && <div className={styles.error} role="alert"><span>{error}</span><Button variant="secondary" onClick={load}>Retry</Button></div>}
     <div className={styles.layout}>
-      <aside className={`${styles.list} ${thread ? styles.hideOnMobile : ''}`}>
-        <label htmlFor="chat-search">Search chats</label><input id="chat-search" value={search} onChange={e => setSearch(e.target.value)} />
-        <h2>Message requests</h2>
-        {!requests.length && <p>No pending requests.</p>}
-        {requests.map(r => <div className={styles.request} key={r.id}><strong>{Number(r.sender_id) === Number(user.id) ? r.recipient_name : r.sender_name}</strong>
-          <div className={styles.actions}>{Number(r.recipient_id) === Number(user.id) ? <><Button disabled={busy} onClick={() => decide(r.id, 'accept')}>Accept</Button><Button variant="secondary" disabled={busy} onClick={() => decide(r.id, 'decline')}>Decline</Button></> : <Button variant="secondary" disabled={busy} onClick={() => decide(r.id, 'cancel')}>Cancel request</Button>}</div>
-        </div>)}
-        <h2>Conversations</h2>
-        {!conversations.length && <p>No accepted conversations.</p>}
-        {conversations.filter(c => c.recipient?.full_name?.toLowerCase().includes(search.toLowerCase())).map(c => <button className={styles.conversation} key={c.id} onClick={() => { setThread(c); navigate(`/chat?conversation=${c.id}`) }} aria-pressed={thread?.id === c.id}>{c.recipient?.full_name}{c.unread_count > 0 && ` (${c.unread_count} unread)`}</button>)}
+      <aside className={styles.list + (thread ? ' ' + styles.hideOnMobile : '')}>
+        <div className={styles.search}><label className="sr-only" htmlFor="chat-search">Search chats</label><MagnifyingGlass size={18} aria-hidden="true" /><input className="chat-control" id="chat-search" placeholder="Search chats..." value={search} onChange={e => setSearch(e.target.value)} /></div>
+        <div className={styles.sidebarScroll}>
+          <section className={styles.listSection}><h2>Message requests <span>{requests.length}</span></h2>
+            {!requests.length && <p className={styles.hint}>No pending requests.</p>}
+            {requests.map(r => <div className={styles.request} key={r.id}><strong>{Number(r.sender_id) === Number(user.id) ? r.recipient_name : r.sender_name}</strong><small>{Number(r.recipient_id) === Number(user.id) ? 'Wants to chat with you' : 'Waiting for acceptance'}</small>
+              <div className={styles.actions}>{Number(r.recipient_id) === Number(user.id) ? <><Button disabled={busy} onClick={() => decide(r.id, 'accept')}>Accept</Button><Button variant="secondary" disabled={busy} onClick={() => decide(r.id, 'decline')}>Decline</Button></> : <Button variant="secondary" disabled={busy} onClick={() => decide(r.id, 'cancel')}>Cancel request</Button>}</div>
+            </div>)}
+          </section>
+          <section className={styles.listSection}><h2>Conversations</h2>
+            {!filtered.length && <p className={styles.hint}>{search ? 'No chats match your search.' : 'No accepted conversations.'}</p>}
+            {filtered.map(c => <button type="button" className={styles.conversation} key={c.id} onClick={() => navigate('/chat?conversation=' + c.id)} aria-pressed={Number(thread?.id) === Number(c.id)}><span className={styles.avatar}><User size={22} aria-hidden="true" /></span><span className={styles.identity}><strong>{c.recipient?.full_name}</strong><small>{c.last_message?.body || 'Start the conversation'}</small></span>{c.unread_count > 0 && <span className={styles.unread} aria-label={c.unread_count + ' unread'}>{c.unread_count > 99 ? '99+' : c.unread_count}</span>}</button>)}
+          </section>
+        </div>
       </aside>
-      <div className={styles.thread}>
-        {!thread ? <p>Select a conversation.</p> : <><div className={styles.actions}><h2>{thread.recipient?.full_name}</h2><Button variant="secondary" onClick={() => { setThread(null); navigate('/chat') }}>Back to chats</Button><Button variant="secondary" onClick={() => setReporting(!reporting)}>Report conversation</Button></div>
-          <Button variant="secondary" disabled={busy || !messages.length || !hasOlder} onClick={older}>Load older messages</Button>
-          <div ref={messageArea} className={styles.messages}>{messages.map(m => <div key={m.id} className={Number(m.sender_id) === Number(user.id) ? styles.own : styles.message}>
-            {reporting && <input type="checkbox" aria-label={`Select message from ${m.sender_name}: ${m.body.slice(0, 120)}`} checked={selected.includes(m.id)} onChange={e => setSelected(ids => e.target.checked ? [...ids, m.id] : ids.filter(id => id !== m.id))} />}
-            <strong>{m.sender_name}</strong><p>{m.body}</p><small>{formatNotificationTime(m.created_at)}</small>
+      <div className={styles.thread + (!thread ? ' ' + styles.emptyThread : '')}>
+        {!thread ? <div className={styles.empty}><ChatCircleDots size={40} aria-hidden="true" /><h2>Select a conversation</h2></div> : <>
+          <header className={styles.threadHeader}><div className={styles.person}><span className={styles.avatar}><User size={22} aria-hidden="true" /></span><h2>{thread.recipient?.full_name}</h2></div><div className={styles.actions}><Button variant="secondary" onClick={() => navigate('/chat')}>Back to chats</Button><Button variant="secondary" onClick={() => setReporting(!reporting)}>{reporting ? 'Cancel report' : 'Report'}</Button></div></header>
+          <div className={styles.historyAction}><Button variant="secondary" disabled={busy || !messages.length || !hasOlder} onClick={older}>Load older messages</Button></div>
+          <div ref={messageArea} className={styles.messages} aria-label="Conversation messages">{!messages.length && <p className={styles.hint}>No messages yet.</p>}{messages.map(m => <div key={m.id} className={Number(m.sender_id) === Number(user.id) ? styles.own : styles.message}>
+            {reporting && <label className={styles.messageSelection}><input type="checkbox" aria-label={'Select message from ' + m.sender_name} checked={selected.includes(m.id)} disabled={!selected.includes(m.id) && selected.length >= 10} onChange={e => setSelected(ids => e.target.checked ? [...ids, m.id] : ids.filter(id => id !== m.id))} /> Select message</label>}
+            <p className={styles.bubble}>{m.body}</p><small>{formatNotificationTime(m.created_at)}</small>
           </div>)}</div>
-          {reporting ? <form onSubmit={report}><label htmlFor="report-reason">Report reason</label><input id="report-reason" required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /><p>Choose up to 10 messages. Relevant context will be shared with the administrator.</p><Button type="submit" disabled={busy || !selected.length || selected.length > 10}>Submit report</Button></form> : <form className={styles.actions} onSubmit={send}><label className="sr-only" htmlFor="chat-message">Message</label><input id="chat-message" maxLength={2000} value={body} onChange={e => setBody(e.target.value)} /><Button type="submit" disabled={busy || !body.trim()}>Send</Button></form>}
+          {reporting ? <form className={styles.reportForm} onSubmit={report}><div className="field"><label htmlFor="report-reason">Report reason</label><input className="chat-control" id="report-reason" required maxLength={500} value={reason} onChange={e => setReason(e.target.value)} /></div><small>{selected.length}/10 selected. Necessary context is shared with the administrator.</small><div><Button type="submit" disabled={busy || !selected.length || selected.length > 10}>Submit report</Button></div></form> : <form className={styles.composer} onSubmit={send}><label className="sr-only" htmlFor="chat-message">Message</label><input className="chat-control" id="chat-message" placeholder="Type a message..." maxLength={2000} value={body} onChange={e => setBody(e.target.value)} /><Button type="submit" disabled={busy || !body.trim()}>Send</Button></form>}
         </>}
       </div>
     </div>

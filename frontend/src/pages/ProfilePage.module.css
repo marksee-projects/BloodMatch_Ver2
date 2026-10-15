@@ -41,7 +41,7 @@
 .requestPost h3 { margin: 0; font-size: var(--text-h3); overflow-wrap: anywhere; }
 .postLocation { margin: var(--space-2) 0 var(--space-4); color: var(--color-text-secondary); font-size: var(--text-sm); }
 .postMeta { margin: var(--space-2) 0; color: var(--color-text-muted); font-size: var(--text-sm); }
-.postCounts { display: grid; gap: var(--space-2); padding: var(--space-4) 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
+.postCounts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-4) 0; color: var(--color-text-secondary); font-size: var(--text-sm); }
 .requestCardActions { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: var(--space-3); }
 .editRequest { grid-column: 1; justify-self: start; }
 .viewMatches { grid-column: 2; justify-self: center; }

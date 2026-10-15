@@ -2,6 +2,18 @@
    Forms: clearer hierarchy, mono labels, better errors
    ========================================================================== */
 .form { display: flex; flex-direction: column; gap: var(--space-4); }
+.chat-control.chat-control {
+  width: 100%; min-width: 0; min-height: 44px; padding: var(--space-3) var(--space-4);
+  font: inherit; color: var(--color-text); background: var(--color-surface-sunken);
+  border: 1px solid var(--color-border); border-radius: var(--radius-control);
+  box-shadow: none; outline: none; color-scheme: light;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+.chat-control.chat-control:hover { border-color: var(--color-border-strong); box-shadow: none; }
+.chat-control.chat-control:focus { border-color: transparent; outline: 2px solid var(--color-focus-ring); outline-offset: -2px; box-shadow: none; }
+.chat-control::placeholder { color: var(--color-text-subtle); }
+[data-theme='dark'] .chat-control { color-scheme: dark; }
+textarea.chat-control { min-height: 100px; resize: vertical; }
 .field { display: flex; flex-direction: column; gap: 0.4rem; }
 .field label {
   font-family: var(--font-sans);

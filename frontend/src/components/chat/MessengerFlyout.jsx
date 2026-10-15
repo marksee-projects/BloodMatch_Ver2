@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { ChatCircleDots, MagnifyingGlass, User } from '@phosphor-icons/react'
 import { api } from '../../services/apiClient'
 import { useChat } from '../../context/ChatContext'
+import { useAuth } from '../../context/AuthContext'
 import { useActionNoticeState } from '../../context/NotificationContext'
 import styles from './MessengerFlyout.module.css'
 
@@ -44,34 +45,45 @@ function ConvAvatar({ src, name }) {
 }
 
 export default function MessengerFlyout({ variant = 'desktop' }) {
-  const { unreadCount, openConversationTab, canChat } = useChat()
+  const { unreadCount, openConversationTab, canChat, fetchUnreadCount } = useChat()
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [conversations, setConversations] = useState([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useActionNoticeState(null, 'error')
   const rootRef = useRef(null)
+  const mounted = useRef(false)
+  const inFlight = useRef(false)
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
   const loadConversations = useCallback(async () => {
+    if (inFlight.current || document.hidden) return
+    inFlight.current = true
     setLoading(true)
     setError(null)
     try {
       const res = await api.get('/api/chat/conversations')
+      if (!mounted.current) return
       if (Array.isArray(res?.conversations)) {
         setConversations(res.conversations)
       }
     } catch (err) {
-      setError(err.message || 'Could not load chats.')
+      if (mounted.current) setError(err.message || 'Could not load chats.')
     } finally {
-      setLoading(false)
+      inFlight.current = false
+      if (mounted.current) setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    if (open) {
+    if (open && canChat) {
       loadConversations()
+      fetchUnreadCount()
+      const timer = window.setInterval(() => { if (!document.hidden) { loadConversations(); fetchUnreadCount() } }, 10000)
+      return () => window.clearInterval(timer)
     }
-  }, [open, loadConversations])
+  }, [open, canChat, loadConversations, fetchUnreadCount])
 
   // Handle outside click & escape key
   useEffect(() => {
@@ -115,7 +127,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
     <div ref={rootRef} className={styles.wrap}>
       <button
         type="button"
-        className={styles.triggerBtn}
+        className={`nav-control ${styles.triggerBtn}`}
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -136,7 +148,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
               <MagnifyingGlass size={16} className={styles.searchIcon} aria-hidden="true" />
               <input
                 type="text"
-                className={styles.searchInput}
+                className={`chat-control ${styles.searchInput}`}
                 placeholder="Search chats…"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -196,7 +208,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
                             isUnread ? styles.convSnippetUnread : ''
                           }`}
                         >
-                          {lastMsg ? lastMsg.body : 'Conversation started'}
+                          {lastMsg ? (Number(lastMsg.sender_id) === Number(user?.id) ? 'You: ' : '') + lastMsg.body : 'Conversation started'}
                         </span>
                         {isUnread && <span className={styles.unreadDot} aria-hidden="true" />}
                       </div>

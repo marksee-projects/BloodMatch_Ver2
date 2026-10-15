@@ -7,6 +7,7 @@ import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import styles from './RegisterPage.module.css'
+import requestStyles from './RequestFormPage.module.css'
 import LocationSelector from '../components/LocationSelector'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import SearchableCombobox from '../components/ui/SearchableCombobox'
@@ -224,7 +225,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
 
   if (!loaded) {
     return (
-      <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%' }}>
+      <div className={requestStyles.page}>
         <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
           <LoadingSpinner text="Loading request details…" />
         </div>
@@ -235,7 +236,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
   const hospitalOptions = hospitalsList.map(h => ({ value: h.name, label: h.name }))
 
   return (
-      <div style={{ maxWidth: '640px', margin: '0 auto', width: '100%' }}>
+      <div className={requestStyles.page}>
       <div style={{ marginBottom: 'var(--space-3)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: '0', fontSize: 'var(--text-h1)' }}>
           {editing ? 'Edit request' : 'Create blood request'}
@@ -243,8 +244,8 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
         {editing && <p className="muted">Review your saved request details and update the fields below.</p>}
       </div>
 
-      <div className={styles.wizardCard}>
-        {!editing && <div className={styles.stepperContainer}>
+      <div className={styles.wizardCard + " " + requestStyles.formCard}>
+        {!editing && <div className={styles.stepperContainer + " " + requestStyles.stepper}>
           <div className={styles.stepperTrack}>
             <div className={styles.stepperLineBg} />
             <div className={styles.stepperLineFill} style={{ width: step === 1 ? '0%' : step === 2 ? '33.333%' : '66.666%' }} />
@@ -293,7 +294,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
         <form className="form" onSubmit={onSubmit} noValidate>
 
           {(editing || step === 1) && (
-            <div className="form-step">
+            <div className={requestStyles.step}>
 
               <div className="field">
                 <label htmlFor="required_blood_type">Required Blood Type *</label>
@@ -329,7 +330,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
           )}
 
           {(editing || step === 2) && (
-            <div className="form-step">
+            <div className={requestStyles.step}>
 
               <div className="field">
                 <label htmlFor="facility_name">Healthcare Facility / Hospital Name *</label>
@@ -362,7 +363,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
           )}
 
           {(editing || step === 3) && (
-            <div className="form-step">
+            <div className={requestStyles.step}>
               <div className="field">
                 <label htmlFor="urgency">Urgency Level *</label>
                 <select id="urgency" value={form.urgency} onChange={setField('urgency')} required>
@@ -415,7 +416,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
             </div>
           )}
 
-          <div className="button-group" style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', justifyContent: 'space-between' }}>
+          <div className={requestStyles.footer} style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', justifyContent: 'space-between' }}>
             <button type="button" className="btn btn-ghost" disabled={submitting} onClick={onCancel}>
               Cancel
             </button>

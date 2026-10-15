@@ -259,7 +259,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
     <div ref={rootRef} className="notif-wrap">
       <button
         type="button"
-        className="notif-bell"
+        className="nav-control notif-bell"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
