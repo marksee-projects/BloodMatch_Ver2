@@ -1,5 +1,7 @@
 # Chat, database, and notification plan
 
+UI refinement, 15 October: removed the visible Review conversation heading while retaining its accessible name; renewal date/time controls now use compact widths; Cancel aligns to the right of extension/closure action rows, including mobile. Controls retain 44 px targets.
+
 ## Approved: compact report review and request-card actions
 
 Approved and source-implemented 15 October 2026. Browser appearance/interaction acceptance remains open because no computer-use browser surface is enabled.
