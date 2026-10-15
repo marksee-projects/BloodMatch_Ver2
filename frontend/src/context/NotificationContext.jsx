@@ -6,12 +6,13 @@ import styles from '../components/NotificationPopup.module.css'
 
 // Isolated component renders can omit the app shell. The shell installs the provider.
 const NotificationContext = createContext(() => {})
+const NOTICE_DURATION_MS = 5000
 
 function Popup({ notice, dismiss }) {
   const [hovered, setHovered] = useState(false)
   const [focused, setFocused] = useState(false)
   const paused = hovered || focused
-  const remaining = useRef(5000)
+  const remaining = useRef(NOTICE_DURATION_MS)
   useEffect(() => {
     if (paused) return undefined
     const started = performance.now()
@@ -22,15 +23,18 @@ function Popup({ notice, dismiss }) {
     }
   }, [notice.id, paused, dismiss])
   const Icon = notice.severity === 'success' ? CheckCircle : ['error', 'warning', 'emergency'].includes(notice.severity) ? WarningCircle : Info
-  return <section className={`${styles.popup} ${styles[notice.severity] || ''}`}
+  return <section className={`${styles.popup} ${styles[notice.severity] || ''}`} style={{ '--notice-duration': `${NOTICE_DURATION_MS}ms` }}
     onMouseEnter={() => setHovered(true)} onMouseLeave={() => setHovered(false)}
     onFocus={() => setFocused(true)} onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setFocused(false) }}>
-    <Icon size={24} weight="regular" aria-hidden="true" className={styles.icon} />
+    <Icon size={20} weight="regular" aria-hidden="true" className={styles.icon} />
     <div className={styles.content} role={['error', 'emergency'].includes(notice.severity) ? 'alert' : 'status'} aria-atomic="true">
       <strong title={notice.message}>{notice.title || notice.message}</strong>
       {notice.action?.to && <Link className={styles.action} to={notice.action.to} onClick={() => dismiss(notice.id)}>{notice.action.label || 'View details'}</Link>}
     </div>
     <button type="button" className={styles.close} aria-label="Dismiss notification" onClick={() => dismiss(notice.id)}><X size={20} aria-hidden="true" /></button>
+    <div className={styles.progressTrack} aria-hidden="true">
+      <div className={styles.progress} style={{ animationPlayState: paused ? 'paused' : 'running' }} />
+    </div>
   </section>
 }
 

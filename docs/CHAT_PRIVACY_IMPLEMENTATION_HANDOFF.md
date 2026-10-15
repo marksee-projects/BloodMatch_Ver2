@@ -1,6 +1,10 @@
 # Approved plan implementation handoff
 
+**Application rollout completed 15 October:** the user separately authorized execution on `bloodmatch`. Repairs, 15-account cleanup and migrations 025–027 are now applied; 40 read-only integrity, 15 credential and 18 application smoke checks passed. API maintenance is cleared. [Current results](CHAT_APPLICATION_ROLLOUT_RESULTS.md) supersede the historical pending-production/user-run-only instructions below. Do not repeat legacy cleanup after 025. Browser acceptance, recurring scheduling and physical erasure remain separate pending items.
+
 Prepared 15 October 2026 on `feat/chat-privacy-account-lifecycle`.
+
+**Rehearsal update:** after the user expressly authorized agent execution, the test rehearsal completed successfully: verified restore, import repair, 15-account cleanup, migrations 025–027, 66 live API and 45 schema/trigger checks. `bloodmatch` remains unchanged. See [the rehearsal results](CHAT_REHEARSAL_RESULTS.md) for exact scope, backups, test credentials and remaining acceptance work. Earlier user-run-only/pending-test statements below are historical; production remains unapplied.
 
 Application changes and user-run migrations are prepared. No migration, account cleanup, password reset, retention apply, or live API suite was run by the agent. ERD generation remains deferred and the load test remains cancelled. Do not run the old handoff's rollout sequence unchanged: the functional suite now requires migration 025.
 
@@ -14,7 +18,7 @@ Run from the repository root:
 powershell -ExecutionPolicy Bypass -File tests/check_chat_privacy_source.ps1
 ```
 
-Requires existing frontend dependencies, Node/npm and PHP at `C:\xampp\php\php.exe` (override with `-PhpPath`). The script stops on failure, lints application/database PHP, runs an explicit allowlist of offline checks and builds the frontend. It does not apply SQL or exercise live APIs. These latest edits and the new runner have not been executed by the agent. Do not treat earlier passing results as verification of this working tree.
+Requires existing frontend dependencies, Node/npm and PHP at `C:\xampp\php\php.exe` (override with `-PhpPath`). The script stops on failure, lints application/database/test PHP, checks selected PowerShell syntax, runs an explicit allowlist of offline checks and builds the frontend. It does not apply SQL or exercise live APIs. The user supplied a successful full run and production build (4,724 modules, 41.50 seconds). The subsequent maintenance cleanup guard and its six new policy checks have not yet run; frontend source has not changed since that build.
 
 After source checks pass, follow the test-copy database sequence below. The isolated suite now ages only its owned pending request to verify denial after seven days, exclusion from pending lists, and a fresh request that reuses the pair without consent. This is a small functional test; the cancelled load test remains excluded.
 
@@ -33,11 +37,29 @@ After source checks pass, follow the test-copy database sequence below. The isol
 
 ## Database prerequisites and order
 
+User-run diagnostic update: both targets resolve to 127.0.0.1:3306. `bloodmatch` has 115 accounts (97 active members, 18 active admins), including the correct active verified administrator, account 3. `bloodmatch_test` has 281 accounts (202 active members, four deactivated members and 75 active admins) with no designated admin candidate. These are separate datasets. Do not create/promote a substitute admin in the old test data. Back up both databases before replacing only the test dataset for rehearsal. See [the restore steps](CHAT_TEST_DATABASE_RESTORE.md). No backup or restore result has been supplied yet.
+
 The read-only inspection found bloodmatch:3306 has 97 members and 18 admins. The reported 15-account database view has not been reconciled. Compare server/database/filter and User Management's new source label before any cleanup. No table/column has been proven obsolete, so no unsupported schema removal was made.
+
+Start by reviewing both targets, then compare actual counts with User Management's source label:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/chat_demo_maintenance.ps1 -Target bloodmatch -Action Review
+powershell -ExecutionPolicy Bypass -File scripts/chat_demo_maintenance.ps1 -Target bloodmatch_test -Action Review
+```
+
+Reviews write private report files but do not change database rows. Keep full reports/retained email manifests private. The output now includes `cleanup_allowed` and `cleanup_blocked_reason`. The legacy cleanup is blocked when any migration-025 workflow table exists, even if empty; do not remove those tables to bypass the guard. Review existing signup/consent/moderation/closure data and prepare a schema-aware impact review before any later cleanup. Stop on any error before continuing.
+
+To check only the new maintenance addition without repeating the already-passed frontend build:
+
+```powershell
+& 'C:\xampp\php\php.exe' -l database/demo_maintenance.php
+& 'C:\xampp\php\php.exe' tests/demo_cleanup_policy_offline.php
+```
 
 1. Stop website servers and mail/expiry workers for repair, demo cleanup and migrations.
 2. Back up both the application database and the existing test database with the earlier maintenance helper. Restore the fresh application backup into bloodmatch_test only if you need a fresh rehearsal copy. Keep the test backup before replacing any test data.
-3. Rehearse the import repair and fifteen-account cleanup **before** enabling these new workflows. The earlier cleanup review does not model retention/moderation evidence for an already-used new schema; do not repeat that cleanup after new reports/signup data exist without a fresh impact review.
+3. Rehearse the import repair and fifteen-account cleanup **before** enabling these new workflows. The earlier cleanup does not model privacy evidence; its new guard blocks cleanup after any migration-025 workflow table exists. A schema-aware impact review is required for that case.
 4. Review and apply 025, 026 and 027, in order. The new runner refuses unrepaired chat keys, requires a reviewed SQL hash/offline acknowledgement, and makes a fresh complete SQL backup before each apply. 027 also requires exactly the designated active admin already remains.
 5. Run the isolated functional suite and manual browser checks. Only after that passes should you repeat the reviewed preparation on bloodmatch and restart the website.
 

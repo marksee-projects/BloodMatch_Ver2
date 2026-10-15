@@ -42,6 +42,9 @@ foreach ($n in $names) { $saved[$n] = [Environment]::GetEnvironmentVariable($n, 
 $out = Join-Path $env:TEMP 'bm_isolated_tests.txt'
 $srv = $null
 $testExit = 0
+$testSessionRoot = Join-Path $root 'backend/storage/test-sessions'
+$testSessionPath = Join-Path $testSessionRoot ([Guid]::NewGuid().ToString('N'))
+[System.IO.Directory]::CreateDirectory($testSessionPath) | Out-Null
 
 try {
     $env:DB_HOST = '127.0.0.1'
@@ -53,7 +56,7 @@ try {
     $env:MAIL_PORT = '1'
     $env:APP_SECURE_COOKIES = 'false'
 
-    $srv = Start-Process $PhpPath -ArgumentList '-d', 'variables_order=EGPCS', '-S', "127.0.0.1:$Port", '-t', 'backend/public' -PassThru -WindowStyle Hidden
+    $srv = Start-Process $PhpPath -ArgumentList '-d', 'variables_order=EGPCS', '-d', "session.save_path=`"$testSessionPath`"", '-S', "127.0.0.1:$Port", '-t', 'backend/public' -PassThru -WindowStyle Hidden
     Start-Sleep -Seconds 2
 
     if ($Suite) {
@@ -86,6 +89,10 @@ try {
 }
 finally {
     if ($srv) { Stop-Process -Id $srv.Id -Force -ErrorAction SilentlyContinue }
+    $resolvedTestSessionPath = [System.IO.Path]::GetFullPath($testSessionPath)
+    $resolvedTestSessionRoot = [System.IO.Path]::GetFullPath($testSessionRoot).TrimEnd('\') + '\'
+    if (-not $resolvedTestSessionPath.StartsWith($resolvedTestSessionRoot, [System.StringComparison]::OrdinalIgnoreCase)) { throw 'Unexpected test-session cleanup path.' }
+    if (Test-Path -LiteralPath $resolvedTestSessionPath) { Remove-Item -LiteralPath $resolvedTestSessionPath -Recurse -Force }
     foreach ($n in $names) { [Environment]::SetEnvironmentVariable($n, $saved[$n], 'Process') }
     Write-Host 'Test server stopped and environment restored.'
 }

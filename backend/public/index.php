@@ -2,6 +2,17 @@
 
 declare(strict_types=1);
 
+// CLI maintenance tools bypass HTTP, while browser requests remain blocked
+// until the reviewed database maintenance has completed successfully.
+if (is_file(dirname(__DIR__) . '/storage/maintenance/website.lock')) {
+    http_response_code(503);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    header('Retry-After: 60');
+    echo json_encode(['success'=>false,'error'=>['message'=>'BloodMatch is temporarily unavailable for maintenance. Please try again shortly.']]);
+    exit;
+}
+
 define('BASE_PATH', dirname(__DIR__, 2));
 
 require dirname(__DIR__) . '/src/autoload.php';

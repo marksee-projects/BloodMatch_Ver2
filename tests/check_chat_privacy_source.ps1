@@ -21,7 +21,7 @@ try {
         if ($parseErrors.Count -gt 0) { throw "PowerShell syntax failed in ${script}: $($parseErrors.Message -join '; ')" }
     }
     # Explicit allowlist: pure policy checks or in-memory PDO substitutes.
-    foreach ($test in @('chat_offline.php','chat_consent_expiry_offline.php','pending_registration_offline.php','session_identity_offline.php','request_lifecycle_offline.php','registration_location_offline.php')) {
+    foreach ($test in @('chat_offline.php','chat_consent_expiry_offline.php','demo_cleanup_policy_offline.php','pending_registration_offline.php','session_identity_offline.php','request_lifecycle_offline.php','registration_location_offline.php')) {
         & $PhpPath (Join-Path $PSScriptRoot $test)
         if ($LASTEXITCODE -ne 0) { throw "Offline check failed: $test" }
     }

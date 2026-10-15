@@ -47,7 +47,6 @@ final class MemberProfileController
                 'member_since' => substr((string) $target['created_at'], 0, 10),
                 'verification_status' => (string) $target['verification_status'],
                 'blood_type' => $target['blood_type'] !== null ? (string) $target['blood_type'] : null,
-                'email' => (string) $target['email'],
             ],
         ]);
     }

@@ -15,7 +15,21 @@ try {
     if(isset($args['create'])){
         foreach(['conversations','conversation_participants','messages'] as $table)if((int)$p->query("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='$table' AND INDEX_NAME='PRIMARY'")->fetchColumn()!==1)throw new LogicException('Repair the imported test chat schema first.');
         foreach(['pending_registrations','chat_requests','chat_reports','chat_report_evidence','account_closures'] as $table) if((int)$p->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='$table'")->fetchColumn()!==1) throw new LogicException('Apply migration 025 to the isolated database before creating fixtures.');
-        $nonce=bin2hex(random_bytes(10));$accounts=[];
+        $nonce=bin2hex(random_bytes(10));$accounts=[];$administrator=null;
+        // Optional rehearsal-only access to the real designated test admin.
+        // Accept a credential only when its current database hash matches.
+        $credentialFiles=glob($dir.'/bloodmatch_test-*-credentials.json')?:[];
+        usort($credentialFiles,fn($a,$b)=>filemtime($b)<=>filemtime($a));
+        foreach ($credentialFiles as $credentialFile) {
+            $saved=json_decode(file_get_contents($credentialFile),true,512,JSON_THROW_ON_ERROR);
+            if (($saved['status']??'')!=='COMMITTED') continue;
+            foreach ($saved['accounts']??[] as $candidate) {
+                if (($candidate['email']??'')!=='markseejr@gmail.com' || ($candidate['role']??'')!=='admin') continue;
+                $check=$p->prepare("SELECT password_hash FROM users WHERE id=? AND email=? AND role='admin' AND account_status='active'");$check->execute([$candidate['id'],$candidate['email']]);$hash=$check->fetchColumn();
+                if (is_string($hash) && password_verify($candidate['password'],$hash)) $administrator=$candidate;
+            }
+            if ($administrator) break;
+        }
         $path=$dir.'/chat-api-'.$nonce.'.json';
         $p->beginTransaction();
         try {
@@ -28,7 +42,7 @@ try {
             $p->exec("INSERT INTO conversations(type) VALUES('direct')");$legacyId=(int)$p->lastInsertId();
             $s=$p->prepare('INSERT INTO conversation_participants(conversation_id,user_id) VALUES(?,?),(?,?)');$s->execute([$legacyId,$accounts['a']['id'],$legacyId,$accounts['outsider']['id']]);
             $s=$p->prepare('INSERT INTO messages(conversation_id,sender_id,body) VALUES(?,?,?)');$s->execute([$legacyId,$accounts['outsider']['id'],'Owned imported-history fixture']);
-            if(file_put_contents($path,json_encode(['nonce'=>$nonce,'accounts'=>$accounts,'legacy_conversation_id'=>$legacyId,'registration'=>['email'=>"chat-api-$nonce-signup@example.test",'password'=>'Fixture-'.bin2hex(random_bytes(10))]],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR),LOCK_EX)===false)throw new RuntimeException('Cannot save fixture manifest.');
+            if(file_put_contents($path,json_encode(['nonce'=>$nonce,'accounts'=>$accounts,'administrator'=>$administrator,'legacy_conversation_id'=>$legacyId,'registration'=>['email'=>"chat-api-$nonce-signup@example.test",'password'=>'Fixture-'.bin2hex(random_bytes(10))]],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR),LOCK_EX)===false)throw new RuntimeException('Cannot save fixture manifest.');
             $p->commit();
         }catch(Throwable $e){$p->rollBack();throw $e;}
         echo $path.PHP_EOL;exit;
@@ -65,10 +79,13 @@ try {
     $p->beginTransaction();
     try{
         $ids=implode(',',array_map(fn($account)=>(int)$account['id'],$fixture['accounts']));
+        $allowedParticipants=$ids;
+        if (($fixture['administrator']['email']??'')==='markseejr@gmail.com') $allowedParticipants.=','.(int)$fixture['administrator']['id'];
         $p->exec("DELETE FROM notifications WHERE related_type='chat_report' AND related_id IN (SELECT id FROM chat_reports WHERE reporter_id IN ($ids))");
+        $p->exec("DELETE FROM notifications WHERE related_type='chat_request' AND related_id IN (SELECT id FROM chat_requests WHERE sender_id IN ($ids) OR recipient_id IN ($ids))");
         $p->exec("DELETE FROM chat_reports WHERE reporter_id IN ($ids)");
         if ($signup) { $s=$p->prepare('DELETE FROM pending_registrations WHERE email=?');$s->execute([$signup['email']]); }
-        $p->exec("DELETE c FROM conversations c WHERE EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id=c.id AND cp.user_id IN ($ids)) AND NOT EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id=c.id AND cp.user_id NOT IN ($ids))");
+        $p->exec("DELETE c FROM conversations c WHERE EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id=c.id AND cp.user_id IN ($ids)) AND NOT EXISTS (SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id=c.id AND cp.user_id NOT IN ($allowedParticipants))");
         foreach($fixture['accounts'] as $account){
             $p->prepare('DELETE FROM users WHERE id=? AND email=?')->execute([$account['id'],$account['email']]);
             $p->prepare('DELETE FROM auth_throttle WHERE identifier IN (?,?)')->execute(['login:'.$account['email'],'chat_send:'.$account['id']]);

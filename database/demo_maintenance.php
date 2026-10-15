@@ -4,6 +4,7 @@ declare(strict_types=1);
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 require dirname(__DIR__).'/backend/src/autoload.php';
 use BloodMatch\Config\Env;
+use BloodMatch\Services\DemoCleanupPolicy;
 Env::load(dirname(__DIR__).'/.env');
 
 function ident(string $value): string { return '`'.str_replace('`','``',$value).'`'; }
@@ -58,6 +59,20 @@ function chooseUsers(PDO $pdo): array {
     if (count($selected)!==15) throw new LogicException('Cannot select 15 representative existing accounts; review manually.');
     return array_values($selected);
 }
+function accountDiagnostics(PDO $pdo): array {
+    $s=$pdo->prepare('SELECT id,email,role,account_status,verification_status FROM users WHERE LOWER(TRIM(email))=? ORDER BY id');
+    $s->execute(['markseejr@gmail.com']);
+    $candidates=[];
+    foreach ($s->fetchAll() as $row) {
+        $candidates[]=['id'=>(int)$row['id'],'role'=>$row['role'],'account_status'=>$row['account_status'],
+            'verification_status'=>$row['verification_status'],
+            'email_matches_without_trimming'=>strtolower((string)$row['email'])==='markseejr@gmail.com'];
+    }
+    return ['configured_host'=>Env::get('DB_HOST','127.0.0.1'),
+        'total_users'=>scalar($pdo,'SELECT COUNT(*) FROM users'),
+        'role_status_counts'=>$pdo->query('SELECT role,account_status,COUNT(*) AS accounts FROM users GROUP BY role,account_status ORDER BY role,account_status')->fetchAll(),
+        'designated_account_candidates'=>$candidates];
+}
 function backup(PDO $pdo, string $db, int $port): string {
     $dump='C:/xampp/mysql/bin/mysqldump.exe';
     if (!is_file($dump)) throw new RuntimeException('mysqldump.exe missing at C:/xampp/mysql/bin; make an external full backup and adapt this path before applying.');
@@ -78,6 +93,9 @@ function chatIntegrity(PDO $p): array {
         'orphan_messages'=>scalar($p,'SELECT COUNT(*) FROM messages m LEFT JOIN users u ON u.id=m.sender_id LEFT JOIN conversations c ON c.id=m.conversation_id WHERE u.id IS NULL OR c.id IS NULL'),
         'invalid_review_status'=>scalar($p,"SELECT COUNT(*) FROM blood_requests WHERE review_status=''"),
         'invalid_blood_type_source'=>scalar($p,"SELECT COUNT(*) FROM users WHERE blood_type_source=''"),
+        'nonpositive_conversation_ids'=>scalar($p,'SELECT COUNT(*) FROM conversations WHERE id<=0'),
+        'nonpositive_participant_ids'=>scalar($p,'SELECT COUNT(*) FROM conversation_participants WHERE id<=0'),
+        'nonpositive_message_ids'=>scalar($p,'SELECT COUNT(*) FROM messages WHERE id<=0'),
     ];
 }
 function chatSchemaReady(PDO $p): bool {
@@ -122,6 +140,28 @@ function repairImportArtifacts(PDO $p): void {
     }
 }
 function repairChat(PDO $p): void {
+    // Missing AUTO_INCREMENT allowed multiple imported ID-zero rows. Their
+    // intended pairings cannot be inferred; preserve them before quarantining.
+    $invalid=$p->query('SELECT id FROM conversations WHERE id<=0 UNION SELECT conversation_id FROM conversation_participants WHERE id<=0 UNION SELECT conversation_id FROM messages WHERE id<=0')->fetchAll(PDO::FETCH_COLUMN);
+    if ($invalid!==[]) {
+        $invalid=array_values(array_unique(array_map('intval',$invalid)));
+        $marks=implode(',',array_fill(0,count($invalid),'?'));
+        $archive=['database'=>$p->query('SELECT DATABASE()')->fetchColumn(),'reason'=>'Nonpositive imported IDs; ambiguous conversation mapping preserved without reconstruction.','tables'=>[]];
+        foreach (['conversations'=>'id','conversation_participants'=>'conversation_id','messages'=>'conversation_id'] as $table=>$column) {
+            $s=$p->prepare('SELECT * FROM '.ident($table).' WHERE '.ident($column)." IN ($marks)");$s->execute($invalid);$archive['tables'][$table]=$s->fetchAll();
+        }
+        $encoded=json_encode($archive,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR);
+        $archivePath=privateFile($archive['database'].'-invalid-chat-'.gmdate('Ymd-His').'-'.bin2hex(random_bytes(4)).'.json',$encoded);
+        if (!hash_equals(hash('sha256',$encoded),hash_file('sha256',$archivePath))) throw new RuntimeException('Chat archive verification failed; no quarantine performed.');
+        $p->beginTransaction();
+        try {
+            foreach (['messages'=>'conversation_id','conversation_participants'=>'conversation_id','conversations'=>'id'] as $table=>$column) {
+                $p->prepare('DELETE FROM '.ident($table).' WHERE '.ident($column)." IN ($marks)")->execute($invalid);
+            }
+            $p->commit();
+        } catch (Throwable $e) { if ($p->inTransaction()) $p->rollBack();throw $e; }
+        echo 'QUARANTINE_ARCHIVE '.$archivePath.' '.json_encode(array_map('count',$archive['tables'])).PHP_EOL;
+    }
     $nextIds=[];
     foreach (['conversations'=>'id','messages'=>'id','conversation_participants'=>'id'] as $table=>$key) {
         if (scalar($p,'SELECT COUNT(*) FROM '.ident($table).' WHERE id<=0')) throw new LogicException('Nonpositive imported chat IDs require manual review.');
@@ -168,6 +208,7 @@ function repairChat(PDO $p): void {
     $p->prepare('INSERT IGNORE INTO schema_migrations(name) VALUES (?)')->execute(['demo_maintenance:repair-chat:v1']);
 }
 function cleanDemo(PDO $p, array $review): string {
+    DemoCleanupPolicy::assertLegacySchema($p->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE()")->fetchAll(PDO::FETCH_COLUMN));
     if (!chatSchemaReady($p) || array_sum(chatIntegrity($p))!==0) throw new LogicException('Complete the import repair before account cleanup.');
     $keep=array_map(fn($r)=>(int)$r['id'],$review['retained_users']); $list=implode(',',$keep);
     $admin=array_values(array_filter($review['retained_users'],fn($r)=>$r['role']==='admin'));
@@ -206,6 +247,8 @@ function cleanDemo(PDO $p, array $review): string {
     return $credentialPath;
 }
 
+if (defined('BLOODMATCH_MAINTENANCE_FUNCTIONS_ONLY')) return;
+
 try {
     $args=getopt('',['target:','action:','apply','review:','sha256:','offline-ack']);
     $db=$args['target']??'bloodmatch_test';
@@ -218,16 +261,27 @@ try {
     $action=$args['action']??'review';
     if ($action==='backup' && !isset($args['apply'])) { echo 'BACKUP '.backup($p,$db,$port).PHP_EOL; exit; }
     $state=['tables'=>snapshot($p),'triggers'=>triggerSnapshot($p)]; $fingerprint=hash('sha256',json_encode($state,JSON_THROW_ON_ERROR));
+    $cleanupBlockedReason=null;
+    try { DemoCleanupPolicy::assertLegacySchema(array_keys($state['tables'])); }
+    catch (LogicException $e) { $cleanupBlockedReason=$e->getMessage(); }
     if (!isset($args['apply'])) {
         if ($action!=='review') throw new LogicException('Apply actions require --apply and a reviewed fingerprint.');
-        $retained=chooseUsers($p);$ids=implode(',',array_column($retained,'id'));
+        try { $retained=chooseUsers($p); }
+        catch (LogicException $e) {
+            // Review must explain an unmet prerequisite without producing an
+            // applicable deletion manifest or silently promoting any account.
+            echo json_encode(['target'=>$actual,'review_ready'=>false,'cleanup_allowed'=>false,
+                'review_blocked_reason'=>$e->getMessage(),'diagnostics'=>accountDiagnostics($p)],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR).PHP_EOL;
+            exit;
+        }
+        $ids=implode(',',array_column($retained,'id'));
         $review=['database'=>$db,'port'=>$port,'fingerprint'=>$fingerprint,'tables'=>$state['tables'],'triggers'=>$state['triggers'],'chat_integrity'=>chatIntegrity($p),'retained_users'=>$retained,
             'remove_users'=>scalar($p,'SELECT COUNT(*) FROM users WHERE id NOT IN ('.$ids.')'),
             'remove_requests'=>scalar($p,'SELECT COUNT(*) FROM blood_requests WHERE requester_id NOT IN ('.$ids.')'),
             'remove_matches'=>scalar($p,'SELECT COUNT(*) FROM matches m JOIN blood_requests r ON r.id=m.request_id WHERE m.donor_id NOT IN ('.$ids.') OR r.requester_id NOT IN ('.$ids.')'),
             'remove_reports'=>scalar($p,'SELECT COUNT(*) FROM donation_reports d JOIN matches m ON m.id=d.match_id JOIN blood_requests r ON r.id=m.request_id WHERE d.donor_id NOT IN ('.$ids.') OR m.donor_id NOT IN ('.$ids.') OR r.requester_id NOT IN ('.$ids.')')];
         $file=privateFile($db.'-'.gmdate('Ymd-His').'-'.bin2hex(random_bytes(4)).'.review.json',json_encode($review,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR));
-        echo json_encode(['target'=>$actual,'review'=>$file,'sha256'=>hash_file('sha256',$file),'chat_schema_ready'=>chatSchemaReady($p),'integrity'=>$review['chat_integrity'],'retained_users'=>$retained,'remove_users'=>$review['remove_users'],'remove_requests'=>$review['remove_requests'],'remove_matches'=>$review['remove_matches'],'remove_reports'=>$review['remove_reports']],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR).PHP_EOL;
+        echo json_encode(['target'=>$actual,'review_ready'=>true,'diagnostics'=>accountDiagnostics($p),'review'=>$file,'sha256'=>hash_file('sha256',$file),'cleanup_allowed'=>$cleanupBlockedReason===null,'cleanup_blocked_reason'=>$cleanupBlockedReason,'chat_schema_ready'=>chatSchemaReady($p),'integrity'=>$review['chat_integrity'],'retained_users'=>$retained,'remove_users'=>$review['remove_users'],'remove_requests'=>$review['remove_requests'],'remove_matches'=>$review['remove_matches'],'remove_reports'=>$review['remove_reports']],JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR).PHP_EOL;
         exit;
     }
     if (!in_array($action,['repair-chat','repair-import','cleanup-demo'],true) || !isset($args['offline-ack'],$args['review'],$args['sha256'])) throw new LogicException('Apply requires action, --offline-ack, --review and --sha256. Stop web servers and workers first.');
@@ -235,6 +289,7 @@ try {
     if ($reviewPath===false || $privateRoot===false || !str_starts_with(str_replace('\\','/',$reviewPath),str_replace('\\','/',$privateRoot).'/') || !hash_equals(hash_file('sha256',$reviewPath),$args['sha256'])) throw new LogicException('Review path/hash mismatch.');
     $review=json_decode(file_get_contents($reviewPath),true,512,JSON_THROW_ON_ERROR);
     if ($review['database']!==$db || $review['port']!==$port || !hash_equals($review['fingerprint'],$fingerprint)) throw new LogicException('Database changed since review; create a fresh review.');
+    if ($action==='cleanup-demo' && $cleanupBlockedReason!==null) throw new LogicException($cleanupBlockedReason);
     $backup=backup($p,$db,$port); echo 'BACKUP '.$backup.PHP_EOL;
     if (in_array($action,['repair-chat','repair-import'],true)) { repairChat($p); if ($action==='repair-import') repairImportArtifacts($p); }
     else echo 'PRIVATE_CREDENTIALS '.cleanDemo($p,$review).PHP_EOL;
