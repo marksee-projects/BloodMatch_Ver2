@@ -16,34 +16,45 @@ export function ChatProvider({ children }) {
   const { user } = useAuth()
   const notify = useNotify()
   const canChat = user?.account_status === 'active' && user?.verification_status === 'verified' && ['member', 'admin'].includes(user?.role)
-  const unreadInFlight = useRef(false)
-  const unreadRefreshQueued = useRef(false)
+  const accountKey = `${user?.id ?? 'guest'}:${canChat}`
+  const unreadScope = useRef({ key: accountKey, inFlight: false, queued: false })
+  if (unreadScope.current.key !== accountKey) unreadScope.current = { key: accountKey, inFlight: false, queued: false }
   const [unreadCount, setUnreadCount] = useState(0)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [openTabs, setOpenTabs] = useState([])
+  const [stateAccountKey, setStateAccountKey] = useState(accountKey)
   const pollTimerRef = useRef(null)
 
   const fetchUnreadCount = useCallback(async () => {
+    const scope = unreadScope.current
+    if (scope.key !== accountKey) return
     if (!canChat) {
       setUnreadCount(0)
       return
     }
     if (document.hidden) return
-    if (unreadInFlight.current) { unreadRefreshQueued.current = true; return }
-    unreadInFlight.current = true
+    if (scope.inFlight) { scope.queued = true; return }
+    scope.inFlight = true
 
     try {
       const res = await api.get('/api/chat/unread-count')
-      if (typeof res?.unread_count === 'number') {
+      if (unreadScope.current === scope && typeof res?.unread_count === 'number') {
         setUnreadCount(res.unread_count)
       }
     } catch {
       // Background poll failure handled silently
     } finally {
-      unreadInFlight.current = false
-      if (unreadRefreshQueued.current) { unreadRefreshQueued.current = false; fetchUnreadCount() }
+      scope.inFlight = false
+      if (unreadScope.current === scope && scope.queued) { scope.queued = false; fetchUnreadCount() }
     }
-  }, [user, canChat])
+  }, [accountKey, canChat])
+
+  useEffect(() => {
+    setUnreadCount(0)
+    setOpenTabs([])
+    setDrawerOpen(false)
+    setStateAccountKey(accountKey)
+  }, [accountKey])
 
   useEffect(() => {
     if (!canChat) {
@@ -78,6 +89,7 @@ export function ChatProvider({ children }) {
   }, [])
 
   const openConversationTab = useCallback((conv) => {
+    if (unreadScope.current.key !== accountKey) return
     if (!canChat) return
     if (!conv?.id) return
 
@@ -112,9 +124,11 @@ export function ChatProvider({ children }) {
       }
       return [...prev, newTab]
     })
-  }, [canChat])
+  }, [canChat, accountKey])
 
   const openChatWithUser = useCallback(async (recipientId, fallbackInfo = {}) => {
+    const scope = unreadScope.current
+    if (scope.key !== accountKey) return
     if (!canChat) {
       notify({ severity: 'warning', message: 'Complete account verification before using chat.', dedupKey: 'chat-verification' })
       return
@@ -123,8 +137,10 @@ export function ChatProvider({ children }) {
 
     try {
       const consent = await api.post('/api/chat/requests', { recipient_id: Number(recipientId) })
+      if (unreadScope.current !== scope) return
       if (consent.request?.status !== 'accepted') { notify({ severity: 'info', message: 'Message request pending acceptance.', action: { to: '/chat', label: 'View requests' } }); return }
       const res = await api.post('/api/chat/conversations', { recipient_id: Number(recipientId) })
+      if (unreadScope.current !== scope) return
       if (res?.conversation) {
         const conv = res.conversation
         if (!conv.recipient && fallbackInfo) {
@@ -138,10 +154,11 @@ export function ChatProvider({ children }) {
         setDrawerOpen(false)
       }
     } catch (err) {
+      if (unreadScope.current !== scope) return
       console.error('Failed to open chat with user:', err)
       notify({ severity: 'error', message: err.message || 'Could not start conversation.' })
     }
-  }, [openConversationTab, canChat, notify])
+  }, [openConversationTab, canChat, notify, accountKey])
 
   const closeTab = useCallback((conversationId) => {
     setOpenTabs((prev) => prev.filter((t) => t.conversationId !== conversationId))
@@ -156,12 +173,12 @@ export function ChatProvider({ children }) {
 
   const value = {
     canChat,
-    unreadCount,
+    unreadCount: stateAccountKey === accountKey ? unreadCount : 0,
     setUnreadCount,
     fetchUnreadCount,
-    drawerOpen,
+    drawerOpen: stateAccountKey === accountKey && drawerOpen,
     setDrawerOpen,
-    openTabs,
+    openTabs: stateAccountKey === accountKey ? openTabs : [],
     openConversationTab,
     openChatWithUser,
     closeTab,

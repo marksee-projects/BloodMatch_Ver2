@@ -717,5 +717,22 @@ button.mobile-link:hover:not(:disabled) {
 button.nav-avatar-trigger:hover:not(:disabled) { background: transparent; border-color: transparent; box-shadow: none; }
 button.nav-icon-btn:hover:not(:disabled) { box-shadow: none; }
 
-button.nav-create-plain { background: transparent; border: 0; border-radius: var(--radius-control); color: var(--color-brand-navy); }
-button.nav-create-plain:hover:not(:disabled) { background: transparent; border-color: transparent; box-shadow: none; color: var(--color-brand-navy-hover); transform: scale(1.05); }
+button.nav-create-plain { background: transparent; border: 1px solid transparent; border-radius: var(--radius-md); color: var(--color-text-muted); }
+button.nav-create-plain:hover:not(:disabled) { background: var(--color-surface-hover); border-color: var(--color-border); box-shadow: none; color: var(--color-text); transform: none; }
+button.nav-create-plain:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+
+.nav-create-plain > svg, .notif-bell > svg {
+  transition: transform var(--transition-fast);
+}
+
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .nav-create-plain:hover:not(:disabled) > svg, .notif-bell:hover:not(:disabled) > svg {
+    transform: translateY(-1px) scale(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button.nav-create-plain, .nav-create-plain > svg, .notif-bell, .notif-bell > svg {
+    transition: none;
+  }
+}

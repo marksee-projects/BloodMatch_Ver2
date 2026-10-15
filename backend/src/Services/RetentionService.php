@@ -65,7 +65,8 @@ final class RetentionService
             $p->exec('SET @bloodmatch_retention=1');
             try { foreach($queries as $name=>$sql) $summary[$name]=$p->exec($sql); }
             finally { $p->exec('SET @bloodmatch_retention=0'); }
-            $p->exec("UPDATE chat_requests SET status='cancelled',updated_at=UTC_TIMESTAMP() WHERE status='pending' AND created_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY)");
+            // Pending consent expires by created_at in the request API. Do not
+            // turn expiry into a cancellation here and restart its retry delay.
         }
         if ($apply) {
             $p->exec("UPDATE chat_requests r LEFT JOIN conversations c ON c.id=r.conversation_id SET r.status='cancelled',r.conversation_id=NULL,r.updated_at=UTC_TIMESTAMP() WHERE r.status='accepted' AND c.id IS NULL");

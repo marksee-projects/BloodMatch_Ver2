@@ -8,6 +8,14 @@ use RuntimeException;
 
 final class ChatConsentService
 {
+    public static function pendingExpired(array $request, ?int $now = null): bool
+    {
+        if (($request['status'] ?? '') !== 'pending') return false;
+        if (!is_string($request['created_at'] ?? null) || trim($request['created_at']) === '') return true;
+        $created = strtotime((string)($request['created_at'] ?? '') . ' UTC');
+        return $created === false || $created <= ($now ?? time()) - 7 * 86400;
+    }
+
     public static function accepted(int $conversationId, int $userId): bool
     {
         $s=Database::pdo()->prepare("SELECT 1 FROM chat_requests WHERE conversation_id=? AND status='accepted' AND (user_low=? OR user_high=?)");
@@ -23,8 +31,9 @@ final class ChatConsentService
             if (!(new ChatPolicy())->canMessage($users[(int)$actor['id']],$users[$recipientId])) throw new RuntimeException('Both accounts must be active and verified.',403);
             $p=Database::pdo(); $pair=[min((int)$actor['id'],$recipientId),max((int)$actor['id'],$recipientId)];
             $s=$p->prepare('SELECT * FROM chat_requests WHERE user_low=? AND user_high=? FOR UPDATE'); $s->execute($pair);$row=$s->fetch();
-            if ($row && in_array($row['status'],['pending','accepted'],true)) return $row;
-            if ($row && strtotime($row['updated_at'].' UTC')>time()-86400) throw new RuntimeException('Wait one day before sending another request.',429);
+            $expired=$row && self::pendingExpired($row);
+            if ($row && in_array($row['status'],['pending','accepted'],true) && !$expired) return $row;
+            if ($row && !$expired && strtotime($row['updated_at'].' UTC')>time()-86400) throw new RuntimeException('Wait one day before sending another request.',429);
             if ($row) {
                 $s=$p->prepare("UPDATE chat_requests SET sender_id=?,recipient_id=?,status='pending',conversation_id=NULL,created_at=UTC_TIMESTAMP(),updated_at=UTC_TIMESTAMP() WHERE id=?");$s->execute([(int)$actor['id'],$recipientId,$row['id']]);$id=(int)$row['id'];
             } else {
@@ -38,7 +47,7 @@ final class ChatConsentService
 
     public static function listing(int $userId): array
     {
-        $s=Database::pdo()->prepare("SELECT r.id,r.status,r.sender_id,r.recipient_id,r.created_at,r.conversation_id,u.full_name AS sender_name,v.full_name AS recipient_name FROM chat_requests r JOIN users u ON u.id=r.sender_id JOIN users v ON v.id=r.recipient_id WHERE (r.sender_id=? OR r.recipient_id=?) AND r.status='pending' ORDER BY r.created_at DESC LIMIT 100");
+        $s=Database::pdo()->prepare("SELECT r.id,r.status,r.sender_id,r.recipient_id,r.created_at,r.conversation_id,u.full_name AS sender_name,v.full_name AS recipient_name FROM chat_requests r JOIN users u ON u.id=r.sender_id JOIN users v ON v.id=r.recipient_id WHERE (r.sender_id=? OR r.recipient_id=?) AND r.status='pending' AND r.created_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 7 DAY) AND u.account_status='active' AND v.account_status='active' AND u.verification_status='verified' AND v.verification_status='verified' ORDER BY r.created_at DESC LIMIT 100");
         $s->execute([$userId,$userId]);return $s->fetchAll();
     }
 
@@ -54,6 +63,7 @@ final class ChatConsentService
             if ((int)$actor['id']!==$expected) throw new RuntimeException('Forbidden.',403);
             if (!ChatPolicy::isEligible($users[$expected])) throw new RuntimeException('Verification required.',403);
             if ($row['status']!=='pending') throw new RuntimeException('This request has already been handled.',409);
+            if (self::pendingExpired($row)) throw new RuntimeException('This message request has expired. Send a new request.',410);
             $conv=null;
             if ($action==='accept') {
                 if (!(new ChatPolicy())->canMessage($users[(int)$row['sender_id']],$users[(int)$row['recipient_id']])) throw new RuntimeException('Both accounts must be active and verified.',403);

@@ -151,9 +151,6 @@ export default function MyResponsesPage() {
     <div className={styles.container}>
       <header className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>My Responses</h1>
-        <p className={styles.pageSubtitle}>
-          Blood requests you have offered to help with as a donor. Revisit and manage your commitments here.
-        </p>
       </header>
 
 

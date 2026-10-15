@@ -10,6 +10,15 @@ import styles from './ChatPage.module.css'
 
 export default function ChatPage() {
   const { user } = useAuth()
+  const { canChat } = useChat()
+  const route = useLocation()
+  // A new account or route gets fresh state and cursors. Outstanding requests
+  // from the previous workspace must never populate the next conversation.
+  return <ChatWorkspace key={`${user?.id ?? 'guest'}:${canChat}:${route.search}`} />
+}
+
+function ChatWorkspace() {
+  const { user } = useAuth()
   const { canChat, fetchUnreadCount } = useChat()
   const notify = useNotify()
   const navigate = useNavigate()
@@ -31,14 +40,20 @@ export default function ChatPage() {
   const pollCursor = useRef(0)
   const readCursor = useRef(0)
   const [hasOlder, setHasOlder] = useState(true)
+  const mounted = useRef(false)
+  useEffect(() => {
+    mounted.current = true
+    return () => { mounted.current = false }
+  }, [])
   const load = async () => {
     if (listInFlight.current || document.hidden) return
     listInFlight.current = true
     setError('')
     try {
       const [c, r] = await Promise.all([api.get('/api/chat/conversations'), api.get('/api/chat/requests')])
-      setConversations(c.conversations || []); const requested = Number(new URLSearchParams(route.search).get('conversation')); if (requested) { const found = (c.conversations || []).find(row => Number(row.id) === requested); if (found) setThread(found); else setError('This conversation is unavailable.') } setRequests(r.requests || []);
-    } catch (e) { setError(e.message) } finally { listInFlight.current = false }
+      if (!mounted.current) return
+      setConversations(c.conversations || []); const requested = Number(new URLSearchParams(route.search).get('conversation')); if (requested) { const found = (c.conversations || []).find(row => Number(row.id) === requested); setThread(found || null); if (!found) setError('This conversation is unavailable.') } setRequests(r.requests || []);
+    } catch (e) { if (mounted.current) setError(e.message) } finally { listInFlight.current = false }
   }
   useEffect(() => { if (!canChat) return undefined; load(); const timer = setInterval(load, 30000); return () => clearInterval(timer) }, [user?.id, canChat, route.search])
   useEffect(() => {
@@ -54,7 +69,7 @@ export default function ChatPage() {
         const rows = data.messages || []; const area = messageArea.current; const follow = !area || area.scrollHeight - area.scrollTop - area.clientHeight < 80; setMessages(current => [...new Map([...current, ...rows].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id))
         if (follow) window.requestAnimationFrame(() => { if (active && messageArea.current) messageArea.current.scrollTop = messageArea.current.scrollHeight })
         if (rows.length) pollCursor.current = Math.max(pollCursor.current, rows.at(-1).id)
-        if (pollCursor.current > readCursor.current) { await api.post(`/api/chat/conversations/${thread.id}/read`, { last_message_id: pollCursor.current }); readCursor.current = pollCursor.current; await fetchUnreadCount() }
+        if (pollCursor.current > readCursor.current) { const fetchedId = pollCursor.current; await api.post(`/api/chat/conversations/${thread.id}/read`, { last_message_id: fetchedId }); if (!active) return; readCursor.current = fetchedId; await fetchUnreadCount() }
       } catch (e) { if (active) setError(e.message) }
       finally { inFlight.current = false }
     }
@@ -64,30 +79,30 @@ export default function ChatPage() {
   const older = async () => {
     if (busy || !messages.length) return
     setBusy(true)
-    try { const r = await api.get(`/api/chat/conversations/${thread.id}/messages?before_id=${messages[0].id}&limit=100`); const rows = r.messages || []; setHasOlder(rows.length === 100); setMessages(current => [...new Map([...rows, ...current].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id)) }
-    catch (e) { notify({ severity: 'error', message: e.message }) }
-    finally { setBusy(false) }
+    try { const r = await api.get(`/api/chat/conversations/${thread.id}/messages?before_id=${messages[0].id}&limit=100`); if (!mounted.current) return; const rows = r.messages || []; setHasOlder(rows.length === 100); setMessages(current => [...new Map([...rows, ...current].map(m => [m.id, m])).values()].sort((a,b) => a.id-b.id)) }
+    catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
+    finally { if (mounted.current) setBusy(false) }
   }
   const decide = async (id, action) => {
     if (busy) return
     setBusy(true)
-    try { await api.post(`/api/chat/requests/${id}/decision`, { action }); await load(); notify({ severity: 'success', message: `Request ${action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'cancelled'}.` }) }
-    catch (e) { notify({ severity: 'error', message: e.message }) }
-    finally { setBusy(false) }
+    try { await api.post(`/api/chat/requests/${id}/decision`, { action }); if (!mounted.current) return; await load(); if (mounted.current) notify({ severity: 'success', message: `Request ${action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : 'cancelled'}.` }) }
+    catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
+    finally { if (mounted.current) setBusy(false) }
   }
   const send = async (event) => {
     event.preventDefault(); if (busy || !body.trim()) return
     setBusy(true)
-    try { const r = await api.post(`/api/chat/conversations/${thread.id}/messages`, { body }); setMessages(rows => [...rows.filter(m => m.id !== r.message.id), r.message]); setBody('') }
-    catch (e) { notify({ severity: 'error', message: e.message }) }
-    finally { setBusy(false) }
+    try { const r = await api.post(`/api/chat/conversations/${thread.id}/messages`, { body }); if (!mounted.current) return; setMessages(rows => [...rows.filter(m => m.id !== r.message.id), r.message].sort((a,b) => a.id-b.id)); setBody('') }
+    catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
+    finally { if (mounted.current) setBusy(false) }
   }
   const report = async (event) => {
     event.preventDefault(); if (busy || !selected.length) return
     setBusy(true)
-    try { await api.post(`/api/chat/conversations/${thread.id}/reports`, { reason, message_ids: selected }); setReporting(false); setReason(''); setSelected([]); notify({ severity: 'success', message: 'Conversation report submitted.' }) }
-    catch (e) { notify({ severity: 'error', message: e.message }) }
-    finally { setBusy(false) }
+    try { await api.post(`/api/chat/conversations/${thread.id}/reports`, { reason, message_ids: selected }); if (!mounted.current) return; setReporting(false); setReason(''); setSelected([]); notify({ severity: 'success', message: 'Conversation report submitted.' }) }
+    catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
+    finally { if (mounted.current) setBusy(false) }
   }
   if (!canChat) return <p>Complete account verification before using chat.</p>
   return <section className={styles.page}>

@@ -4,6 +4,25 @@ Prepared 14 October 2026; execution approved 15 October 2026. Working branch: `f
 
 Current source covers registration after OTP, shared feedback/layout, consent-based full chat, request extension/renewal/closure, profile privacy/navigation, account deletion/retention and the admin Chat Reports page. These are source-prepared changes, not a claim of live database/browser verification. Privacy contact supplied by the user: DeMolay Bataan, demolaybataan@gmail.com, Bataan. Retention periods were approved as product policy with the plan, not supplied as NPC deadlines. Historical missing locations and unknown legacy verification dates require evidence/owner correction; no values were invented.
 
+Continuation checkpoint, 15 October: remaining source review adds chat response/account isolation and exact seven-day pending-consent expiry without depending on cleanup. The user-run isolated suite includes an owned expired-request rehearsal. Run `powershell -ExecutionPolicy Bypass -File tests/check_chat_privacy_source.ps1` for the prepared syntax/offline/build checks, then follow the current handoff for the separate backed-up database rollout. Latest changes are unverified until those checks run. The checkpoint document has been reconciled to remove superseded pending-only statuses. Database changes, scheduling, historical-data correction and live acceptance remain outstanding; no ERD or load test was resumed.
+
+## UI follow-up — 15 October 2026
+
+- Source updated: remove the introductory paragraph from Chat Reports and center its header. Preserve report reasons, evidence, findings and access controls.
+- Source updated: remove the introductory paragraph beneath My Responses; keep its centered title and response content.
+- Source updated: match the desktop/mobile navigation plus button to the notification bell's neutral hover highlight, border and radius. Add a subtle icon lift/scale to both controls, honoring reduced-motion preferences.
+- Verification pending: user-run frontend build and browser checks. No PowerShell tests, live API checks, database migrations or account cleanup were executed for this follow-up.
+- Previous checkpoint remains applicable: database-dependent functionality is source-prepared, not live-verified. Migrations 025–027, imported-data repairs, representative-account cleanup, scheduled lifecycle/retention processing and end-to-end verification remain pending. ERD remains deferred; load testing remains cancelled.
+
+User-run PowerShell check (from the repository root):
+
+```powershell
+Set-Location 'C:\Users\PC\OneDrive\Documents\BloodMatch\frontend'
+npm run build
+```
+
+After a successful build, run `npm run dev` if the development server is not already running. Check `/responses`, `/admin/chat-reports` using the designated administrator, and the plus/bell hover on desktop and narrow screens. Check light/dark themes, keyboard focus, click actions and reduced-motion behavior. This check does not apply database migrations; a Chat Reports API/schema error still requires the separately documented database rollout.
+
 ## Read-only findings
 
 - Connected application database: `bloodmatch`, MariaDB 10.4.32, port 3306. README documents port 3307; the database connector has a fallback. All future scripts must assert the resolved database and port rather than rely on the documented port.

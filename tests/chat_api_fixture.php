@@ -10,7 +10,7 @@ try {
     $p=new PDO('mysql:host=127.0.0.1;port=3306;dbname=bloodmatch_test;charset=utf8mb4',Env::get('DB_USER','root'),Env::get('DB_PASS',''),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
     $p->exec("SET time_zone = '+00:00'");
     if($p->query('SELECT DATABASE()')->fetchColumn()!=='bloodmatch_test') throw new LogicException('Wrong database.');
-    $args=getopt('',['create','cleanup:','revoke:','otp:','signup-status:']);
+    $args=getopt('',['create','cleanup:','revoke:','otp:','signup-status:','expire-request:']);
     $dir=dirname(__DIR__).'/backend/storage/maintenance';if(!is_dir($dir))mkdir($dir,0700,true);
     if(isset($args['create'])){
         foreach(['conversations','conversation_participants','messages'] as $table)if((int)$p->query("SELECT COUNT(*) FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='$table' AND INDEX_NAME='PRIMARY'")->fetchColumn()!==1)throw new LogicException('Repair the imported test chat schema first.');
@@ -33,7 +33,7 @@ try {
         }catch(Throwable $e){$p->rollBack();throw $e;}
         echo $path.PHP_EOL;exit;
     }
-    $path=realpath($args['cleanup']??$args['revoke']??$args['otp']??$args['signup-status']??'');$root=realpath($dir);
+    $path=realpath($args['cleanup']??$args['revoke']??$args['otp']??$args['signup-status']??$args['expire-request']??'');$root=realpath($dir);
     if(!$path || !str_starts_with(str_replace('\\','/',$path),str_replace('\\','/',$root).'/chat-api-'))throw new LogicException('Unexpected fixture path.');
     $fixture=json_decode(file_get_contents($path),true,512,JSON_THROW_ON_ERROR);
     foreach($fixture['accounts'] as $name=>$account){
@@ -52,6 +52,12 @@ try {
         $s=$p->prepare('SELECT COUNT(*) FROM pending_registrations WHERE email=?');$s->execute([$signup['email']]);echo json_encode(['user_count'=>$user?1:0,'pending_count'=>(int)$s->fetchColumn(),'location_id'=>$user['location_id']??null,'verification_status'=>$user['verification_status']??null]),PHP_EOL;exit;
     }
     if(isset($args['revoke'])){$p->prepare("UPDATE users SET verification_status='pending' WHERE id=?")->execute([$fixture['accounts']['b']['id']]);echo 'revoked'.PHP_EOL;exit;}
+    if(isset($args['expire-request'])) {
+        $s=$p->prepare("UPDATE chat_requests SET created_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 8 DAY),updated_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 8 DAY) WHERE sender_id=? AND recipient_id=? AND status='pending'");
+        $s->execute([$fixture['accounts']['a']['id'],$fixture['accounts']['b']['id']]);
+        if ($s->rowCount()!==1) throw new LogicException('Expected one owned pending chat request.');
+        echo 'owned request expired'.PHP_EOL;exit;
+    }
     if ($signup) {
         $s=$p->prepare('SELECT id FROM users WHERE email=?');$s->execute([$signup['email']]);$signupId=$s->fetchColumn();
         if ($signupId) $fixture['accounts']['signup']=['id'=>(int)$signupId,'email'=>$signup['email'],'password'=>$signup['password']];

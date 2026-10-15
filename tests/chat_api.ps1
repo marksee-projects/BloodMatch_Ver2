@@ -48,6 +48,13 @@ try {
     $requestId=[int]$requested.data.request.id
     Check ((Call $outsider 'POST' "/api/chat/requests/$requestId/decision" @{action='accept'}).status -eq 403) 'outsider cannot accept request'
     Check ((Call $a 'GET' '/api/chat/conversations').data.conversations.Count -eq 0) 'pending contacts do not appear in normal chat'
+    & $PhpPath (Join-Path $PSScriptRoot 'chat_api_fixture.php') "--expire-request=$fixturePath" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw 'Could not expire owned pending chat request.' }
+    Check ((Call $b 'POST' "/api/chat/requests/$requestId/decision" @{action='accept'}).status -eq 410) 'seven-day request cannot be accepted without cleanup worker'
+    $incoming=Call $b 'GET' '/api/chat/requests'
+    Check ($incoming.status -eq 200 -and @($incoming.data.requests | Where-Object { $_.id -eq $requestId }).Count -eq 0) 'expired request is absent from pending list'
+    $renewed=Call $a 'POST' '/api/chat/requests' @{recipient_id=$fixture.accounts.b.id}
+    Check ($renewed.status -eq 200 -and $renewed.data.request.status -eq 'pending' -and $renewed.data.request.id -eq $requestId) 'new request reuses expired pair without granting consent'
     Check ((Call $b 'POST' "/api/chat/requests/$requestId/decision" @{action='accept'}).status -eq 200) 'recipient accepts request'
     $started=Call $a 'POST' '/api/chat/conversations' @{recipient_id=$fixture.accounts.b.id}
     Check ($started.status -eq 200 -and $started.data.conversation.id -gt 0) 'verified users start a direct conversation'

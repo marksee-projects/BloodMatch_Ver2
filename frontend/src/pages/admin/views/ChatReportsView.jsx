@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../../../services/apiClient'
 import { useNotify } from '../../../context/NotificationContext'
 import { Button } from '../../../components/ui/Button'
+import styles from './ChatReportsView.module.css'
 export default function ChatReportsView() {
   const notify = useNotify()
   const [rows, setRows] = useState([])
@@ -18,7 +19,7 @@ export default function ChatReportsView() {
   useEffect(() => { load() }, [filter, page])
   const open = async (id) => { if (busy) return; setBusy(true); try { const r = await api.get(`/api/admin/chat-reports/${id}`); setDetail(r); setFindings(r.report.findings || '') } catch (e) { notify({ severity: 'error', message: e.message }) } finally { setBusy(false) } }
   const save = async (e) => { e.preventDefault(); if (busy) return; setBusy(true); try { await api.post(`/api/admin/chat-reports/${detail.report.id}/decision`, { status, findings }); setDetail(null); await load(); notify({ severity: 'success', message: 'Report updated.' }) } catch (e) { notify({ severity: 'error', message: e.message }) } finally { setBusy(false) } }
-  return <section className="container"><h1>Chat reports</h1><p>Access is limited to reported messages and necessary context. Evidence access is logged.</p>
+  return <section className="container"><header className={styles.pageHeader}><h1>Chat reports</h1></header>
     <label htmlFor="chat-report-filter">Report status</label><select id="chat-report-filter" value={filter} onChange={e => { setFilter(e.target.value); setPage(1) }}><option value="active">Open and under review</option><option value="all">All reports</option><option value="resolved">Resolved</option><option value="dismissed">Dismissed</option></select>
     {error && <div role="alert">{error}<Button onClick={load}>Retry</Button></div>}
     {!rows.length && !error && <p>No chat reports.</p>}

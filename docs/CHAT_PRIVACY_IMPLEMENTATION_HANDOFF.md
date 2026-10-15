@@ -4,11 +4,25 @@ Prepared 15 October 2026 on `feat/chat-privacy-account-lifecycle`.
 
 Application changes and user-run migrations are prepared. No migration, account cleanup, password reset, retention apply, or live API suite was run by the agent. ERD generation remains deferred and the load test remains cancelled. Do not run the old handoff's rollout sequence unchanged: the functional suite now requires migration 025.
 
+## Latest follow-up and user-run source checks
+
+The 15 October follow-up simplifies Chat Reports/My Responses headers and aligns plus/bell hover with reduced-motion support. Chat page workspaces now reset by account/eligibility/route and ignore old async completions; unread counts and profile-to-chat actions ignore a previous account's responses. Pending message requests expire at exactly seven days in the API, independently of the retention schedule. Accepted consent remains valid; explicit decline/cancel keeps the one-day retry rule. A new request can replace an expired pending pair without implicitly accepting it. Retention no longer converts that expiry into a cancellation that restarts the retry delay.
+
+Run from the repository root:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tests/check_chat_privacy_source.ps1
+```
+
+Requires existing frontend dependencies, Node/npm and PHP at `C:\xampp\php\php.exe` (override with `-PhpPath`). The script stops on failure, lints application/database PHP, runs an explicit allowlist of offline checks and builds the frontend. It does not apply SQL or exercise live APIs. These latest edits and the new runner have not been executed by the agent. Do not treat earlier passing results as verification of this working tree.
+
+After source checks pass, follow the test-copy database sequence below. The isolated suite now ages only its owned pending request to verify denial after seven days, exclusion from pending lists, and a fresh request that reuses the pair without consent. This is a small functional test; the cancelled load test remains excluded.
+
 ## Source changes
 
 - Compact bottom-right notices dismiss after five seconds, with hover/focus pause and placement above open floating chat. Logout has balanced adjacent buttons without its old paragraph. Registration upload and blocked availability use concise notice feedback and a reduced-motion-aware wiggle. Request-form header/field spacing and navigation hover/plus/profile-card access are updated.
 - Registration stages a password hash, canonical location and optional private document in pending_registrations. A valid, unexpired OTP atomically creates one email-verified, membership-pending account. Missing/wrong/expired/reused codes create no extra account. Abandoned signup lasts 24 hours; codes last at most 10 minutes, with existing attempt/resend protections. Existing pre-OTP user rows are not silently removed or converted.
-- Verified active pairs request and accept chat consent. Profiles, request cards and valid I can help offers use that flow. Imported messages remain preserved, but old conversations have no automatic consent. `/chat` provides requests, accepted conversations, direct thread links, older-message loading and reporting. Pending requests expire after seven days when the worker runs; declined/cancelled pairs wait one day before retry; direct requests are limited to ten/hour. Requests in opposite directions reuse one pair.
+- Verified active pairs request and accept chat consent. Profiles, request cards and valid I can help offers use that flow. Imported messages remain preserved, but old conversations have no automatic consent. `/chat` provides requests, accepted conversations, direct thread links, older-message loading and reporting. Pending requests expire after seven days at API access even if maintenance is delayed; declined/cancelled pairs wait one day before retry; direct requests are limited to ten/hour. Requests in opposite directions reuse one pair.
 - Chat listing, unread counts and message/read access require consent and eligible participants. Read markers use fetched message IDs, avoiding timestamp ties and stale unread-refresh races. Message sends recheck both locked accounts. The full page and floating tabs do not poll the same thread at the same time.
 - Owner profile provides My requests and Expired posts actions. OPEN requests can extend their deadline; expired requests renew as linked new posts, with no old offers reactivated. Owner closure records Need met elsewhere/No longer needed without inventing donations. Expiry prompts link to the expired tab and remain available on the next visit/notification center.
 - Pending donation reports survive closure. Staff may review timely reports after closure with documented evidence; existing no-self-review and invalid-offer checks remain. Verified units may fulfill an expired original without reopening matching or changing its linked renewal. Cancellation itself never creates a donation/window. Donor windows still start at staff confirmation and overlap.
@@ -77,6 +91,7 @@ Review without --apply is read-only. Retention apply takes a fresh SQL backup. C
 ## Manual acceptance checks
 
 - Two verified users: request from profile/card, decline/cancel, accept, reply, older history, refresh/deep link, unread badge, minimize/hidden tab, account switch and permission revocation. Unaccepted imported chats stay outside normal lists/counts. Check a real report as the nonparticipant administrator, unrelated evidence denial, conflict denial, status changes and access logs.
+- In browser network throttling, switch threads during polling, sending and older-history loading; old replies must not populate the new thread. Switch accounts with a pending unread/profile-message request; old tabs, badges and late popup results must not appear for the new account. Revoke recipient eligibility and refresh the selected thread; it must clear when absent from the authorized list. Pending-request expiry must not depend on a cleanup run.
 - Registration: invalid/oversized ID then empty optional upload, valid replacement, keyboard upload, step back/forward, labels, location selected in JSON/multipart, OTP missing/wrong/expired/resend/reuse, and private-file cleanup. Existing null locations need owner correction/verified source data, not guesses from chapter.
 - Requests: deadline expiry/next-visit prompt, future extension, linked renewal without old offers, ignored prompt stays expired, external closure without donation/window, partial and late pending-report review. Verify workers are scheduled and failing runs are visible.
 - Deletion: wrong password, missing DELETE, valid closure, all old sessions blocked, no reactivation, active-work closure, pending reviews preserved, thirty-day erasure/file cleanup, report holds and backup aging on expendable test data.

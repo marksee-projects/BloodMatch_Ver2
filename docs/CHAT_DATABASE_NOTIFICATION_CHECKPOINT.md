@@ -1,53 +1,41 @@
 # Chat, database and notification checkpoints
 
-Updated 15 October 2026. Implementation approved; source changes are prepared on `feat/chat-privacy-account-lifecycle`. Historical pending notes below are superseded by this status and [the current implementation handoff](CHAT_PRIVACY_IMPLEMENTATION_HANDOFF.md). Database migrations and live PowerShell checks are supplied for the user to run; the 100/500-user load test remains cancelled and no ERD generation is included.
+Updated 15 October 2026. Implementation is approved on `feat/chat-privacy-account-lifecycle`. This is the current status; historical planning-only notes in the original plan do not override it. Source preparation is not live acceptance. Database mutations and PowerShell checks remain user-run.
 
-| Execution checkpoint | Current result |
-| --- | --- |
-| Branch first | Created feat/chat-privacy-account-lifecycle before application edits |
-| Registration and location | Pending-registration/OTP source prepared; 11 transaction/OTP checks and 10 location-selection checks pass; live JSON/multipart, email and upload checks pending |
-| Feedback/layout/navigation | Bottom-right five-second compact notices, wiggles, logout/form/nav/card changes prepared; production build passed; visual/mobile/keyboard verification pending |
-| Chat consent/full page/reports | Source and migration 025 prepared; 29 offline chat checks pass; live tests and administrator evidence/conflict review pending |
-| Request lifecycle | Extension, linked renewal, expired tab/prompt, reasoned closure, reminders and timely late-review source prepared; 22 policy checks pass; SQL/concurrency/worker verification pending |
-| Privacy/deletion/retention | Supplied organization/contact installed; password-confirmed closure and retention runners prepared; erasure/holds/backups and daily scheduling unverified |
-| Single admin/demo accounts | API restrictions and trigger migration 027 prepared; source label/cooldown filters prepared; application data remains unchanged until reviewed user-run cleanup/migrations |
-| Final verification | Request/profile 21-check suite, Home callbacks, management/privacy checks, notification/helper checks and PHP/PowerShell syntax checks pass; live APIs, restore, migrations, credentials and browser checks remain user-run |
-
-| Checkpoint | Current status | Completion evidence required |
+| Checkpoint | Source status | Acceptance still required |
 | --- | --- | --- |
-| 1. Baseline audit and backup | Read-only audit and SQL backup completed; import repair and demo-cleanup scripts prepared | Restore backup into bloodmatch_test, review deletion/schema impacts, rehearse repair successfully |
-| 2. Shared feedback and registration | Shared popup implementation prepared and offline checks passed; later amendments pending | Compact bottom-right popups dismiss after five seconds; replace dropdown/upload red paragraphs with popup plus brief accessible wiggle; fix optional-ID stale errors; remove Next: prefixes; create account only after valid OTP; verify retry/expiry/uniqueness and temporary-upload cleanup |
-| 3. Request lifecycle | Existing needed-by expiry confirmed in source; approved improvements pending | Owner prompt when deadline expires, deferred prompt if offline, no automatic renewal; verify expiry worker/filtering; deadline extension and explicit renewal; profile Expired posts tab; reasoned closure without fabricated donations; reminders and evidence-based late-report review |
-| 4. Accepted chat | Verified-only chat policy prepared; live operation unverified; consent workflow pending | Diagnose imported/demo conversations and profile Message action; profile/card requests and successful I can help create/reuse pending consent; recipient acceptance gates backend access and normal chat list; review existing-chat transition |
-| 5. Single administrator and demo accounts | Configured bloodmatch still has 97 members and 18 admins; user's reported 15-row view unresolved | Match UI/API/database target and filters before cleanup; retain only markseejr@gmail.com as administrator; remove promotion UI and enforce backend rule; add derived cooldown status/filter independently of deactivation; rehearse final fifteen-account cleanup and private credential delivery |
-| 6. Final verification | Live checks pending; ERD generation deferred by latest user instruction | User applies reviewed migrations on test copy; verify integrity, functional chat/registration/request/staff workflows, unread badge and browser feedback; do not generate/export an ERD |
+| Branch first | Feature branch created before implementation; initial lifecycle features are in commit `2aee912`; latest follow-up remains uncommitted | Review final diff; no push/deployment performed |
+| Registration | Pending signup, OTP-only user creation, location payload handling, optional upload reset, popup/wiggle and shorter button labels prepared | Actual email/OTP, JSON/multipart, document handling, retry and uniqueness checks |
+| Notifications/layout | Compact bottom-right five-second feedback, pause on interaction, adjacent confirmation buttons, form spacing and profile navigation prepared | Browser checks across desktop/mobile, themes, keyboard and reduced motion |
+| Latest UI follow-up | Chat Reports paragraph removed/header centered; My Responses subtitle removed; plus/bell matching hover and subtle motion prepared | Build and visual checks after these edits |
+| Chat | Verified active pairs, recipient consent, dedicated page, imported-thread consent gate and read cursors prepared | Two-account operation, profile/card entry points, unread badges, history, revocation and concurrency |
+| Chat follow-up | Server rejects seven-day pending requests even without cleanup; stale page/account responses are ignored; account switch clears chat state | New expiry checks and delayed-network/account-switch acceptance checks |
+| Moderation | Participant reports, bounded evidence, designated-admin review, evidence access logging and conflict denial prepared | Live nonparticipant-admin review, evidence authorization, audit failure and resolution checks |
+| Request lifecycle | Expiry prompt, extension, linked renewal, expired profile section, reasoned closure, reminders and timely late-review source prepared | SQL transactions/concurrency, worker operation and completed-unit accounting |
+| Profile/privacy | Other-member email omitted, owner location display, supplied organization contact and revised notice prepared | Missing historical locations need verified source/owner correction; no invented backfill |
+| Account deletion | Password/DELETE confirmation, immediate access restriction and closure schedule prepared | Old-session denial, work closure, pending-review preservation and user-run deletion rehearsal |
+| Retention | Review/apply runners, private-file handling, scoped holds and local backup aging prepared | Test erasure, holds, restore procedure, external backup coverage and actual maintenance scheduling |
+| Single admin/demo accounts | Application restrictions, migration 027, source label and donor-window filter prepared | Reconcile database view; rehearse reviewed cleanup to fifteen accounts and sole admin; generate credentials privately |
+| Database | Import repair helpers and migrations 025–027 prepared | Fresh backups, restore rehearsal, import repair, cleanup and migration apply; no schema removal justified by current evidence |
 
-## Implementation dependencies
+## Verification status
 
-Account deletion and moderation checkpoint: implement identity-confirmed permanent closure, immediate access revocation and scheduled category-specific erasure; preserve only justified evidence/history. Add participant reports with designated-administrator access limited to reported messages and necessary context, with backend authorization and access logs. No unrestricted staff chat browsing is approved. Retention periods remain proposed until approved and enforced; privacy-notice contact details remain unresolved.
+Earlier targeted offline suites and a frontend build passed before the latest follow-up. These are historical results, not a pass for the current working tree. No new tests/build, migration, cleanup, password reset, retention apply or scheduled-task installation was run during this follow-up.
 
-Privacy/chat/profile checkpoint: revise privacy notice against actual controls, hide profile email in UI and other-member API, add dropdown expansion to a dedicated accepted-chat/message-request page, investigate registration-to-profile location persistence, and replace center Profile navigation with page-card and avatar-menu access. The inspected screenshot account (ID 3) currently has a null location reference; the origin of that missing data is unresolved. These are pending implementation, with owner/staff authentication data preserved and no invented address backfill.
+Run from the repository root:
 
-Latest UI checkpoint: simplify logout to a title and balanced side-by-side buttons; remove paragraph-style popup copy; reduce request-modal header spacing and separate form groups; remove unintended chat-input hover lines; remove the plus icon's circular background; use avatar-only profile hover highlighting while retaining motion and keyboard focus. All remain pending implementation. Allowing admin requests and retaining Responses are documented recommendations, not new approved policy changes.
+```powershell
+powershell -ExecutionPolicy Bypass -File tests/check_chat_privacy_source.ps1
+```
 
-1. Restore and audit the isolated database before applying migrations. Preserve historical messages, completed donations and audit records.
-2. Finalize pending-registration, chat-consent, renewal/closure and late-report data decisions. Prepare migrations and rollback/backup guidance; do not remove tables/columns without evidence of redundancy.
-3. Implement registration/feedback, lifecycle/consent and administrator enforcement. Update seeders, maintenance tools and test fixtures for the resulting schema/policies.
-4. Rehearse final repair and account cleanup against that schema. The earlier prepared scripts do not implement the newly approved pending features; obtain a fresh impact review before final cleanup.
-5. Complete user-run live functional checks and browser checks, then provide credentials privately. Do not generate/export an ERD. Do not claim live chat or restore verification until those checks pass.
+This performs PHP syntax checks, explicitly selected offline checks and the frontend build. It does not run live API tests or apply migrations. Follow [the implementation handoff](CHAT_PRIVACY_IMPLEMENTATION_HANDOFF.md) for the separate backed-up test-database rollout, isolated suite and manual checks. Stop at the first failure; preserve its output before continuing.
 
-## Decisions to resolve during implementation
+## Remaining boundaries
 
-- Retention: review/approve the proposed category-specific schedule in the plan, implement erasure/anonymization and backup aging, and replace unsupported current-notice claims only with verified behavior. There is currently no confirmed automatic general purge policy.
+- Database-dependent features remain unverified until the user completes the test-copy rollout. Last recorded `bloodmatch:3306` count was 97 members and 18 admins; this follow-up did not re-query or change it.
+- Independent review/administrator transfer is a separately reviewed operation; no self-investigation or automatic privilege bypass was added.
+- Timely donation reports filed before closure remain reviewable with evidence. A new post-closure report-submission workflow is not part of the prepared implementation.
+- External backup/version-history retention and release readiness still require operational verification.
+- ERD generation remains deferred. The 100/500-user load test remains cancelled.
 
-- Renewal: reopening with preserved history versus creating a linked new request; choose after checking matches/reports and audit relationships.
-- Late reports: reliable actual donation-time evidence, which reports remain reviewable after expiry, and the effect on confirmed-unit accounting and donor-window timestamps.
-- Message requests: expiry/retry/rate limits and an explicit reviewed transition for existing conversations without consent records.
-- Reminder cadence and closure representation: avoid notification spam and distinguish externally met/cancelled needs from verified-donation fulfillment.
-- Account creation before OTP: reviewed handling of existing unverified users, pending-registration retention and secure temporary-document cleanup.
-
-## Verification already recorded
-
-Offline checks passed: 27 chat-policy checks, 5 session-identity checks, 9 request-popup checks and 16 registration/notification helper checks. Production build and PHP/PowerShell syntax checks passed. The older profile UI test has a reproduced baseline fixture failure; browser rendering, live APIs, backup restore, repairs, cleanup and credential resets remain unverified/unapplied. No passwords are stored in tracked documentation.
-
-See [the complete plan](CHAT_DATABASE_NOTIFICATION_PLAN.md) and [the execution handoff](CHAT_DATABASE_NOTIFICATION_HANDOFF.md).
+See [the complete approved plan](CHAT_DATABASE_NOTIFICATION_PLAN.md) and [the current implementation handoff](CHAT_PRIVACY_IMPLEMENTATION_HANDOFF.md).
