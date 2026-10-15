@@ -373,7 +373,7 @@ export default function ProfilePage() {
           </div>
         </div>
         <nav className={styles.headerNav} aria-label="Profile sections">
-          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History'], ['expired', 'Expired posts'], ['requests', 'My requests']].map(([section, label]) => (
+          {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History'], ['expired', 'Expired posts']].map(([section, label]) => (
             <button key={section} type="button" title={section === 'history' ? 'Donation History' : undefined} aria-current={activeSection === section || (section === 'overview' && activeSection === 'edit') ? 'page' : undefined}
               onClick={() => { setActiveSection(section); setEditingRequestId(null); setCancelTarget(null) }}>{label}</button>
           ))}
@@ -397,9 +397,9 @@ export default function ProfilePage() {
         </aside>
 
         <div className={styles.profileContent}>
-          {['expired','requests'].includes(activeSection) && <section className={styles.activitySection} aria-labelledby="request-history-heading">
-            <div className={styles.cardHeader}><h2 id="request-history-heading">{activeSection === 'expired' ? 'Expired posts' : 'My requests'}</h2></div>
-            {!requestHistory.some(r => activeSection !== 'expired' || r.status === 'EXPIRED') ? <Card className={styles.compactCard}><p className={styles.emptyText}>{activeSection === 'expired' ? 'No expired requests.' : 'No requests yet.'}</p></Card> : requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(request => <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{...request, requester_name: profile.full_name, requester_chapter_name: profile.chapter_name, requester_profile_picture_url: profile.profile_picture_url, requester_verification_status: profile.verification_status}}>
+          {activeSection === 'expired' && <section className={styles.activitySection} aria-labelledby="request-history-heading">
+            <div className={styles.cardHeader}><h2 id="request-history-heading">Expired posts</h2></div>
+            {!requestHistory.some(r => r.status === 'EXPIRED') ? <Card className={styles.compactCard}><p className={styles.emptyText}>No expired requests.</p></Card> : requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(request => <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{...request, requester_name: profile.full_name, requester_chapter_name: profile.chapter_name, requester_profile_picture_url: profile.profile_picture_url, requester_verification_status: profile.verification_status}}>
               <div className={styles.postCounts}><Badge variant={request.status === 'OPEN' ? 'brand' : 'neutral'}>{titleCase(request.status)}</Badge></div>
               <RequestHistoryActions request={request} onSaved={handleRequestSaved} />
             </FeedCard>)}

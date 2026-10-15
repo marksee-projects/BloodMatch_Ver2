@@ -1,5 +1,9 @@
 # Chat, database, and notification plan
 
+Approved profile simplification, 15 October: removed the duplicate My requests tab and its redundant content branch. Overview remains the main request list with status filters; Verification, History and Expired posts remain. Existing My Requests shortcuts still lead to the profile Overview.
+
+Latest request-card refinement, 15 October: the expanded editor replaces the normal action row, so Renew request is not duplicated. Removed the nested gray form container, restored balanced date/time columns that fill the card, and grouped the primary action with Cancel on the right; View request stays on the left. Mobile fields stack. Opening the editor focuses its first field. This supersedes the narrower fixed-width renewal-field refinement below. Build and 29 static rendering checks pass; visual browser review remains pending.
+
 UI refinement, 15 October: removed the visible Review conversation heading while retaining its accessible name; renewal date/time controls now use compact widths; Cancel aligns to the right of extension/closure action rows, including mobile. Controls retain 44 px targets.
 
 ## Approved: compact report review and request-card actions
