@@ -49,13 +49,7 @@ export default function ConfirmedDonationSummary({ version = 0 }) {
       </div>
       {loading && <p role="status">Loading confirmed-donation summary…</p>}
       {error && <p className="alert alert-error" role="alert">{error}</p>}
-      {ready && <>
-        <div className={styles.overview}>
-          <div className={styles.total}><strong>{data.total_confirmed_reports}</strong><span>Confirmed {data.total_confirmed_reports === 1 ? 'report' : 'reports'}</span></div>
-          <dl className={styles.scope}><div><dt>Period (UTC)</dt><dd>{formatDate(data.date_from)} to {formatDate(data.date_to)}</dd></div><div><dt>Request chapter</dt><dd>{scopeLabel}</dd></div></dl>
-        </div>
-        {dailyTable}
-      </>}
+      {dailyTable}
     </section>
     {typeof document === 'undefined' ? printReport : printReport && createPortal(printReport,document.body)}
   </>
