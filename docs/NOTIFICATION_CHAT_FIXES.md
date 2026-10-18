@@ -46,3 +46,7 @@ The user approved activation in chat on 2026-10-18. MEMBERSHIP_EMAIL_ENABLED=1 a
 - Visual browser verification could not run: browser inventory was empty and the in-app browser was unavailable. Hover appearance, responsive composition, IME keyboard behavior and two visible user sessions still need visual verification.
 
 Build retains the existing large-JavaScript-chunk advisory. No unrelated bundling refactor was included.
+
+## Terminal popup correction ? 2026-10-18
+
+The Interactive scheduled task launched hidden PowerShell, which invoked console PHP and could flash a terminal window. The MembershipEmail task now directly executes the installed C:\xampp\php\php-win.exe with the same runner and --scheduled scope. The task manager has an Upgrade action accepting only the exact owned legacy/current launchers and preserving the existing trigger, principal and task settings. Other tasks and email scope were not changed. The updated task completed at 15:37:50 UTC with exit code 0 and zero SMTP calls. Windows task configuration and application logs verify execution; visual confirmation that the reported flash is gone remains with the user.
