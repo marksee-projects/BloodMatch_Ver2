@@ -26,6 +26,15 @@ export function ChatProvider({ children }) {
   const [stateAccountKey, setStateAccountKey] = useState(accountKey)
   const pollTimerRef = useRef(null)
 
+  useEffect(() => {
+    if (!canChat) return undefined
+    const beat = () => { if (!document.hidden) api.post('/api/chat/presence', {}).catch(() => {}) }
+    beat()
+    const timer = setInterval(beat, 30000)
+    document.addEventListener('visibilitychange', beat)
+    return () => { clearInterval(timer); document.removeEventListener('visibilitychange', beat) }
+  }, [accountKey, canChat])
+
   const fetchUnreadCount = useCallback(async () => {
     const scope = unreadScope.current
     if (scope.key !== accountKey) return

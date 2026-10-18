@@ -97,6 +97,7 @@ final class ChatRepository
             'role' => (string) $row['role'],
             'verification_status' => (string) $row['verification_status'],
             'account_status' => (string) $row['account_status'],
+            'is_online' => \BloodMatch\Services\PresenceService::isOnline((int)$row['id']),
             'last_read_at' => $row['last_read_at'],
         ];
     }
@@ -143,6 +144,7 @@ final class ChatRepository
                 'unread_count' => (int) $row['unread_count'],
                 'recipient' => [
                     'id' => $otherId,
+                    'is_online' => \BloodMatch\Services\PresenceService::isOnline($otherId),
                     'full_name' => (string) $row['other_user_name'],
                     'profile_picture_url' => ProfilePictureStorageService::urlFor($row['other_user_picture'], $otherId),
                     'role' => (string) $row['other_user_role'],
@@ -274,6 +276,13 @@ final class ChatRepository
         );
         $stmt->execute([$userId, $userId]);
         return (int) $stmt->fetchColumn();
+    }
+
+    public function hasSentMessages(int $conversationId, int $userId): bool
+    {
+        $stmt = Database::pdo()->prepare('SELECT 1 FROM messages WHERE conversation_id=? AND sender_id=? LIMIT 1');
+        $stmt->execute([$conversationId,$userId]);
+        return $stmt->fetchColumn() !== false;
     }
 
     public function hasMessages(int $conversationId): bool

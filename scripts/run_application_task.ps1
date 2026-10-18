@@ -1,4 +1,4 @@
-param([ValidateSet('Safety','Email')][string]$Kind, [Parameter(Mandatory = $true)][string]$PhpPath)
+param([ValidateSet('Safety','Email','MembershipEmail')][string]$Kind, [Parameter(Mandatory = $true)][string]$PhpPath)
 $ErrorActionPreference = 'Stop'
 try {
     $runner = Join-Path (Split-Path -Parent $PSScriptRoot) "database\run_application_$($Kind.ToLowerInvariant()).php"

@@ -215,3 +215,6 @@
     animation: none;
   }
 }
+
+.onlineStatus { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--color-text-muted); font-size: var(--text-sm); }
+.onlineStatus span { width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-status-active); }

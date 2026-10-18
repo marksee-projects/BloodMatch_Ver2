@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useChat } from '../../context/ChatContext'
 import { useNotify } from '../../context/NotificationContext'
 import styles from './FloatingChatTab.module.css'
+import ChatComposerInput from './ChatComposerInput'
 
 const ACTIVE_POLL_INTERVAL_MS = 3000
 
@@ -27,6 +28,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
   const minimizedRef = useRef(isMinimized)
   minimizedRef.current = isMinimized
 
+  const [isOnline, setIsOnline] = useState(Boolean(recipient?.is_online))
   const [messages, setMessages] = useState([])
   const [suggestedChats, setSuggestedChats] = useState(tab.suggestedChats || null)
   const [suggestedSendingText, setSuggestedSendingText] = useState(null)
@@ -68,10 +70,9 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
           setMessages(res.messages)
           if (res.messages.length > 0) {
             lastIdRef.current = res.messages[res.messages.length - 1].id
-            setSuggestedChats(null)
-          } else {
-            setSuggestedChats(res.suggested_chats || null)
           }
+          setSuggestedChats(res.suggested_chats || null)
+          setIsOnline(Boolean(res.is_online))
           setLoading(false)
           setLoadError(null)
           setTimeout(() => scrollToBottom(false), 50)
@@ -107,6 +108,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
           `/api/chat/conversations/${conversationId}/messages?after_id=${afterId}&limit=50`
         )
         if (!active) return
+        setIsOnline(Boolean(res.is_online))
+        setSuggestedChats(res.suggested_chats || null)
         if (Array.isArray(res?.messages)) {
           setLoadError(null)
           setLoading(false)
@@ -120,7 +123,6 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
             return [...prev, ...newMsgs]
           })
           lastIdRef.current = res.messages[res.messages.length - 1].id
-          setSuggestedChats(null)
           scrollToBottom(true)
           markAsRead()
         }
@@ -169,6 +171,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
       notify({ severity: 'error', message: err.message || 'Failed to send message.' })
       setInputText(text)
       setMessages((prev) => prev.filter((m) => m.id !== tempId))
+      setSuggestedChats(suggestedChats)
     } finally {
       setSending(false)
       inputRef.current?.focus()
@@ -284,7 +287,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
             ) : (
               <span className={styles.recipientName}>{recipientName}</span>
             )}
-            <span className={styles.recipientStatus}>Direct conversation</span>
+            <span className={styles.recipientStatus}>{isOnline && <span className={styles.onlineDot} aria-hidden="true" />}{isOnline ? 'Online' : 'Direct conversation'}</span>
           </div>
         </div>
 
@@ -350,7 +353,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
           </div>
 
           {/* Suggested Chats (Quick Replies) for Matched Users */}
-          {!loading && messages.length === 0 && suggestedChats && suggestedChats.length > 0 && (
+          {!loading && !messages.some(m => Number(m.sender_id) === Number(user?.id)) && suggestedChats && suggestedChats.length > 0 && (
             <div className={styles.suggestedContainer} role="region" aria-label="Suggested messages">
               <div className={styles.suggestedHeader}>
                 <span>Suggested messages</span>
@@ -378,9 +381,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
           )}
 
           <form className={styles.inputForm} onSubmit={handleSend}>
-            <input
-              ref={inputRef}
-              type="text"
+            <ChatComposerInput
+              inputRef={inputRef}
               className={`chat-control ${styles.chatInput}`}
               placeholder="Type a message…"
               value={inputText}

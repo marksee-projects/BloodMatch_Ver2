@@ -205,6 +205,7 @@ final class AuthService
         if ($userId !== null) {
             AuditLogger::log($userId, 'auth.logout', 'user', (string) $userId);
         }
+        PresenceService::leave();
         Session::destroy();
     }
 

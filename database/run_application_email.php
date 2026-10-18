@@ -6,16 +6,19 @@ define('BASE_PATH',dirname(__DIR__));require BASE_PATH.'/backend/src/autoload.ph
 use BloodMatch\Config\Env;
 use BloodMatch\Services\EmailWorker;
 use BloodMatch\Services\QueuedSmtpTransport;
+$membershipOnly=defined('BM_MEMBERSHIP_EMAIL_ONLY') && BM_MEMBERSHIP_EMAIL_ONLY;
 $options=getopt('',['deliver','scheduled','job-id:','job-ids:','recipient:','experiment','emergency-experiment']);$run=isset($options['deliver'])||isset($options['scheduled']);$emergencyExperiment=isset($options['emergency-experiment']);$experiment=isset($options['experiment'])||$emergencyExperiment;$result=['database'=>'bloodmatch','host'=>'127.0.0.1','port'=>3306,'smtp'=>$run,'status'=>'failed','exit_code'=>1];
 $result['experiment']=$experiment;
 $result['experiment_type']=$experiment?($emergencyExperiment?'emergency_grouping':'membership'):null;
 $result['invocation']=$run ? (isset($options['scheduled'])?'scheduled':'manual') : 'review';
 try {
     $pdo=operationalTarget('application');$result['readiness']=operationalReadiness($pdo);
-    $cutover=(string)Env::get('EMAIL_WORKER_START_AT_UTC','');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$cutover,new \DateTimeZone('UTC'));
+    $cutover=(string)Env::get($membershipOnly?'MEMBERSHIP_EMAIL_START_AT_UTC':'EMAIL_WORKER_START_AT_UTC','');$parsed=\DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$cutover,new \DateTimeZone('UTC'));
     $result['cutover_configured']=$parsed!==false && $parsed->format('Y-m-d H:i:s')===$cutover;
     $result['server_time_utc']=(string)$pdo->query('SELECT UTC_TIMESTAMP()')->fetchColumn();
-    $result['enabled']=Env::get('EMAIL_WORKER_ENABLED','0')==='1';
+    $result['enabled']=Env::get($membershipOnly?'MEMBERSHIP_EMAIL_ENABLED':'EMAIL_WORKER_ENABLED','0')==='1';
+    $result['membership_only']=$membershipOnly;
+    if ($membershipOnly && $run && (!isset($options['scheduled']) || $experiment || isset($options['job-id']) || isset($options['job-ids']) || isset($options['recipient']))) { throw new LogicException('Membership runner supports scheduled future decisions only.'); }
     $result['smtp_configured']=\BloodMatch\Services\Mailer::isConfigured();
     $result['real_delivery_ready_at_utc']=$pdo->query("SELECT DATE_ADD(applied_at,INTERVAL 30 MINUTE) FROM schema_migrations WHERE name='023_email_donor_reservations.sql'")->fetchColumn();
     $result['quiet_cutover_ready']=$result['real_delivery_ready_at_utc']!==false && $result['real_delivery_ready_at_utc']<=$result['server_time_utc'];
@@ -84,7 +87,7 @@ try {
         } else {
             if (!isset($options['scheduled'])) { throw new LogicException('Manual delivery requires one reviewed job-id.'); }
             if (!$result['cutover_configured']) { throw new LogicException('Explicit automatic-delivery cutover timestamp required.'); }
-            $s=$pdo->prepare("SELECT id FROM email_outbox WHERE created_at>=? AND ((status='pending' AND next_attempt_at<=UTC_TIMESTAMP(6)) OR (status='leased' AND lease_expires_at<=UTC_TIMESTAMP(6))) ORDER BY (priority='emergency') DESC,next_attempt_at,id LIMIT 100");
+            $s=$pdo->prepare("SELECT id FROM email_outbox WHERE ".($membershipOnly?"notification_id IN (SELECT id FROM notifications WHERE type='verification.decision') AND ":"")."created_at>=? AND ((status='pending' AND next_attempt_at<=UTC_TIMESTAMP(6)) OR (status='leased' AND lease_expires_at<=UTC_TIMESTAMP(6))) ORDER BY (priority='emergency') DESC,next_attempt_at,id LIMIT 100");
             $s->execute([$cutover]);$ids=array_map('intval',$s->fetchAll(PDO::FETCH_COLUMN));
         }
         if (!is_dir(BASE_PATH.'/logs') && !mkdir(BASE_PATH.'/logs',0700,true)) { throw new LogicException('Logging unavailable.'); }

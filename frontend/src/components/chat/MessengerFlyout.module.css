@@ -227,3 +227,6 @@
 @media (prefers-reduced-motion: reduce) {
   .triggerBtn, .searchInput, .convItem { transition: none; }
 }
+
+.convAvatarWrap { position: relative; }
+.onlineDot { position: absolute; right: 0; bottom: 0; width: var(--space-3); height: var(--space-3); border-radius: var(--radius-pill); background: var(--color-status-active); border: 2px solid var(--color-surface); }

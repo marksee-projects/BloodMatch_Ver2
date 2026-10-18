@@ -107,6 +107,7 @@ return static function (Router $router): void {
 
     $router->add('POST', '/api/profile/donor-availability', [new ProfileController(), 'setDonorAvailability']);
     $router->add('POST', '/api/profile/acknowledge-standby', [new ProfileController(), 'acknowledgeDonorStandby']);
+    $router->add('GET', '/api/profile/{id}/presence', [new MemberProfileController(), 'presence']);
      $router->add('GET', '/api/profile/{id}', [new MemberProfileController(), 'show']);
     $router->add('POST', '/api/matches/{matchId}/respond', [new MatchesController(), 'respond']);
     $router->add('POST', '/api/matches/{matchId}/withdraw', [new MatchesController(), 'withdraw']);
@@ -138,6 +139,7 @@ return static function (Router $router): void {
     $router->add('POST', '/api/notifications/{id}/read', [new NotificationsController(), 'markRead']);
     $router->add('POST', '/api/notifications/read-all', [new NotificationsController(), 'markAllRead']);
 
+    $router->add('POST', '/api/chat/presence', [new ChatController(), 'heartbeat']);
     $router->add('GET', '/api/chat/unread-count', [new ChatController(), 'unreadCount']);
     $router->add('GET', '/api/chat/conversations', [new ChatController(), 'conversations']);
     $router->add('POST', '/api/chat/conversations', [new ChatController(), 'startConversation']);

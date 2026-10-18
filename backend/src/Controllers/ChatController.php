@@ -33,6 +33,13 @@ final class ChatController
         return $actor;
     }
 
+    public function heartbeat(): void
+    {
+        $actor = self::requireChatUser('chat.presence');
+        \BloodMatch\Services\PresenceService::heartbeat((int)$actor['id']);
+        Response::success(['status'=>'ok']);
+    }
+
     public function unreadCount(): void
     {
         $actor = self::requireChatUser(self::ENDPOINT . '.unread');
@@ -99,6 +106,7 @@ final class ChatController
             $meta = $this->chatService->getConversationMetadata($actor, $conversationId);
             Response::success([
                 'messages' => $messages,
+                'is_online' => $meta['is_online'],
                 'has_messages' => $meta['has_messages'],
                 'match_role' => $meta['match_role'],
                 'suggested_chats' => $meta['suggested_chats'],

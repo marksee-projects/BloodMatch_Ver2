@@ -191,7 +191,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
                     onClick={() => handleSelect(conv)}
                   >
                     <div className={styles.convAvatarWrap}>
-                      <ConvAvatar src={avatar} name={name} />
+                      <ConvAvatar src={avatar} name={name} />{conv.recipient?.is_online && <span className={styles.onlineDot} role="img" aria-label="Online" />}
                     </div>
                     <div className={styles.convContent}>
                       <div className={styles.convTopLine}>

@@ -13,6 +13,13 @@ final class ChatOfflineStatement extends PDOStatement {
     public function fetchColumn(int $column = 0): mixed {
         if (str_contains($this->query, 'chat_requests')) return $this->db->accepted;
         if (str_contains($this->query, 'conversation_participants WHERE')) return $this->db->participant;
+        if (str_contains($this->query, 'FROM matches m')) {
+            return $this->db->matchRole === (str_contains($this->query, 'WHERE m.donor_id') ? 'donor' : 'requestor') ? 1 : false;
+        }
+        if (str_contains($this->query, 'SELECT 1 FROM messages')) {
+            if (str_contains($this->query, 'sender_id=?')) return in_array($this->params[1],$this->db->sentBy,true) ? 1 : false;
+            return $this->db->sentBy !== [] ? 1 : false;
+        }
         return false;
     }
     public function fetch(int $mode = PDO::FETCH_DEFAULT, int $orientation = PDO::FETCH_ORI_NEXT, int $offset = 0): mixed {
@@ -34,6 +41,8 @@ final class ChatOfflinePDO extends PDO {
     public function rollBack(): bool { $this->transaction=false;return true; }
     public function inTransaction(): bool { return $this->transaction; }
     public function query(string $query,?int $fetchMode=null,mixed ...$args): PDOStatement|false { return new ChatOfflineStatement($this,$query); }
+    public array $sentBy = [];
+    public ?string $matchRole = null;
     public bool $participant = true;
     public bool $accepted = true;
     public array $recipient = ['id'=>2, 'full_name'=>'Requester', 'profile_picture'=>null, 'role'=>'member', 'account_status'=>'active', 'verification_status'=>'verified', 'last_read_at'=>null];
@@ -94,4 +103,19 @@ chatCheck(array_column($loaded, 'id') === [99, 100], 'Recent messages are presen
 $pdo->calls = [];
 $service->markRead($member, 7, 99);
 chatCheck(array_values(array_filter($pdo->calls,fn($c)=>str_contains($c[0],'SET last_read_message_id')))[0][1] === [7, 99, 7, 99, 7, 1], 'Read marker is bounded by the fetched message and authenticated participant');
+$pdo->messages = [];
+$pdo->matchRole = 'donor';
+$pdo->sentBy = [];
+chatCheck(count($service->getConversationMetadata($member,7)['suggested_chats'])===3,'Donor suggestions appear before their first message');
+$pdo->sentBy = [2];
+chatCheck(count($service->getConversationMetadata($member,7)['suggested_chats'])===3,'Incoming messages preserve receiver suggestions');
+$pdo->sentBy = [1];
+chatCheck($service->getConversationMetadata($member,7)['suggested_chats']===null,'Own sent message hides own suggestions after reload');
+$pdo->recipient = array_replace($pdo->recipient,['id'=>1]);
+$pdo->matchRole = 'requestor';
+chatCheck(count($service->getConversationMetadata($other,7)['suggested_chats'])===3,'Requester keeps suggestions when only donor has sent');
+$pdo->sentBy = [1,2];
+chatCheck($service->getConversationMetadata($other,7)['suggested_chats']===null,'Requester reply hides requester suggestions');
+$pdo->sentBy = []; $pdo->matchRole = null;
+chatCheck($service->getConversationMetadata($other,7)['suggested_chats']===null,'Unmatched conversation has no role-based suggestions');
 echo "PASS $checks chat checks; connectionless PDO only, no live SQL or network.".PHP_EOL;

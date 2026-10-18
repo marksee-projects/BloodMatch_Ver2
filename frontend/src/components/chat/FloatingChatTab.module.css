@@ -430,3 +430,9 @@
   .suggestedContainer { animation: none; }
   .avatarLink:hover, .sendBtn:hover:not(:disabled), .sendBtn:active:not(:disabled), .suggestedPill:hover:not(:disabled) { transform: none; }
 }
+
+.bubble { min-width: 0; max-width: 100%; white-space: pre-wrap; overflow-wrap: anywhere; }
+.messageRow { min-width: 0; flex-shrink: 0; }
+.chatInput { height: auto; max-height: 144px; resize: none; overflow-y: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.recipientStatus { display: flex; align-items: center; gap: var(--space-1); }
+.onlineDot { display: inline-block; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-status-active); flex: none; }

@@ -1,6 +1,6 @@
 param(
     [ValidateSet('Preview','Install','Verify','Remove')][string]$Action = 'Preview',
-    [ValidateSet('Safety','Email','All')][string]$Kind = 'All',
+    [ValidateSet('Safety','Email','MembershipEmail','All')][string]$Kind = 'All',
     [string]$PhpPath = 'C:\xampp\php\php.exe'
 )
 $ErrorActionPreference = 'Stop'

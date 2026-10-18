@@ -164,7 +164,7 @@ function AppShell() {
 
     const scheduleNext = () => {
       if (timeoutId) clearTimeout(timeoutId)
-      if (active) timeoutId = setTimeout(fetchUnread, 45000)
+      if (active) timeoutId = setTimeout(fetchUnread, 5000)
     }
 
     const handleVisibility = () => {

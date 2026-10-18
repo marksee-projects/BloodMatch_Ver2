@@ -51,7 +51,7 @@ final class ChatService
         $other = $this->chatRepo->getOtherParticipant($convId, $currentUserId);
         $hasMessages = $this->chatRepo->hasMessages($convId);
         $matchRole = $this->matchRepo->getMatchRole($currentUserId, $recipientId);
-        $suggestedChats = (!$hasMessages && $matchRole !== null)
+        $suggestedChats = (!$this->chatRepo->hasSentMessages($convId, $currentUserId) && $matchRole !== null)
             ? SuggestedChatService::getSuggestionsForRole($matchRole)
             : null;
 
@@ -147,7 +147,7 @@ final class ChatService
         $recipientId = (int) ($other['id'] ?? 0);
         $matchRole = ($recipientId > 0) ? $this->matchRepo->getMatchRole($currentUserId, $recipientId) : null;
         $hasMessages = $this->chatRepo->hasMessages($conversationId);
-        $suggestedChats = (!$hasMessages && $matchRole !== null)
+        $suggestedChats = (!$this->chatRepo->hasSentMessages($conversationId, $currentUserId) && $matchRole !== null)
             ? SuggestedChatService::getSuggestionsForRole($matchRole)
             : null;
 
@@ -172,11 +172,12 @@ final class ChatService
         $recipientId = (int) ($other['id'] ?? 0);
         $matchRole = ($recipientId > 0) ? $this->matchRepo->getMatchRole($currentUserId, $recipientId) : null;
         $hasMessages = $this->chatRepo->hasMessages($conversationId);
-        $suggestedChats = (!$hasMessages && $matchRole !== null)
+        $suggestedChats = (!$this->chatRepo->hasSentMessages($conversationId, $currentUserId) && $matchRole !== null)
             ? SuggestedChatService::getSuggestionsForRole($matchRole)
             : null;
 
         return [
+            'is_online' => $other !== null && PresenceService::isOnline((int)$other['id']),
             'has_messages' => $hasMessages,
             'match_role' => $matchRole,
             'suggested_chats' => $suggestedChats,

@@ -101,6 +101,13 @@ export default function ProfilePage() {
     retry: false
   })
 
+  const { data: presence } = useQuery({
+    queryKey: ['member-presence', profileId, user?.id],
+    enabled: Boolean(user?.id && isOtherProfile && data?.profile),
+    queryFn: () => api.get(`/api/profile/${profileId}/presence`),
+    refetchInterval: 30000,
+    retry: false
+  })
   const profile = data?.profile
   const reports = data?.reports || []
   const requestHistory = data?.requests || []
@@ -271,7 +278,7 @@ export default function ProfilePage() {
               {profile.profile_picture_url ? <img className={styles.avatarLarge} src={profile.profile_picture_url} alt={`${profile.full_name}'s profile picture`} /> : <span className={styles.avatarLarge} role="img" aria-label="No profile picture"><User size={64} aria-hidden="true" /></span>}
             </div>
             <div className={styles.headerIdentity}>
-              <div className={styles.nameLine}><h1>{profile.full_name}</h1>{profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}</div>
+              <div className={styles.nameLine}><h1>{profile.full_name}</h1>{(presence?.is_online ?? profile.is_online) && <span className={styles.onlineStatus}><span aria-hidden="true" />Online</span>}{profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}</div>
               <p>{profile.chapter_name ? `${profile.chapter_name} member` : profile.role_label}</p>
             </div>
             {canChat && profile.verification_status === 'verified' && user.id !== Number(profileId) && (

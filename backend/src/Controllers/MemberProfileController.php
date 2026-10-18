@@ -15,6 +15,18 @@ use BloodMatch\Utils\Response;
 
 final class MemberProfileController
 {
+    public function presence(array $params): void
+    {
+        $viewer = AuthMiddleware::requireActiveUser('profile.presence');
+        $targetId = (int) ($params['id'] ?? 0);
+        $target = (new UserRepository())->findProfileDisplayById($targetId);
+        if ($target === null || (new ProfileViewPolicy())->relation($viewer, $target) === null) {
+            Response::error("This profile isn't available.", 404);
+            return;
+        }
+        Response::success(['is_online' => \BloodMatch\Services\PresenceService::isOnline($targetId)]);
+    }
+
     public function show(array $params): void
     {
         $viewer = AuthMiddleware::requireActiveUser('profile.member');
@@ -39,6 +51,7 @@ final class MemberProfileController
 
         Response::success([
             'profile' => [
+                'is_online' => \BloodMatch\Services\PresenceService::isOnline($targetId),
                 'full_name' => (string) $target['full_name'],
                 'profile_picture_url' => ProfilePictureStorageService::urlFor($target['profile_picture'], $targetId),
                 'chapter_name' => $target['chapter_name'] !== null ? (string) $target['chapter_name'] : null,

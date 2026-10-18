@@ -29,7 +29,7 @@ button.conversation:hover:not(:disabled), button.conversation[aria-pressed=true]
 .own .bubble { background: var(--color-brand-navy); border-color: var(--color-brand-navy); color: var(--color-accent-fg); }
 .message small,.own small { color: var(--color-text-muted); font-size: var(--text-xs); }
 .composer { display: flex; gap: var(--space-3); padding: var(--space-4); border-top: 1px solid var(--color-border-hairline); }
-.composer input { flex: 1; min-width: 0; }
+.composer textarea { flex: 1; min-width: 0; }
 .reportForm { display: grid; gap: var(--space-3); padding: var(--space-4); border-top: 1px solid var(--color-border-hairline); }
 .reportForm small { color: var(--color-text-muted); }
 .messageSelection { display: flex; align-items: center; gap: var(--space-3); font-size: var(--text-sm); }
@@ -37,3 +37,10 @@ button.conversation:hover:not(:disabled), button.conversation[aria-pressed=true]
 .empty h2 { font-size: var(--text-h3); margin: 0; }
 .error { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); margin-bottom: var(--space-4); }
 @media(max-width:720px) { .layout { grid-template-columns:1fr; } .hideOnMobile,.emptyThread { display: none; } .messages { padding: var(--space-4); } .threadHeader { gap: var(--space-3); } .threadHeader .actions { gap: var(--space-2); } }
+
+.composer textarea { height: auto; max-height: 144px; resize: none; overflow-y: auto; overflow-wrap: anywhere; }
+.bubble { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.onlineDot { display: inline-block; width: var(--space-2); height: var(--space-2); border-radius: var(--radius-pill); background: var(--color-status-active); }
+.suggestions { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3); }
+
+.message, .own { min-width: 0; flex-shrink: 0; }

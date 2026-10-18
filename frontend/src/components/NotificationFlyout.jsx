@@ -31,46 +31,39 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   const sheetOutsideRef = useRef(null)
   const closeRef = useRef(null)
   const navigate = useNavigate()
+  const loadSequence = useRef(0)
 
   const load = useCallback(async () => {
+    const sequence = ++loadSequence.current
     setLoading(true)
     setError(null)
     try {
       const qs = filter === 'unread' ? '&read=unread' : ''
       const d = await api.get(`/api/notifications?page=1&page_size=${PREVIEW_SIZE}${qs}`)
-      setData(d)
-      if (d?.notifications?.some((notification) => !notification.read_at)) {
-        try {
-          await api.post('/api/notifications/read-all')
-          const readAt = new Date().toISOString()
-          setData({
-            ...d,
-            notifications: d.notifications.map((notification) => ({
-              ...notification,
-              read_at: notification.read_at || readAt,
-            })),
-          })
-          setUnread(0)
-        } catch (readError) {
-          setError(readError.message || 'Notifications loaded, but could not be marked as read.')
-        }
-      }
+      if (sequence === loadSequence.current) setData(d)
     } catch (err) {
-      setError(err.message || 'Could not load notifications.')
+      if (sequence === loadSequence.current) setError(err.message || 'Could not load notifications.')
     } finally {
-      setLoading(false)
+      if (sequence === loadSequence.current) setLoading(false)
     }
-  }, [filter, setUnread])
+  }, [filter])
 
   useEffect(() => {
     if (open) {
       load()
       closeRef.current?.focus()
     } else {
+      loadSequence.current++
       setData(null)
       setError(null)
     }
   }, [open, filter, load])
+
+  useEffect(() => {
+    if (!open) return undefined
+    const timer = setInterval(() => { if (!document.hidden) load() }, 5000)
+    return () => clearInterval(timer)
+  }, [open, load])
 
   useEffect(() => {
     if (!open) return undefined
