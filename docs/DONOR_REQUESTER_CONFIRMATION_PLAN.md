@@ -1,5 +1,7 @@
 # Donation-completion redesign ? approved 2026-10-19
 
+Approved update: the user ratified all five recommendations for accepted-offer chat consent, persistent request-specific donation actions and optional protected encrypted proof photos, then authorized source implementation. See [ratified revised plan](MATCHING_TO_DONATION_REVISED_PLAN.md) and [031 implementation/user-run handoff](OFFER_CHAT_IMPLEMENTATION_HANDOFF.md). The normal new-report description is superseded by optional photos; old notes/review reasons stay. Existing valid consent supports messaging despite donor cooldown, non-response standby or report holds. One confirmed match counts one tracking unit; acceptance/chat count zero. Actual reversal and per-member blocking remain outside scope. Later user-run migration/test/Safety results take precedence over historical prepared-only statements below. Migration 031 and its DB/PowerShell/browser gates remain user-run and unverified.
+
 Status: source prepared; migration 030, database/PowerShell regressions, visual checks and operational activation are user-run and not claimed complete. See [exact handoff commands](DONATION_COMPLETION_HANDOFF.md).
 
 ## Approved rules and superseded rules

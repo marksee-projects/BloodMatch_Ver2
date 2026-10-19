@@ -34,7 +34,14 @@ final class DonationCompletionController
     public function submit(): void
     {
         $actor=AuthMiddleware::requireRoles(['member'],'donation.completion.submit');
-        $this->respond(fn()=>['report'=>(new DonationCompletionService())->submit($actor,Request::int('match_id')??0,Request::json()['occurred_at']??null,Request::str('note'))]);
+        $this->respond(function() use($actor) {
+            $body=$_POST?:Request::json();$proofs=\BloodMatch\Services\DonationProofService::uploads($actor);
+            try {
+                $report=(new DonationCompletionService())->submit($actor,Request::int('match_id',$body)??0,$body['occurred_at']??null,Request::str('note',$body),$proofs,Request::int('context_id',$body));
+                if (!($report['changed']??false)) \BloodMatch\Services\DonationProofService::discard($proofs);
+                return ['report'=>$report];
+            } catch(\Throwable $e) { \BloodMatch\Services\DonationProofService::discard($proofs);throw $e; }
+        });
     }
 
     public function acknowledge(array $params): void
@@ -58,7 +65,11 @@ final class DonationCompletionController
     public function revise(array $params): void
     {
         $actor=AuthMiddleware::requireRoles(['member'],'donation.completion.revise');
-        $this->respond(fn()=>['result'=>(new DonationCompletionService())->revise($actor,(int)$params['id'],Request::int('expected_version')??0,Request::json()['occurred_at']??null,Request::str('note')??'')]);
+        $this->respond(function() use($actor,$params) {
+            $body=$_POST?:Request::json();$proofs=\BloodMatch\Services\DonationProofService::uploads($actor);
+            try { return ['result'=>(new DonationCompletionService())->revise($actor,(int)$params['id'],Request::int('expected_version',$body)??0,$body['occurred_at']??null,Request::str('note',$body)??'',$proofs)]; }
+            catch(\Throwable $e) { \BloodMatch\Services\DonationProofService::discard($proofs);throw $e; }
+        });
     }
 
     public function releaseHold(array $params): void

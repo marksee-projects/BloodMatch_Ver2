@@ -141,7 +141,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                       response.reset()
                       setConfirmingResponse(true)
                     }}>
-                    I can help
+                    Offer to donate
                   </Button>}
                   <Button variant="secondary" disabled={!canChat || Number(request.requester_id) === Number(user?.id)} onClick={() => openChatWithUser(request.requester_id)}>Request message</Button>
                   <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
@@ -192,7 +192,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
           </div>
         )}
         <ConfirmationDialog open={confirmingResponse} title="Confirm that you can help"
-          confirmLabel="Confirm I can help" cancelLabel="Not now" busy={response.isPending} confirmDisabled={!canRespond}
+          confirmLabel="Offer to donate" cancelLabel="Not now" busy={response.isPending} confirmDisabled={!canRespond}
           error={response.isError ? response.error.message : undefined}
           onConfirm={confirmResponse} onCancel={() => setConfirmingResponse(false)}>
           <p>Your response will be shared with the requester for this {request.required_blood_type} request at {request.facility_name}. The receiving facility makes the final medical eligibility decision.</p>

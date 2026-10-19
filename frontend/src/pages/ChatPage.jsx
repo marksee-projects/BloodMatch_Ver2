@@ -9,6 +9,7 @@ import { Button } from '../components/ui/Button'
 import { ChatCircleDots, MagnifyingGlass, User } from '@phosphor-icons/react'
 import styles from './ChatPage.module.css'
 import ChatComposerInput from '../components/chat/ChatComposerInput'
+import DonationContextCard from '../components/DonationContextCard'
 
 export default function ChatPage() {
   const { user } = useAuth()
@@ -136,6 +137,7 @@ function ChatWorkspace() {
       <div className={styles.thread + (!thread ? ' ' + styles.emptyThread : '')}>
         {!thread ? <div className={styles.empty}><ChatCircleDots size={40} aria-hidden="true" /><h2>Select a conversation</h2></div> : <>
           <header className={styles.threadHeader}><div className={styles.person}><span className={styles.avatar}><User size={22} aria-hidden="true" /></span><div><h2>{thread.recipient?.full_name}</h2>{isOnline && <small><span className={styles.onlineDot} aria-hidden="true" /> Online</small>}</div></div><div className={styles.actions}><Button variant="secondary" onClick={() => navigate('/chat')}>Back to chats</Button><Button variant="secondary" onClick={() => setReporting(!reporting)}>{reporting ? 'Cancel report' : 'Report'}</Button></div></header>
+          <DonationContextCard conversationId={thread.id} />
           <div className={styles.historyAction}><Button variant="secondary" disabled={busy || !messages.length || !hasOlder} onClick={older}>Load older messages</Button></div>
           <div ref={messageArea} className={styles.messages} aria-label="Conversation messages">{!messages.length && <p className={styles.hint}>No messages yet.</p>}{messages.map(m => <div key={m.id} className={Number(m.sender_id) === Number(user.id) ? styles.own : styles.message}>
             {reporting && <label className={styles.messageSelection}><input type="checkbox" aria-label={'Select message from ' + m.sender_name} checked={selected.includes(m.id)} disabled={!selected.includes(m.id) && selected.length >= 10} onChange={e => setSelected(ids => e.target.checked ? [...ids, m.id] : ids.filter(id => id !== m.id))} /> Select message</label>}

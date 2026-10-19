@@ -48,6 +48,7 @@ final class RetentionService
         if ($apply) foreach($docs as $d) {PendingRegistrationService::removeDocument($d);$s=$p->prepare('DELETE FROM member_documents WHERE id=?');$s->execute([$d['id']]);}
         $settings=SystemSettingsService::get();
         $donorDays=365+max((int)$settings['cooldown_days'],(int)ceil($settings['standby_hours']/24));
+        $summary+=DonationProofService::retention($apply,$donorDays);
         $queries=[
             'old_throttle_records'=>"DELETE FROM auth_throttle WHERE updated_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY)",
             'old_password_resets'=>"DELETE FROM password_resets WHERE expires_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY)",
@@ -61,6 +62,11 @@ final class RetentionService
             $queries['resolved_requests'].=' AND NOT EXISTS(SELECT 1 FROM matches hm JOIN donation_report_holds hh ON hh.donor_id=hm.donor_id WHERE hm.request_id=br.id AND hh.released_at IS NULL)';
             $queries['aged_audit'].=" AND NOT EXISTS(SELECT 1 FROM matches hm JOIN donation_report_holds hh ON hh.report_id IN (SELECT hd.id FROM donation_reports hd WHERE hd.match_id=hm.id) WHERE a.target_type='blood_request' AND hm.request_id=a.target_id AND hh.released_at IS NULL)";
             $queries['aged_audit'].=" AND NOT EXISTS(SELECT 1 FROM donation_report_holds hh WHERE a.target_type='donation_report' AND hh.report_id=a.target_id AND hh.released_at IS NULL)";
+        }
+        if (OfferChatService::ready()) {
+            $queries['stale_conversations'].=" AND NOT EXISTS(SELECT 1 FROM donation_chat_contexts dc JOIN matches dm ON dm.id=dc.match_id JOIN blood_requests br ON br.id=dm.request_id WHERE dc.conversation_id=conversations.id AND (br.status='OPEN' OR EXISTS(SELECT 1 FROM donation_reports dr WHERE dr.match_id=dm.id AND dr.status='PENDING') OR EXISTS(SELECT 1 FROM donation_reports dr JOIN donation_report_holds dh ON dh.report_id=dr.id WHERE dr.match_id=dm.id AND dh.released_at IS NULL) OR EXISTS(SELECT 1 FROM donation_reports dr JOIN donation_correction_requests cr ON cr.report_id=dr.id WHERE dr.match_id=dm.id AND (cr.resolved_at IS NULL OR cr.resolved_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)))))";
+            $queries['resolved_requests'].=" AND NOT EXISTS(SELECT 1 FROM matches pm JOIN donation_reports pd ON pd.match_id=pm.id JOIN donation_report_evidence pe ON pe.report_id=pd.id WHERE pm.request_id=br.id) AND NOT EXISTS(SELECT 1 FROM matches cm JOIN donation_reports cd ON cd.match_id=cm.id JOIN donation_correction_requests cr ON cr.report_id=cd.id WHERE cm.request_id=br.id)";
+            $queries['aged_audit'].=" AND NOT EXISTS(SELECT 1 FROM donation_correction_requests cr JOIN donation_reports d ON d.id=cr.report_id JOIN matches cm ON cm.id=d.match_id WHERE (cr.resolved_at IS NULL OR cr.resolved_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)) AND ((a.target_type='donation_report' AND a.target_id=CAST(d.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci) OR (a.target_type='blood_request' AND a.target_id=CAST(cm.request_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci)))";
         }
         foreach($queries as $name=>$sql) {
             $countSql=preg_replace('/^DELETE(?:\s+\w+)?\s+FROM/i','SELECT COUNT(*) FROM',$sql);

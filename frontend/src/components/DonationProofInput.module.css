@@ -1,0 +1,6 @@
+.field { display: grid; gap: var(--space-3); margin-bottom: var(--space-4); min-width: 0; }
+.field label { font-weight: 600; font-size: var(--text-sm); }
+.field label span, .field small, .field p { color: var(--color-text-muted); font-weight: 400; font-size: var(--text-sm); line-height: 1.6; }
+.field p { margin: 0; }
+.field input { box-sizing: border-box; width: 100%; min-width: 0; min-height: 44px; padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }
+.field input:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }

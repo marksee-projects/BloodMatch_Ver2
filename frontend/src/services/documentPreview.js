@@ -4,7 +4,8 @@ export async function loadDocumentPreview(document, signal, fetcher = fetch) {
   if (!Number.isSafeInteger(document.id) || document.id <= 0 || !supported.has(document.mime_type)) {
     throw new Error('Preview is unavailable for this document format.')
   }
-  const response = await fetcher(`/api/admin/documents/${document.id}/file`, {
+  const path = document.doc_type === 'donation_proof' ? `/api/donation-proof/${document.id}/file` : `/api/admin/documents/${document.id}/file`
+  const response = await fetcher(path, {
     credentials: 'same-origin', cache: 'no-store', redirect: 'error', signal,
   })
   if (!response.ok) throw new Error('Document could not be loaded. Check your access and try again.')

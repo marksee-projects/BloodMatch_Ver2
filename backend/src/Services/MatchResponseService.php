@@ -45,6 +45,9 @@ final class MatchResponseService
                 if (!$wasResponded && \BloodMatch\Repositories\DonationWorkflowRepository::ready()) {
                     \BloodMatch\Config\Database::pdo()->prepare('UPDATE matches SET responded_at=? WHERE id=?')->execute([AuthService::nowUtc(),$matchId]);
                 }
+                if (!$wasResponded && OfferChatService::ready()) {
+                    \BloodMatch\Config\Database::pdo()->prepare('UPDATE matches SET offer_cycle=offer_cycle+1 WHERE id=?')->execute([$matchId]);
+                }
                 $title = 'A donor responded to your blood request';
                 $body = NotificationService::displayName($actorId) . ' has offered to help with your blood request. Open BloodMatch to review the response.';
                 $notificationId=null;
@@ -70,7 +73,7 @@ final class MatchResponseService
                     ];
                 }
                 return [
-                    'chat_request' => ChatConsentService::request($donor,(int)$request['requester_id']),
+                    'chat_request' => OfferChatService::ready() ? null : ChatConsentService::request($donor,(int)$request['requester_id']),
                     'message' => $wasResponded ? 'Already responded.' : 'Response recorded.',
                     'match_id' => $matchId, 'status' => 'RESPONDED',
                     'created' => $created, 'already_responded' => $wasResponded,

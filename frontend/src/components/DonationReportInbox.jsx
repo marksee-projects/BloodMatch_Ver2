@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext'
 import { useNotify } from '../context/NotificationContext'
 import { Button } from './ui/Button'
 import DonationDateTimeFields from './DonationDateTimeFields'
+import DonationProofPanel from './DonationProofPanel'
 import { donationStatus, donationTimeToUtc, donationTimeForPicker, DONATION_TIMEZONE } from '../services/donationCompletion'
 import styles from './DonationReportInbox.module.css'
 
@@ -94,6 +95,7 @@ function ReportWorkspace({ admin = false, onChanged }) {
           <div><dt>Report version</dt><dd>{report.content_version}</dd></div>
         </dl>
         {(unresolved || hasHold) && <p className={styles.holdNote}><strong>Open for {Math.max(0, Number(report.age_hours))} hours.</strong> {hasHold && 'A report-specific donor hold remains active.'}</p>}
+        {Number(report.pending_correction_count) > 0 && <p className={styles.holdNote}><strong>Completed-record correction awaiting staff</strong> · Requested {when(report.oldest_correction_at)}. Credit, fulfillment and restrictions remain unchanged.</p>}
         {(report.report_note || report.rejection_reason || report.review_evidence || report.hold_release_basis) && <div className={styles.privateNotes}>
           <h4>Private supporting details</h4>
           {report.report_note && <p><strong>Donor reference</strong><span>{report.report_note}</span></p>}
@@ -113,10 +115,11 @@ function ReportWorkspace({ admin = false, onChanged }) {
         </div>}
         {canReview && <div className={styles.actions}>
           {unresolved && <><Button disabled={busy || !note.trim() || !report.occurred_at} onClick={() => act(report, 'review', { action: 'confirm', basis: note })}>Confirm with documented basis</Button><Button variant="secondary" disabled={busy || !note.trim()} onClick={() => act(report, 'review', { action: 'reject', basis: note })}>Reject report</Button></>}
-          {(unresolved || report.status === 'REJECTED') && <Button variant="secondary" disabled={busy || !note.trim()} onClick={() => act(report, 'review', { action: 'clarify', basis: note })}>Request clarification</Button>}
+          {(unresolved || report.status === 'REJECTED') && <Button variant="secondary" disabled={busy || !note.trim()} onClick={() => act(report, 'review', { action: 'clarify', basis: note })}>Request clarification or proof photo</Button>}
           {report.status === 'REJECTED' && hasHold && <><label className={styles.release}><input type="checkbox" checked={!!releaseChecks[report.id]} onChange={e => setReleaseChecks(current => ({ ...current, [report.id]: e.target.checked }))} />My documented basis establishes that no donation occurred.</label><Button variant="secondary" disabled={busy || !note.trim() || !releaseChecks[report.id]} onClick={() => act(report, 'release-hold', { basis: note, no_donation_occurred: true })}>Release only this report’s hold</Button></>}
         </div>}
         {admin && (donor || requester) && <p>You cannot administratively review your own donation or request.</p>}
+        <DonationProofPanel key={`${report.id}:${report.content_version}`} report={report} participant={donor || requester} canReview={canReview} onChanged={load} />
         <footer className={styles.reportFooter}><span>Visible only to authorized participants and staff</span><Button variant="secondary" disabled={busy} aria-expanded={Boolean(events[report.id])} onClick={() => events[report.id] ? setEvents(current => { const next = { ...current }; delete next[report.id]; return next }) : history(report)}>{events[report.id] ? 'Hide report history' : 'View report history'}</Button></footer>
         {events[report.id] && <ol className={styles.history}>{events[report.id].map(event => <li key={event.id}><strong>{event.event_type.replaceAll('_', ' ')}</strong> · version {event.content_version} · {when(event.created_at)} · {event.actor_reference ? event.actor_name || `Former account ${event.actor_reference}` : 'System'}{event.basis && <p>{event.basis}</p>}<details><summary>Recorded version details</summary><p>Donation time: {when(JSON.parse(event.snapshot_json).occurred_at)}<br />Donor reference: {JSON.parse(event.snapshot_json).report_note || 'None recorded'}<br />Requester response: {JSON.parse(event.snapshot_json).requester_response?.replaceAll('_', ' ') || 'None recorded'}</p></details></li>)}</ol>}
       </article>

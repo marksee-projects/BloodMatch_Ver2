@@ -34,6 +34,8 @@ final class DonationWorkflowRepository
     public static function event(array $row, ?int $actorId, string $type, ?string $basis, string $now): int
     {
         $snapshot=array_intersect_key($row,array_flip(['occurred_at','report_note','content_version','workflow_state','requester_response','acknowledged_at','acknowledged_version','status','completion_basis','rejection_reason','reported_at','reviewed_at','confirmed_at']));
+        $snapshot['proof_ids']=\BloodMatch\Services\DonationProofService::manifest((int)$row['id'],(int)$row['content_version']);
+        $snapshot['offer_context_id']=$row['offer_context_id']??null;
         $s=Database::pdo()->prepare('INSERT INTO donation_report_events(report_id,content_version,actor_id,actor_reference,event_type,basis,snapshot_json,created_at) VALUES(?,?,?,?,?,?,?,?)');
         $s->execute([$row['id'],$row['content_version'],$actorId,$actorId,$type,$basis,json_encode($snapshot,JSON_THROW_ON_ERROR),$now]);
         $eventId=(int)Database::pdo()->lastInsertId();
@@ -51,7 +53,9 @@ final class DonationWorkflowRepository
         $admin=$adminQueue;
         $where=$admin ? "(dr.status='PENDING' OR EXISTS (SELECT 1 FROM donation_report_holds h WHERE h.report_id=dr.id AND h.released_at IS NULL))"
             : '(dr.donor_id=? OR br.requester_id=?)';
-        $s=Database::pdo()->prepare("SELECT dr.*,m.request_id,br.requester_id,br.status AS request_status,br.facility_name,
+        if ($admin && \BloodMatch\Services\OfferChatService::ready()) $where='('.$where." OR EXISTS(SELECT 1 FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL))";
+        $correctionColumns=\BloodMatch\Services\OfferChatService::ready()?"(SELECT COUNT(*) FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL) AS pending_correction_count,(SELECT MIN(created_at) FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL) AS oldest_correction_at,":"0 AS pending_correction_count,NULL AS oldest_correction_at,";
+        $s=Database::pdo()->prepare("SELECT dr.*,$correctionColumns m.request_id,br.requester_id,br.status AS request_status,br.facility_name,
             donor.full_name AS donor_name,requester.full_name AS requester_name,
             (SELECT h.release_basis FROM donation_report_holds h WHERE h.report_id=dr.id) AS hold_release_basis,
             TIMESTAMPDIFF(HOUR,dr.reported_at,UTC_TIMESTAMP()) AS age_hours,

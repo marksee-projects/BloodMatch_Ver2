@@ -185,6 +185,15 @@
   background: var(--color-surface, #ffffff);
 }
 
+/* Keep the request card visible without pushing the chat composer off-screen. */
+.bodyArea > section {
+  max-height: 50%;
+  min-height: 0;
+  flex-shrink: 1;
+  overflow-y: auto;
+  margin: var(--space-2);
+}
+
 .messageList {
   flex: 1;
   overflow-y: auto;

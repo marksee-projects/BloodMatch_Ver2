@@ -1,0 +1,9 @@
+.card { flex-shrink: 0; min-width: 0; padding: var(--space-4); margin-bottom: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+.card h2, .card h3 { margin: 0 0 var(--space-2); font-size: var(--text-body); }
+.card p, .card small { margin: var(--space-2) 0; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.6; }
+.card label { display: block; margin-bottom: var(--space-2); font-weight: 600; font-size: var(--text-sm); }
+.card select { box-sizing: border-box; width: 100%; min-height: 44px; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); background: var(--color-surface); }
+.card details > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: var(--text-sm); font-weight: 600; color: var(--color-brand-navy); }
+.body { max-height: 45vh; overflow-y: auto; padding: var(--space-2); }
+.actions, .offer { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3); }
+.offer { justify-content: space-between; padding: var(--space-3) 0; border-top: 1px solid var(--color-border-hairline); }

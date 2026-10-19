@@ -4,8 +4,11 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-route
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
-import { donationTimeToUtc } from '../services/donationCompletion'
+import { donationReportForm } from '../services/donationCompletion'
 import DonationDateTimeFields from '../components/DonationDateTimeFields'
+import DonationProofInput from '../components/DonationProofInput'
+import OfferAcceptancePanel from '../components/OfferAcceptancePanel'
+import DonationOfferStatus from '../components/DonationOfferStatus'
 import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
 import { useRequestCreation } from '../context/RequestCreationContext'
@@ -45,8 +48,8 @@ export default function MatchesPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const responseBusyRef = useRef(false)
   const [reportingMatchId, setReportingMatchId] = useState(null)
-  const [reportNote, setReportNote] = useState('')
   const [occurredAt, setOccurredAt] = useState('')
+  const [proofPhotos, setProofPhotos] = useState([])
   const [submittingReport, setSubmittingReport] = useState(false)
   const [donorFilters, setDonorFilters] = useState(emptyMatchFilters)
 
@@ -66,8 +69,8 @@ export default function MatchesPage() {
     setMessage(null)
     setConfirmation(null)
     setReportingMatchId(null)
-    setReportNote('')
     setOccurredAt('')
+    setProofPhotos([])
     setDonorFilters(emptyMatchFilters)
   }, [id])
 
@@ -129,11 +132,11 @@ export default function MatchesPage() {
     setMessage(null)
     setErrorAlert(null)
     try {
-      await api.post('/api/donation-reports', { match_id: reportingMatchId, occurred_at: donationTimeToUtc(occurredAt), note: reportNote || null })
+      await api.postForm('/api/donation-reports', donationReportForm(reportingMatchId, occurredAt, proofPhotos))
       setMessage('Donation report sent to the requester for acknowledgment. Your donor offers are held while it is unresolved.')
       setReportingMatchId(null)
-      setReportNote('')
       setOccurredAt('')
+      setProofPhotos([])
       await refresh()
       await load()
     } catch (error) {
@@ -239,18 +242,19 @@ export default function MatchesPage() {
                   type="button"
                   variant="secondary"
                   size="sm"
-                  onClick={() => openChatWithUser(request.requester_id, { name: request.requester_name || 'Requester' })}
+                  onClick={() => hasActiveResponse ? navigate('/responses') : openChatWithUser(request.requester_id, { name: request.requester_name || 'Requester' })}
                   disabled={!canChat || request.requester_verification_status !== 'verified'}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  <ChatCircleDots size={16} weight="regular" /> Message
+                  <ChatCircleDots size={16} weight="regular" /> {hasActiveResponse ? 'View offer and chat status' : 'Request message'}
                 </Button>
               </>
             )}
           </div>
           <div className={styles.donorActions}>
-            {!isRequesterView && !hasActiveResponse && <Button disabled={!canRespond || actionLoading} onClick={() => setConfirmation('respond')}><Check size={18} /> I can help</Button>}
-            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => setReportingMatchId(ownMatch.match_id)}>Report completed donation</Button>}
+            {!isRequesterView && hasActiveResponse && <DonationOfferStatus matchId={ownMatch.match_id} />}
+            {!isRequesterView && !hasActiveResponse && <Button disabled={!canRespond || actionLoading} onClick={() => setConfirmation('respond')}><Check size={18} /> Offer to donate</Button>}
+            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(ownMatch.match_id) }}>I donated</Button>}
             {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
             {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && (
               !user?.donor_enrolled ? (
@@ -264,6 +268,7 @@ export default function MatchesPage() {
           </div>
         </div>
         {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && <p className={styles.eligibilityNote}>{request.reason_text || eligibilityMessage(user)}{request.eligible_again_at && ` Eligible again: ${formatDate(request.eligible_again_at)}.`}</p>}
+        {isRequesterView && <OfferAcceptancePanel requestId={id} />}
       </section>
 
       {isRequesterView && (
@@ -316,11 +321,11 @@ export default function MatchesPage() {
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={() => openChatWithUser(match.profile_user_id, { name: match.display_name })}
+                        onClick={() => match.status === 'RESPONDED' ? document.querySelector('[aria-label="Donor offers"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : openChatWithUser(match.profile_user_id, { name: match.display_name })}
                         disabled={!canChat}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                       >
-                        <ChatCircleDots size={16} weight="regular" /> Message
+                        <ChatCircleDots size={16} weight="regular" /> {match.status === 'RESPONDED' ? 'Review offer' : 'Request message'}
                       </Button>
                     </div>
                   )}
@@ -342,7 +347,7 @@ export default function MatchesPage() {
             )}
             <div className={styles.modalActions}>
               <Button type="button" variant="secondary" disabled={actionLoading} onClick={() => setConfirmation(null)}>Not now</Button>
-              <Button type="button" variant={confirmation === 'withdraw' ? 'destructive' : 'primary'} isLoading={actionLoading} onClick={confirmation === 'respond' ? respond : withdraw}>{confirmation === 'respond' ? 'Confirm I can help' : 'Confirm cancellation'}</Button>
+              <Button type="button" variant={confirmation === 'withdraw' ? 'destructive' : 'primary'} isLoading={actionLoading} onClick={confirmation === 'respond' ? respond : withdraw}>{confirmation === 'respond' ? 'Offer to donate' : 'Confirm cancellation'}</Button>
             </div>
           </div>
         </div>
@@ -354,8 +359,7 @@ export default function MatchesPage() {
             <h2 id="report-title" className={styles.reportTitle}>Report completed donation</h2>
             <p className={styles.reportDescription}>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
             <DonationDateTimeFields value={occurredAt} onChange={setOccurredAt} />
-            <label htmlFor="report-note">Optional private reference or supporting note</label>
-            <textarea id="report-note" value={reportNote} onChange={(event) => setReportNote(event.target.value)} maxLength={500} rows={4} />
+            <DonationProofInput files={proofPhotos} onChange={setProofPhotos} disabled={submittingReport} />
             <div className={styles.modalActions}><Button type="button" variant="secondary" disabled={submittingReport} onClick={() => setReportingMatchId(null)}>Cancel</Button><Button type="submit" isLoading={submittingReport}>Send report</Button></div>
           </form>
         </div>

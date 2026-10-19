@@ -7,6 +7,7 @@ import { useChat } from '../../context/ChatContext'
 import { useNotify } from '../../context/NotificationContext'
 import styles from './FloatingChatTab.module.css'
 import ChatComposerInput from './ChatComposerInput'
+import DonationContextCard from '../DonationContextCard'
 
 const ACTIVE_POLL_INTERVAL_MS = 3000
 
@@ -315,6 +316,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
 
       {!isMinimized && (
         <div className={styles.bodyArea}>
+          <DonationContextCard conversationId={conversationId} />
           <div className={styles.messageList}>
             {loading ? (
               <div className={styles.emptyNotice}>Loading conversation…</div>

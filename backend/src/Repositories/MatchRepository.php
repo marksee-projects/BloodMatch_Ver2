@@ -12,7 +12,7 @@ final class MatchRepository
     public function findByIdDetailed(int $matchId): ?array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT m.*, br.status AS request_status, br.request_chapter_id, br.quantity_units
+            'SELECT m.*, br.status AS request_status, br.request_chapter_id, br.quantity_units, br.needed_datetime
              FROM matches m
              JOIN blood_requests br ON br.id = m.request_id
              WHERE m.id = ? LIMIT 1'

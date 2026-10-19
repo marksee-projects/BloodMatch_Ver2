@@ -11,20 +11,20 @@ import {
   HandHeart,
   MapPin,
   User,
-  X,
-  ChatCircleDots
+  X
 } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
-import { useChat } from '../context/ChatContext'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { BloodTypeBlock } from '../components/ui/BloodTypeBlock'
 import ConfirmationDialog from '../components/ConfirmationDialog'
 import DonationDateTimeFields from '../components/DonationDateTimeFields'
+import DonationProofInput from '../components/DonationProofInput'
+import DonationOfferStatus from '../components/DonationOfferStatus'
+import { donationReportForm } from '../services/donationCompletion'
 import styles from './MyResponsesPage.module.css'
-import { donationTimeToUtc } from '../services/donationCompletion'
 
 function formatDate(value) {
   if (!value) return 'Not provided'
@@ -62,14 +62,13 @@ export default function MyResponsesPage() {
   const queryClient = useQueryClient()
   const canManageResponses = user?.role === 'member'
   const actionBusyRef = useRef(false)
-  const { openChatWithUser, canChat } = useChat()
   const [successMessage, setSuccessMessage] = useActionNoticeState(null, 'success')
   const [errorMessage, setErrorMessage] = useActionNoticeState(null, 'error')
   const [actionLoading, setActionLoading] = useState(false)
   const [confirmWithdrawMatchId, setConfirmWithdrawMatchId] = useState(null)
   const [reportingMatchId, setReportingMatchId] = useState(null)
   const [occurredAt, setOccurredAt] = useState('')
-  const [reportNote, setReportNote] = useState('')
+  const [proofPhotos, setProofPhotos] = useState([])
   const [submittingReport, setSubmittingReport] = useState(false)
 
   const {
@@ -113,15 +112,11 @@ export default function MyResponsesPage() {
     setErrorMessage(null)
     setSuccessMessage(null)
     try {
-      await api.post('/api/donation-reports', {
-        match_id: reportingMatchId,
-        occurred_at: donationTimeToUtc(occurredAt),
-        note: reportNote || null
-      })
+      await api.postForm('/api/donation-reports', donationReportForm(reportingMatchId, occurredAt, proofPhotos))
       setSuccessMessage('Donation report sent to the requester. A separate report hold applies while it is unresolved.')
       setReportingMatchId(null)
-      setReportNote('')
       setOccurredAt('')
+      setProofPhotos([])
       queryClient.invalidateQueries({ queryKey: ['home-feed'] })
       queryClient.invalidateQueries({ queryKey: ['request-matches'] })
       await refetch()
@@ -262,21 +257,12 @@ export default function MyResponsesPage() {
                     <Button to={`/profile/${req.requester_id}`} variant="secondary" size="sm">
                       View profile
                     </Button>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      onClick={() => openChatWithUser(req.requester_id, { name: req.requester_name || 'Requester' })}
-                      disabled={!canChat || req.requester_verification_status !== 'verified'}
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                    >
-                      <ChatCircleDots size={16} weight="regular" /> Request message
-                    </Button>
+                    <DonationOfferStatus matchId={req.match_id} />
                   </div>
 
                   <div className={styles.secondaryActions}>
                     {canManageResponses && (isResponded || req.match_status === 'CLOSED') && req.match_id && (
-                      <Button size="sm" onClick={() => setReportingMatchId(req.match_id)}>
+                      <Button size="sm" onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(req.match_id) }}>
                         I donated
                       </Button>
                     )}
@@ -325,15 +311,7 @@ export default function MyResponsesPage() {
             <h2 id="report-modal-title" className={styles.reportTitle}>Report completed donation</h2>
             <p className={styles.reportDescription}>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
             <DonationDateTimeFields value={occurredAt} onChange={setOccurredAt} />
-            <label htmlFor="response-report-note">Optional private reference or supporting note</label>
-            <textarea
-              id="response-report-note"
-              value={reportNote}
-              onChange={(e) => setReportNote(e.target.value)}
-              placeholder="A private reference or brief supporting detail; avoid unnecessary medical information."
-              maxLength={500}
-              rows={4}
-            />
+            <DonationProofInput files={proofPhotos} onChange={setProofPhotos} disabled={submittingReport} />
             <div className={styles.modalActions}>
               <Button type="button" variant="secondary" disabled={submittingReport} onClick={() => setReportingMatchId(null)}>
                 Cancel

@@ -8,7 +8,7 @@ export default function DocumentPreview({ document: file, onClose }) {
   const [error, setError] = useState(null)
   const [zoom, setZoom] = useState(100)
   const [retry, setRetry] = useState(0)
-  const title = file.doc_type === 'national_id' ? 'National ID' : file.doc_type === 'donor_card' ? 'Blood donor card' : 'Parental consent'
+  const title = file.doc_type === 'donation_proof' ? 'Private donation proof' : file.doc_type === 'national_id' ? 'National ID' : file.doc_type === 'donor_card' ? 'Blood donor card' : 'Parental consent'
   useEffect(() => {
     const previous = window.document.activeElement
     dialogRef.current.showModal()

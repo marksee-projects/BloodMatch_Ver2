@@ -19,13 +19,22 @@ final class DonationCompletionService
         return $at;
     }
 
-    public function submit(array $actor,int $matchId,mixed $occurredAt,?string $note): array
+    public static function reportResponseAt(array $match,array $report): string
+    {
+        if (!empty($report['offer_context_id'])) {
+            $s=Database::pdo()->prepare('SELECT responded_at FROM donation_chat_contexts WHERE id=? AND match_id=?');$s->execute([$report['offer_context_id'],$match['id']]);$at=$s->fetchColumn();
+            if (!$at) throw new RuntimeException('The report’s original offer chronology requires clarification.',409);
+            return $at;
+        }
+        return self::responseAt($match,$report['reported_at']??null);
+    }
+    public function submit(array $actor,int $matchId,mixed $occurredAt,?string $note,array $proofs=[],?int $contextId=null): array
     {
         DonationWorkflowRepository::requireReady();DonationCompletionPolicy::requireDateApproval();
         $note=$note===null || trim($note)===''?null:DonationCompletionPolicy::basis($note);
         $pre=(new MatchRepository())->findByIdDetailed($matchId);
         if (!$pre || (int)$pre['donor_id']!==(int)$actor['id']) throw new RuntimeException('Only the matched donor can report this donation.',403);
-        return WorkflowLockService::transaction(function() use($actor,$pre,$matchId,$occurredAt,$note) {
+        return WorkflowLockService::transaction(function() use($actor,$pre,$matchId,$occurredAt,$note,$proofs,$contextId) {
             $request=WorkflowLockService::request((int)$pre['request_id']);
             $users=WorkflowLockService::users([(int)$actor['id'],(int)$request['requester_id']]);$donor=$users[(int)$actor['id']];
             WorkflowLockService::assertDonorActor($donor);
@@ -34,16 +43,25 @@ final class DonationCompletionService
             $match=(new MatchRepository())->findByIdForUpdate($matchId);
             if (!$match || (int)$match['donor_id']!==(int)$donor['id'] || (int)$match['request_id']!==(int)$request['id']) throw new RuntimeException('Match not found.',404);
             if (!in_array($match['status'],['RESPONDED','CLOSED'],true)) throw new RuntimeException('This match has no reportable donor response.',409);
-            $now=AuthService::nowUtc();$occurred=DonationCompletionPolicy::occurrence($occurredAt,self::responseAt($match),$now);
+            $context=null;
+            if (OfferChatService::ready()) {
+                $s=Database::pdo()->prepare($contextId!==null?'SELECT id,responded_at FROM donation_chat_contexts WHERE id=? AND match_id=?':'SELECT id,responded_at FROM donation_chat_contexts WHERE match_id=? AND offer_cycle=?');
+                $s->execute($contextId!==null?[$contextId,$matchId]:[$matchId,$match['offer_cycle']]);$context=$s->fetch();
+                if ($contextId!==null && !$context) throw new RuntimeException('This offer context does not belong to the donation.',409);
+            } elseif ($contextId!==null) OfferChatService::requireReady();
+            $now=AuthService::nowUtc();$occurred=DonationCompletionPolicy::occurrence($occurredAt,$context?$context['responded_at']:self::responseAt($match),$now);
             $s=Database::pdo()->prepare('SELECT * FROM donation_reports WHERE match_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE');$s->execute([$matchId]);$prior=$s->fetch();
             if ($prior) {
+                if ($proofs) throw new RuntimeException('This match already has a report. Open that report to add or correct its proof photos.',409);
                 if ($prior['status']==='PENDING' && $prior['occurred_at']===$occurred && $prior['report_note']===$note) return ['id'=>(int)$prior['id'],'changed'=>false];
                 throw new RuntimeException('This match already has a report. Open it for review or correction.',409);
             }
             $s=Database::pdo()->prepare("INSERT INTO donation_reports(match_id,donor_id,report_note,status,reported_at,occurred_at,workflow_state) VALUES(?,?,?,'PENDING',?,?,'awaiting_requester')");
             $s->execute([$matchId,$donor['id'],$note,$now,$occurred]);$id=(int)Database::pdo()->lastInsertId();
+            if ($context) Database::pdo()->prepare('UPDATE donation_reports SET offer_context_id=? WHERE id=?')->execute([$context['id'],$id]);
             Database::pdo()->prepare('INSERT INTO donation_report_holds(report_id,donor_id,started_at) VALUES(?,?,?)')->execute([$id,$donor['id'],$now]);
             $row=(new DonationReportRepository())->findByIdForUpdate($id);
+            DonationProofService::attach($id,1,(int)$donor['id'],$proofs);
             DonationWorkflowRepository::event($row,(int)$donor['id'],'submitted',null,$now);
             self::notify($row,(int)$request['requester_id'],'awaiting_acknowledgment','Please respond to a donation report','A donor reported donating for your request. Open the report and choose Donation received, Did not donate, or Not sure.','submitted');
             return ['id'=>$id,'changed'=>true,'workflow_state'=>'awaiting_requester'];
@@ -62,10 +80,12 @@ final class DonationCompletionService
     {
         $now=AuthService::nowUtc();
         if (empty($row['occurred_at'])) throw new RuntimeException('Clarify the actual donation date before recording completion.',409);
-        DonationCompletionPolicy::occurrence(str_replace(' ','T',$row['occurred_at']).'Z',self::responseAt($match,$row['reported_at']),$now);
+        DonationCompletionPolicy::occurrence(str_replace(' ','T',$row['occurred_at']).'Z',self::reportResponseAt($match,$row),$now);
         if (!in_array($match['status'],['RESPONDED','CLOSED'],true)) throw new RuntimeException('This match cannot receive another donation credit.',409);
         $s=Database::pdo()->prepare("SELECT 1 FROM donation_reports WHERE match_id=? AND status='CONFIRMED' LIMIT 1 FOR UPDATE");$s->execute([$match['id']]);
         if ($s->fetchColumn()!==false) throw new RuntimeException('This match already has a recorded donation.',409);
+        $s=Database::pdo()->prepare('SELECT 1 FROM donation_credits WHERE donor_id=? AND occurred_at=? LIMIT 1 FOR UPDATE');$s->execute([$row['donor_id'],$row['occurred_at']]);
+        if ($s->fetchColumn()!==false) throw new RuntimeException('This donor already has a recorded donation at this occurrence time. Request staff clarification instead of awarding duplicate credit.',409);
         $s=Database::pdo()->prepare('INSERT INTO donation_credits(report_id,match_id,donor_id,occurred_at,recorded_at,completion_basis) VALUES(?,?,?,?,?,?)');
         $s->execute([$row['id'],$match['id'],$row['donor_id'],$row['occurred_at'],$now,$basis]);
         Database::pdo()->prepare("UPDATE donation_reports SET status='CONFIRMED',workflow_state='completed',completion_basis=?,confirmed_by=?,confirmed_at=?,reviewed_at=COALESCE(?,reviewed_at),review_evidence=? WHERE id=?")
@@ -222,20 +242,21 @@ final class DonationCompletionService
         });
     }
 
-    public function revise(array $actor,int $id,int $version,mixed $occurredAt,string $note): array
+    public function revise(array $actor,int $id,int $version,mixed $occurredAt,string $note,array $proofs=[]): array
     {
         $note=DonationCompletionPolicy::basis($note);
-        return self::locked($id,(int)$actor['id'],function($row,$request,$match,$actor) use($version,$occurredAt,$note) {
+        return self::locked($id,(int)$actor['id'],function($row,$request,$match,$actor) use($version,$occurredAt,$note,$proofs) {
             if ((int)$actor['id']!==(int)$row['donor_id'] || $actor['role']!=='member') throw new RuntimeException('Only the donor can correct donation details.',403);
             DonationCompletionPolicy::assertVersion($row,$version);DonationCompletionPolicy::assertUnresolved($row);
             if ($row['workflow_state']!=='clarification') throw new RuntimeException('Ask for administrative clarification before changing reported details.',409);
             $now=AuthService::nowUtc();
-            $occurred=DonationCompletionPolicy::occurrence($occurredAt,self::responseAt($match,$row['reported_at']),$now);
+            $occurred=DonationCompletionPolicy::occurrence($occurredAt,self::reportResponseAt($match,$row),$now);
             DonationWorkflowRepository::event($row,(int)$actor['id'],'version_superseded','Donor corrected report details.',$now);
             Database::pdo()->prepare("UPDATE donation_reports SET occurred_at=?,report_note=?,content_version=content_version+1,requester_response=NULL,
                 acknowledged_by=NULL,acknowledged_at=NULL,acknowledged_version=NULL,rejection_reason=NULL,workflow_state='awaiting_requester' WHERE id=?")
                 ->execute([$occurred,$note,$row['id']]);
             $row=array_replace($row,['occurred_at'=>$occurred,'report_note'=>$note,'content_version'=>(int)$row['content_version']+1,'requester_response'=>null,'acknowledged_at'=>null,'acknowledged_version'=>null,'workflow_state'=>'awaiting_requester']);
+            DonationProofService::attach((int)$row['id'],(int)$row['content_version'],(int)$actor['id'],$proofs);
             DonationWorkflowRepository::event($row,(int)$actor['id'],'revised',null,$now);
             self::notify($row,(int)$request['requester_id'],'awaiting_acknowledgment','Donation report corrected','Review the updated donation date and details. Your earlier response does not apply to this version.','version:'.$row['content_version']);
             return ['changed'=>true,'content_version'=>$row['content_version']];
