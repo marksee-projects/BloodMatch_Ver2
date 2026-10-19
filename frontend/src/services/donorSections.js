@@ -9,3 +9,10 @@ export function donorSections(matches = [], offers = []) {
   ordered.push(...[...actual.values()].filter(m => !rankedIds.has(String(m.match_id))))
   return { offers: ordered, suggestions: matches.filter(m => ['POTENTIAL', 'NOTIFIED'].includes(m.status) && !actual.has(String(m.match_id)) && !offerDonors.has(m.donor_reference)) }
 }
+
+export function donorPage(rows, requestedPage = 1, pageSize = 5) {
+  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize))
+  const page = Math.min(totalPages, Math.max(1, requestedPage))
+  const start = (page - 1) * pageSize
+  return { rows: rows.slice(start, start + pageSize), page, totalPages, start: rows.length ? start + 1 : 0, end: Math.min(start + pageSize, rows.length) }
+}

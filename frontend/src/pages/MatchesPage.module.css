@@ -44,11 +44,18 @@
 .donorTabs span { font-size: var(--text-sm); }
 .donorExplanation { color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.6; }
 .donorCards { display: grid; gap: var(--space-3); }
-.donorCard { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control); }
+.donorCard { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-3) var(--space-4); padding: var(--space-4); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control); }
 .donorCard h3 { overflow-wrap: anywhere; }
-.donorMetrics { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); color: var(--color-text-muted); font-size: var(--text-sm); }
-.donorCardActions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.donorMetrics { grid-column: 1; display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); color: var(--color-text-muted); font-size: var(--text-sm); }
+.donorCardActions { grid-column: 2; grid-row: 2; justify-content: flex-end; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); max-width: 22rem; }
 .donorCardActions small { flex-basis: 100%; color: var(--color-text-muted); }
+.donorCard > :nth-child(2) { justify-self: end; }
+.donorCardIdentity { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.donorAvatar { position: relative; width: 44px; height: 44px; display: grid; place-items: center; flex: none; overflow: hidden; border-radius: var(--radius-avatar); background: var(--color-surface-sunken); color: var(--color-brand-navy); font-weight: 600; }
+.donorAvatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.donorPagination { display: flex; align-items: center; justify-content: center; gap: var(--space-4); margin-top: var(--space-5); font-size: var(--text-sm); }
+.matchesSurface { scroll-margin-top: calc(var(--topbar-height) + var(--space-4)); }
+@media(max-width:680px) { .donorCardActions { grid-column: 1 / -1; grid-row: auto; justify-content: flex-start; max-width: none; } .donorMetrics { grid-column: 1 / -1; } .donorPagination { gap: var(--space-3); } }
 .matchFilters { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); }
 .filterField { min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .filterField label { font-size: var(--text-sm); font-weight: 600; }

@@ -144,11 +144,10 @@
 
 .enrollCard {
   margin-bottom: var(--space-4);
-  border: 1.5px solid var(--color-brand-navy);
+  border: 1px solid var(--color-border-hairline);
   background: var(--color-surface);
   border-radius: var(--radius-card);
-  box-shadow: 0 4px 16px rgba(2, 0, 102, 0.08);
-  animation: enrollPulse 3s ease-in-out infinite;
+  box-shadow: var(--shadow-sm);
 }
 
 @keyframes enrollPulse {

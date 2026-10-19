@@ -149,9 +149,6 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                 {isNotEnrolled ? (
                   <div className={styles.enrollPrompt} role="region" aria-label="Donor enrollment required">
                     <div className={styles.enrollPromptContent}>
-                      <span className={styles.enrollPromptIcon} aria-hidden="true">
-                        <Drop size={18} weight="fill" />
-                      </span>
                       <div className={styles.enrollPromptText}>
                         <strong className={styles.enrollPromptTitle}>Enroll as a donor to respond</strong>
                       </div>
@@ -162,7 +159,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                       onClick={() => navigate('/profile')}
                       aria-label="Go to profile to enroll as a donor"
                     >
-                      <span>Enroll as Donor</span>
+                      <span>Enroll as donor</span>
                       <ArrowRight size={14} weight="bold" aria-hidden="true" />
                     </button>
                     <p

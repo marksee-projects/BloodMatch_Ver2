@@ -292,7 +292,7 @@ final class MatchService
     {
         $sql = 'SELECT m.id AS match_id, m.donor_id, m.generation, m.status, m.distance_km, m.rank_score,
                     br.requester_id, br.status AS request_status, u.full_name, u.chapter_id, c.name AS chapter_name,
-                    u.verification_status, u.account_status, u.role AS donor_role, u.donor_availability,
+                    u.verification_status, u.account_status, u.role AS donor_role, u.donor_availability, u.profile_picture,
                     cr.status AS chat_status, cr.sender_id AS chat_sender_id, cr.created_at AS chat_created_at,
                     cr.updated_at AS chat_updated_at, cr.conversation_id AS chat_conversation_id,
                     EXISTS(SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id=cr.conversation_id AND cp.user_id=br.requester_id) AS chat_owner_participant,
@@ -345,6 +345,7 @@ final class MatchService
                 'generation' => (int) $row['generation'],
                 'status' => (string) $row['status'],
                 'profile_user_id' => $canViewProfile ? (int) $row['donor_id'] : null,
+                'profile_picture_url' => $canViewProfile ? ProfilePictureStorageService::urlFor($row['profile_picture'],(int)$row['donor_id']) : null,
                 'chat' => $chat,
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));

@@ -528,14 +528,12 @@ export default function ProfilePage() {
               {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && (
                 <Card className={styles.enrollCard} role="region" aria-label="Donor enrollment prompt">
                   <div className={styles.enrollCardContent}>
-                    <div className={styles.enrollCardIcon} aria-hidden="true">
-                      <Drop size={28} weight="fill" />
-                    </div>
                     <div className={styles.enrollCardDetails}>
-                      <h3>Complete Your Donor Enrollment</h3>
+                      <h3>Become a donor</h3>
+                      <p>Enroll to offer help on compatible blood requests.</p>
                     </div>
                     <Button variant="primary" onClick={enrollAsDonor} isLoading={enrolling}>
-                      Enroll as Donor
+                      Enroll as donor
                     </Button>
                   </div>
                 </Card>

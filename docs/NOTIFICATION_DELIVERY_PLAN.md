@@ -1,6 +1,8 @@
 # Notification delivery proposal — 2026-10-19
 
-Status: proposal for user review only. No runtime, schema, data, email or schedule changes. This checkpoint responds to duplicate cancellation pop-ups and notification overload at login; accepted-offer/donation testing remains in progress.
+Status: subsequently approved by the user's “proceed with that plan” instruction on 2026-10-19 and implemented in source. Historical proposal follows. Login/reconnect is silent even with zero unread; fresh allowlisted events use 60-second server-time freshness, a 30-second background cap with Emergency replacement, and Web Locks/account-scoped ID/time-only storage for cross-tab claims. Unavailable coordination falls back to bell-only. Action feedback/errors remain separate. Allowlisting prevents the observed cancellation duplicate; inbox generation and read behavior remain unchanged. No rows were deleted or bulk-marked read.
+
+An explicit `offer.donation_prompt` in-app type distinguishes donor-report prompts from ordinary coordination, retaining recipients/deduplication/no-email policy. Accepted-offer notification destinations reuse conversation authorization. API additions are read-only server time and authorized conversation destination; no notification schema migration, new channel or worker. Focused checks/build pass; native multi-tab and visual browser verification remain user-run. See [main migration and source checkpoint](OFFER_CHAT_MAIN_ROLLOUT_031.md).
 
 ## Observed implementation
 

@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { CheckCircle, Info, WarningCircle, X } from '@phosphor-icons/react'
 import styles from '../components/NotificationPopup.module.css'
+import { useAuth } from './AuthContext'
 
 // Isolated component renders can omit the app shell. The shell installs the provider.
 const NotificationContext = createContext(() => {})
@@ -39,24 +40,30 @@ function Popup({ notice, dismiss }) {
 }
 
 export function NotificationProvider({ children }) {
+  const { user } = useAuth()
+  const accountId = user?.id ?? null
+  const accountRef = useRef(accountId)
+  accountRef.current = accountId
   const [notices, setNotices] = useState([])
+  useEffect(() => { setNotices([]) }, [accountId])
   const sequence = useRef(0)
   const dismiss = useCallback((id) => setNotices((items) => items.filter((item) => item.id !== id)), [])
   const notify = useCallback((input) => {
-    if (!input?.message) return
+    if (!input?.message || accountRef.current !== accountId) return
     const id = ++sequence.current
-    const notice = { severity: 'info', ...input, id }
+    const notice = { severity: 'info', ...input, id, accountId }
     notice.dedupKey ||= `${notice.severity}:${notice.title || ''}:${notice.message}`
     setNotices((items) => {
       if (notice.dedupKey && items.some((item) => item.dedupKey === notice.dedupKey)) return items
-      return [...items, notice]
+      const retained = items.filter(item => item.accountId === accountId && !(notice.source === 'background' && item.source === 'background'))
+      return notice.severity === 'error' ? [notice, ...retained] : [...retained, notice]
     })
-  }, [])
+  }, [accountId])
+  const visible = notices.filter(notice => notice.accountId === accountId)
   return <NotificationContext.Provider value={notify}>
     {children}
     {typeof document !== 'undefined' && createPortal(<div className={styles.stack} role="region" aria-label="System notifications">
-      {notices.slice(0, 3).map((notice) => <Popup key={notice.id} notice={notice} dismiss={dismiss} />)}
-      {notices.length > 3 && <span className={styles.queued}>{notices.length - 3} more notifications queued</span>}
+      {visible.slice(0, 3).map((notice) => <Popup key={notice.id} notice={notice} dismiss={dismiss} />)}
     </div>, document.body)}
   </NotificationContext.Provider>
 }

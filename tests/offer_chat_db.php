@@ -44,6 +44,8 @@ try {
         ocDb(Offers::ownOffer($donor,$m)['conversation_id']===null,"$urgency offer alone grants no chat consent/context");
         ocFail(fn()=>Offers::accept($outsider,$m,1),403,"$urgency outsider cannot accept");
         $accepted=Offers::accept($owner,$m,1);$contexts[]=[$r,$m,$accepted];
+        ocDb(Offers::notificationConversation($donor,$r)===$accepted['conversation_id'],"$urgency offer alert links only to authorized request chat");
+        ocDb(Offers::notificationConversation($outsider,$r)===null,"$urgency outsider receives no offer chat destination");
         ocDb((new ChatPolicy())->canAccessConversation($donor,$accepted['conversation_id']),"$urgency acceptance satisfies existing chat gates");
         ocDb(Offers::accept($owner,$m,1)['changed']===false,"$urgency repeated acceptance is idempotent");
         ocDb(MatchRepository::countCompleted($r)===0,"$urgency acceptance contributes zero units");

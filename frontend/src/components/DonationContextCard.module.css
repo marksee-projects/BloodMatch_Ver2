@@ -5,5 +5,9 @@
 .card select { box-sizing: border-box; width: 100%; min-height: 44px; padding: var(--space-2); border: 1px solid var(--color-border); border-radius: var(--radius-control); color: var(--color-text); background: var(--color-surface); }
 .card details > summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: var(--text-sm); font-weight: 600; color: var(--color-brand-navy); }
 .body { max-height: 45vh; overflow-y: auto; padding: var(--space-2); }
+.promptHelp { display: block; }
+.reportForm { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border-hairline); }
+.error { color: var(--color-emergency-red) !important; padding: var(--space-3); border: 1px solid var(--color-danger-border); border-radius: var(--radius-control); }
+.feedback { padding: var(--space-3); background: var(--color-surface-sunken); border-radius: var(--radius-control); }
 .actions, .offer { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3); }
 .offer { justify-content: space-between; padding: var(--space-3) 0; border-top: 1px solid var(--color-border-hairline); }

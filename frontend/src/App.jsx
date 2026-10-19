@@ -1,3 +1,4 @@
+import { claimLiveNotification, liveNotificationKind, notificationInstant } from './services/notificationDelivery'
 import ChatReportsView from './pages/admin/views/ChatReportsView'
 import ChatPage from './pages/ChatPage'
 import { useEffect, useState, useRef } from 'react'
@@ -81,8 +82,6 @@ function AppShell() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false)
   const [deleteAccountOpen, setDeleteAccountOpen] = useState(false)
   const deleteReturnFocusRef = useRef(null)
-  const seenNotifications = useRef(new Set())
-  const notificationsInitialized = useRef(false)
   const openCreateRequest = useRequestCreation()
   const { theme, toggleTheme } = useTheme()
   const { user, loading, logout, refresh } = useAuth()
@@ -134,68 +133,74 @@ function AppShell() {
     let active = true
     let timeoutId = null
     let isFetching = false
-
+    let baseline = null
+    const seen = new Set()
+    const inCurrentView = notice => {
+      const selector = notice.related_type === 'donation_report'
+        ? `[data-donation-report="${Number(notice.related_id)}"], #donation-report-${Number(notice.related_id)}`
+        : notice.related_type === 'blood_request' ? `[data-donation-request="${Number(notice.related_id)}"]` : null
+      return selector ? [...document.querySelectorAll(selector)].some(element => { const rect = element.getBoundingClientRect(); return rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight }) : false
+    }
     const fetchUnread = async () => {
       if (!active) return
-      if (document.visibilityState !== 'visible') {
-        scheduleNext()
-        return
-      }
+      if (document.visibilityState !== 'visible') { baseline = null; scheduleNext(); return }
       if (isFetching) return
       isFetching = true
       try {
         const readRevision = notificationReadRevision()
         const d = await api.get('/api/notifications/unread-count')
-        if (active && readRevision === notificationReadRevision() && typeof d?.unread_count === 'number') {
-          setUnread(d.unread_count)
-          if (d.unread_count > 0) {
-            const latest = await api.get('/api/notifications?read=unread&page_size=50')
-            const initial = !notificationsInitialized.current
-            if (active && readRevision === notificationReadRevision()) notificationsInitialized.current = true
-            if (active && readRevision === notificationReadRevision()) for (const notice of [...(latest.notifications || [])].reverse()) {
-              if (seenNotifications.current.has(notice.id)) continue
-              seenNotifications.current.add(notice.id)
-              if (notice.type === 'request.expired') {
-                queryClient.invalidateQueries({ queryKey: ['my-requests', user.id] })
-                queryClient.invalidateQueries({ queryKey: ['my-responses', user.id] })
-                queryClient.invalidateQueries({ queryKey: ['request-matches'] })
-              }
-              if (notice.related_request_status && notice.related_request_status !== 'OPEN' && notice.type === 'match.new') continue
-              const to = notificationDeepLink(notice, user.role)
-              const emergency = notice.type === 'match.new' && notice.related_request_urgency === 'emergency'
-              if (initial && !emergency && !(notice.type === 'request.expired' && !notice.read_at)) continue
-              notify({ severity: emergency ? 'emergency' : 'info', title: emergency ? 'Emergency blood request' : notificationDisplayText(notice, 'title'),
-                message: notificationDisplayText(notice, 'body'), dedupKey: `notification:${notice.id}`, action: to ? { to, label: notice.type === 'request.expired' ? 'Extend deadline' : emergency ? 'View request' : 'View details' } : undefined })
-            }
+        if (!active || readRevision !== notificationReadRevision() || typeof d?.unread_count !== 'number') return
+        setUnread(d.unread_count)
+        const now = notificationInstant(d.server_time_utc)
+        const initial = baseline === null
+        // Initialize even when there are zero unread items; don't replay on reconnect.
+        if (initial) baseline = Number.isFinite(now) ? now : Date.now()
+        if (d.unread_count <= 0) return
+        const latest = await api.get('/api/notifications?read=unread&page_size=50')
+        if (!active || readRevision !== notificationReadRevision()) return
+        const candidates = []
+        for (const notice of latest.notifications || []) {
+          if (seen.has(notice.id)) continue
+          seen.add(notice.id)
+          if (notice.related_type === 'blood_request') {
+            for (const key of [['my-requests',user.id],['my-responses',user.id],['request-matches'],['home-feed'],['donation-offers']]) queryClient.invalidateQueries({ queryKey: key })
           }
+          if (notice.related_type === 'donation_report') {
+            queryClient.invalidateQueries({ queryKey: ['donation-chat-contexts'] })
+          }
+          if (initial) continue
+          const kind = liveNotificationKind(notice, { baseline, now, viewing: inCurrentView(notice) })
+          if (kind) candidates.push({ notice, kind })
         }
-      } catch (err) {
-        // ignore
-      } finally {
-        isFetching = false
-        if (active) scheduleNext()
-      }
+        candidates.sort((a,b) => Number(b.kind === 'emergency') - Number(a.kind === 'emergency') || Number(b.notice.id) - Number(a.notice.id))
+        for (const { notice, kind } of candidates) {
+          const claimed = await claimLiveNotification(user.id, notice.id, kind)
+          if (!active || document.hidden || readRevision !== notificationReadRevision()) return
+          if (inCurrentView(notice)) continue
+          if (!claimed) continue
+          const to = notificationDeepLink(notice,user.role)
+          notify({ source: 'background', severity: kind === 'emergency' ? 'emergency' : 'info',
+            title: kind === 'emergency' ? 'Emergency blood request' : notificationDisplayText(notice,'title'),
+            message: 'Open BloodMatch to review this update.', dedupKey: `notification:${user.id}:${notice.id}`,
+            action: to ? { to, label: kind === 'emergency' ? 'View request' : notice.type === 'offer.accepted' && notice.related_conversation_id ? 'Open chat' : 'View details' } : undefined })
+          break
+        }
+      } catch {
+        baseline = null
+      } finally { isFetching = false; if (active) scheduleNext() }
     }
-
-    const scheduleNext = () => {
-      if (timeoutId) clearTimeout(timeoutId)
-      if (active) timeoutId = setTimeout(fetchUnread, 5000)
-    }
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        if (timeoutId) clearTimeout(timeoutId)
-        fetchUnread()
-      }
-    }
-
+    const scheduleNext = () => { if (timeoutId) clearTimeout(timeoutId); if (active) timeoutId = setTimeout(fetchUnread,5000) }
+    const reconnect = () => { baseline = null; if (timeoutId) clearTimeout(timeoutId); fetchUnread() }
     fetchUnread()
-    document.addEventListener('visibilitychange', handleVisibility)
-
+    document.addEventListener('visibilitychange',reconnect)
+    window.addEventListener('online',reconnect)
+    window.addEventListener('focus',reconnect)
     return () => {
       active = false
       if (timeoutId) clearTimeout(timeoutId)
-      document.removeEventListener('visibilitychange', handleVisibility)
+      document.removeEventListener('visibilitychange',reconnect)
+      window.removeEventListener('online',reconnect)
+      window.removeEventListener('focus',reconnect)
     }
   }, [user, notify])
 

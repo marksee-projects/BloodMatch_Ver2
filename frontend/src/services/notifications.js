@@ -15,6 +15,7 @@ export function notificationDisplayText(notification, field) {
 
 export function notificationDeepLink(n, role = 'admin') {
   if (!n) return null
+  if (n.type === 'offer.accepted' && n.related_conversation_id) return `/chat?conversation=${Number(n.related_conversation_id)}&request=${Number(n.related_id)}`
   if (n.related_type === 'donation_report' && n.related_id) {
     const staffReview = role === 'admin' && ['donation.reported', 'donation.review_needed', 'donation.escalated'].includes(n.type)
     return staffReview ? `/admin/confirmations?report=${n.related_id}` : `/donation-reports?report=${n.related_id}`

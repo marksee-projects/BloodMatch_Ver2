@@ -23,6 +23,8 @@ button.conversation:hover:not(:disabled), button.conversation[aria-pressed=true]
 .person h2 { font-size: var(--text-body); margin: 0; overflow-wrap: anywhere; }
 .historyAction { padding: var(--space-3) var(--space-4) 0; text-align: center; }
 .messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-5); background: var(--color-surface-sunken); }
+.thread > section { flex: 0 1 auto; min-height: 0; max-height: 45%; overflow-y: auto; overscroll-behavior: contain; margin: var(--space-3); }
+.threadHeader, .historyAction, .composer, .reportForm { flex-shrink: 0; }
 .message,.own { display: flex; flex-direction: column; align-items: flex-start; align-self: flex-start; max-width: 80%; gap: var(--space-2); overflow-wrap: anywhere; }
 .own { align-self: flex-end; align-items: flex-end; }
 .bubble { margin: 0; white-space: pre-wrap; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); }

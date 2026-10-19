@@ -12,6 +12,13 @@ final class OfferChatService
         $s->execute(['031_offer_chat_donation_proof.sql']);return $s->fetchColumn()!==false;
     }
     public static function requireReady(): void { if (!self::ready()) throw new RuntimeException('Offer chat requires migration 031.',503); }
+    /** Notification destination only; existing conversation authorization still applies. */
+    public static function notificationConversation(array $actor,int $requestId): ?int {
+        if (!ChatPolicy::isEligible($actor) || !self::ready()) return null;
+        $s=Database::pdo()->prepare('SELECT c.conversation_id FROM donation_chat_contexts c JOIN matches m ON m.id=c.match_id WHERE m.request_id=? AND m.donor_id=? AND c.conversation_id IS NOT NULL ORDER BY c.id DESC LIMIT 1');
+        $s->execute([$requestId,$actor['id']]);$conversation=$s->fetchColumn();
+        return $conversation && (new ChatPolicy())->canAccessConversation($actor,(int)$conversation)?(int)$conversation:null;
+    }
     public static function accept(array $actor,int $matchId,int $cycle): array {
         self::requireReady();$pre=(new MatchRepository())->findByIdDetailed($matchId);
         if (!$pre) throw new RuntimeException('Offer not found.',404);
@@ -52,8 +59,9 @@ final class OfferChatService
         self::requireReady();$r=(new \BloodMatch\Repositories\BloodRequestRepository())->findById($requestId);
         if (!$r || (int)$r['requester_id']!==(int)$actor['id']) throw new RuntimeException('Request not found.',404);
         if (!ChatPolicy::isEligible($actor)) throw new RuntimeException('Active verified membership is required to review chat acceptance.',403);
-        $s=Database::pdo()->prepare("SELECT m.id AS match_id,m.offer_cycle,m.status,u.full_name AS donor_name,CONCAT('donor-',m.donor_id) AS donor_reference,u.id AS profile_user_id,u.chapter_id,ch.name AS chapter_name,u.donor_availability AS availability,ROUND(m.distance_km,1) AS approximate_distance_km,c.conversation_id,c.id AS context_id FROM matches m JOIN users u ON u.id=m.donor_id LEFT JOIN chapters ch ON ch.id=u.chapter_id LEFT JOIN donation_chat_contexts c ON c.match_id=m.id AND c.offer_cycle=m.offer_cycle WHERE m.request_id=? AND (m.status IN ('RESPONDED','COMPLETED') OR c.id IS NOT NULL) ORDER BY m.id");$s->execute([$requestId]);
-        return ['offers'=>$s->fetchAll(),'can_accept'=>$r['status']==='OPEN'&&!RequestService::hasDeadlinePassed($r)];
+        $s=Database::pdo()->prepare("SELECT m.id AS match_id,m.offer_cycle,m.status,u.full_name AS donor_name,CONCAT('donor-',m.donor_id) AS donor_reference,u.id AS profile_user_id,u.profile_picture,u.chapter_id,ch.name AS chapter_name,u.donor_availability AS availability,ROUND(m.distance_km,1) AS approximate_distance_km,c.conversation_id,c.id AS context_id FROM matches m JOIN users u ON u.id=m.donor_id LEFT JOIN chapters ch ON ch.id=u.chapter_id LEFT JOIN donation_chat_contexts c ON c.match_id=m.id AND c.offer_cycle=m.offer_cycle WHERE m.request_id=? AND (m.status IN ('RESPONDED','COMPLETED') OR c.id IS NOT NULL) ORDER BY m.id");$s->execute([$requestId]);
+        $offers=$s->fetchAll();foreach($offers as &$offer){$offer['profile_picture_url']=ProfilePictureStorageService::urlFor($offer['profile_picture'],(int)$offer['profile_user_id']);unset($offer['profile_picture']);}unset($offer);
+        return ['offers'=>$offers,'can_accept'=>$r['status']==='OPEN'&&!RequestService::hasDeadlinePassed($r)];
     }
     public static function ownOffer(array $actor,int $matchId): array {
         self::requireReady();$m=(new MatchRepository())->findByIdDetailed($matchId);
@@ -107,7 +115,7 @@ final class OfferChatService
             $p->prepare('UPDATE conversations SET updated_at=UTC_TIMESTAMP(3) WHERE id=?')->execute([$pre['conversation_id']]);
             if (AuditLogger::log((int)$a['id'],'offer.coordination','blood_request',(string)$r['id'],['context_id'=>$contextId,'action'=>$action,'event_id'=>$event])===null) throw new RuntimeException('Coordination audit unavailable.',503);
             $other=(int)$a['id']===(int)$r['requester_id']?(int)$m['donor_id']:(int)$r['requester_id'];
-            NotificationService::notify($other,'offer.coordination',$action==='prompt_donor'?'Please submit donation details':'Donation coordination updated','Open your request-linked chat. This update does not confirm a donation.',['related_type'=>'blood_request','related_id'=>(int)$r['id'],'dedup_key'=>'coordination:'.$event,'email'=>NotificationService::EMAIL_NONE]);
+            NotificationService::notify($other,$action==='prompt_donor'?'offer.donation_prompt':'offer.coordination',$action==='prompt_donor'?'Please report your donation':'Donation coordination updated','Open your request-linked chat. This update does not confirm a donation.',['related_type'=>'blood_request','related_id'=>(int)$r['id'],'dedup_key'=>'coordination:'.$event,'email'=>NotificationService::EMAIL_NONE]);
             return ['changed'=>true];
         });
     }

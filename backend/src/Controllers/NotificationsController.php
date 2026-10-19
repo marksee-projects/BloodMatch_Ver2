@@ -41,6 +41,8 @@ final class NotificationsController
                 'related_id' => $n['related_id'] !== null ? (int) $n['related_id'] : null,
                 'related_request_status' => $n['related_request_status'] ?? null,
                 'related_request_urgency' => $n['related_request_urgency'] ?? null,
+                'related_conversation_id' => $n['type']==='offer.accepted' && $n['related_type']==='blood_request'
+                    ? \BloodMatch\Services\OfferChatService::notificationConversation($actor,(int)$n['related_id']) : null,
                 'emailed_at' => $n['emailed_at'],
                 'read_at' => $n['read_at'],
                 'created_at' => (string) $n['created_at'],
@@ -51,7 +53,7 @@ final class NotificationsController
     public function unreadCount(): void
     {
         $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.unread');
-        Response::success(['unread_count' => (new NotificationRepository())->unreadCount((int) $actor['id'])]);
+        Response::success(['unread_count' => (new NotificationRepository())->unreadCount((int) $actor['id']), 'server_time_utc' => AuthService::nowUtc()]);
     }
 
     public function markRead(array $params): void

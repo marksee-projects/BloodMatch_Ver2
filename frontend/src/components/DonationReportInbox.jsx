@@ -71,7 +71,6 @@ function ReportWorkspace({ admin = false, onChanged }) {
       <div className={styles.headingText}><Heading>{admin ? 'Reports and unresolved holds' : 'Donation reports'}</Heading><p>Track donation acknowledgments, decisions, and private report history.</p></div>
       <Button className={styles.refresh} variant="secondary" disabled={busy} onClick={load}>Refresh</Button>
     </header>
-    <div className={styles.contextNote}><p>Reports stay available after a request closes. Acknowledgment or admin confirmation is not medical verification.</p><span>All dates in Asia/Manila</span></div>
     {error && <p className="alert alert-error" role="alert">{error}</p>}
     {!reports && !error && <p>Loading reports…</p>}
     {reports?.length === 0 && <div className={styles.empty}><h3>No donation reports yet</h3><p>Reports you submit or receive will appear here.</p></div>}
