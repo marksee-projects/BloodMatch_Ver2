@@ -1,0 +1,15 @@
+.inbox { display: grid; gap: var(--space-4); min-width: 0; }
+.heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: var(--space-3); }
+.heading h2 { margin: 0; }
+.report { display: grid; gap: var(--space-4); min-width: 0; overflow-wrap: anywhere; padding: var(--space-5); }
+.report h3, .report p { margin: 0; }
+.report header { display: grid; gap: var(--space-2); }
+.details { display: grid; grid-template-columns: repeat(auto-fit,minmax(220px,1fr)); gap: var(--space-3); margin: 0; }
+.details dt { color: var(--color-text-muted); font-size: var(--text-sm); }
+.details dd { margin: 0; }
+.actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-3); }
+.release { display: flex; gap: var(--space-2); align-items: center; min-height: 44px; }
+.release input { width: auto; }
+.history { display: grid; gap: var(--space-3); padding-left: var(--space-5); }
+.history pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+@media(max-width:480px) { .details { grid-template-columns: minmax(0,1fr); } .report { padding: var(--space-4); } }

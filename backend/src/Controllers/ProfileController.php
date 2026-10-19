@@ -315,6 +315,7 @@ final class ProfileController
             'donor_enrolled' => $user['donor_enrolled_at'] !== null,
             'availability' => $user['donor_availability'],
             'non_response_standby' => $user['non_response_standby'] ?? null,
+            'pending_report_hold' => \BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$user['id']),
             'donor_eligible' => \BloodMatch\Services\DonorEligibilityService::evaluateDonor($user)['eligible'],
             'availability_window' => \BloodMatch\Services\DonorEligibilityService::evaluateWindows(
                 $user['last_verified_donation_at'] !== null ? (string) $user['last_verified_donation_at'] : null

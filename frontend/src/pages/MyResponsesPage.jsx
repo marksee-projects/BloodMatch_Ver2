@@ -23,6 +23,7 @@ import { Badge } from '../components/ui/Badge'
 import { BloodTypeBlock } from '../components/ui/BloodTypeBlock'
 import ConfirmationDialog from '../components/ConfirmationDialog'
 import styles from './MyResponsesPage.module.css'
+import { donationTimeToUtc } from '../services/donationCompletion'
 
 function formatDate(value) {
   if (!value) return 'Not provided'
@@ -66,6 +67,7 @@ export default function MyResponsesPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [confirmWithdrawMatchId, setConfirmWithdrawMatchId] = useState(null)
   const [reportingMatchId, setReportingMatchId] = useState(null)
+  const [occurredAt, setOccurredAt] = useState('')
   const [reportNote, setReportNote] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
 
@@ -112,11 +114,13 @@ export default function MyResponsesPage() {
     try {
       await api.post('/api/donation-reports', {
         match_id: reportingMatchId,
+        occurred_at: donationTimeToUtc(occurredAt),
         note: reportNote || null
       })
-      setSuccessMessage('Donation report sent for Admin/Officer confirmation.')
+      setSuccessMessage('Donation report sent to the requester. A separate report hold applies while it is unresolved.')
       setReportingMatchId(null)
       setReportNote('')
+      setOccurredAt('')
       queryClient.invalidateQueries({ queryKey: ['home-feed'] })
       queryClient.invalidateQueries({ queryKey: ['request-matches'] })
       await refetch()
@@ -151,6 +155,7 @@ export default function MyResponsesPage() {
     <div className={styles.container}>
       <header className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>My Responses</h1>
+        <Button to="/donation-reports" variant="secondary">Donation reports and holds</Button>
       </header>
 
 
@@ -269,9 +274,9 @@ export default function MyResponsesPage() {
                   </div>
 
                   <div className={styles.secondaryActions}>
-                    {canManageResponses && isResponded && req.status === 'OPEN' && req.match_id && (
+                    {canManageResponses && (isResponded || req.match_status === 'CLOSED') && req.match_id && (
                       <Button size="sm" onClick={() => setReportingMatchId(req.match_id)}>
-                        Report completed donation
+                        I donated
                       </Button>
                     )}
                     {canManageResponses && isResponded && req.status === 'OPEN' && req.match_id && (
@@ -317,13 +322,15 @@ export default function MyResponsesPage() {
             aria-labelledby="report-modal-title"
           >
             <h2 id="report-modal-title">Report completed donation</h2>
-            <p>Your report will be reviewed by a Admin/Officer before the donation is formally confirmed.</p>
-            <label htmlFor="response-report-note">Optional note</label>
+            <p>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
+            <label htmlFor="donation-occurred-at">Actual donation date/time ? Asia/Manila (UTC+08:00)</label>
+            <input id="donation-occurred-at" type="datetime-local" required value={occurredAt} onChange={e => setOccurredAt(e.target.value)} />
+            <label htmlFor="response-report-note">Optional private reference or supporting note</label>
             <textarea
               id="response-report-note"
               value={reportNote}
               onChange={(e) => setReportNote(e.target.value)}
-              placeholder="e.g. Donated at facility blood bank, 1 bag provided"
+              placeholder="A private reference or brief supporting detail; avoid unnecessary medical information."
               maxLength={500}
               rows={4}
             />

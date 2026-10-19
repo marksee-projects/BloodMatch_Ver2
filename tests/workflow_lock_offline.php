@@ -59,13 +59,15 @@ foreach ([1205, 1213] as $dbCode) {
     check('Database conflict ' . $dbCode . ' rolls back without retrying side effects', $ok && $calls === 1
         && $pdo->events === ['begin', 'rollback']);
 }
-$request = ['status' => 'OPEN', 'request_chapter_id' => 1];
-$officer = ['id' => 3, 'account_status' => 'active', 'role' => 'officer', 'chapter_id' => 1];
+$request = ['status' => 'OPEN', 'request_chapter_id' => 1, 'requester_id'=>1];
+$officer = ['id' => 3, 'account_status' => 'active', 'role' => 'admin', 'chapter_id' => 1];
 WorkflowLockService::assertReportReviewer($officer, $request, 2);
-check('Assigned active officer may review another donor', true);
+check('Canonical active admin may review another donor', true);
 check('Officer cannot review own report', expectStatus(fn () => WorkflowLockService::assertReportReviewer($officer, $request, 3), 403));
-check('Cross-chapter officer denied', expectStatus(fn () => WorkflowLockService::assertReportReviewer(array_replace($officer, ['chapter_id' => 2]), $request, 2), 403));
-check('Officer without chapter denied', expectStatus(fn () => WorkflowLockService::assertReportReviewer(array_replace($officer, ['chapter_id' => null]), $request, 2), 403));
+WorkflowLockService::assertReportReviewer(array_replace($officer,['chapter_id'=>2]),$request,2);
+check('Admin review remains global across chapters',true);
+check('Legacy officer role is not elevated', expectStatus(fn () => WorkflowLockService::assertReportReviewer(array_replace($officer, ['role' => 'officer']), $request, 2), 403));
+check('Request owner cannot perform administrative review', expectStatus(fn () => WorkflowLockService::assertReportReviewer(array_replace($officer,['id'=>1]),$request,2),403));
 check('Changed member role denied at save', expectStatus(fn () => WorkflowLockService::assertReportReviewer(array_replace($officer, ['role' => 'member']), $request, 2), 403));
 check('Deactivated reviewer denied at save', expectStatus(fn () => WorkflowLockService::assertReportReviewer(array_replace($officer, ['account_status' => 'deactivated']), $request, 2), 403));
 WorkflowLockService::assertReportReviewer(array_replace($officer, ['role' => 'admin', 'chapter_id' => null]), $request, 2);

@@ -102,7 +102,7 @@ final class BloodRequestRepository
              JOIN users requester ON requester.id = br.requester_id
              LEFT JOIN chapters requester_chapter ON requester_chapter.id = requester.chapter_id' . self::LOCATION_JOIN . '
              WHERE m.donor_id = ?
-               AND m.status IN (\'RESPONDED\', \'COMPLETED\')
+               AND (m.status IN (\'RESPONDED\', \'COMPLETED\') OR (m.status=\'CLOSED\' AND EXISTS (SELECT 1 FROM audit_log a WHERE a.action=\'match.responded\' AND a.actor_id=m.donor_id AND a.target_id=CAST(br.id AS CHAR) AND JSON_UNQUOTE(JSON_EXTRACT(a.context,\'$.match_id\'))=CAST(m.id AS CHAR))))
              ORDER BY m.id DESC LIMIT 100'
         );
         $stmt->execute([$donorId]);

@@ -46,6 +46,7 @@ final class UserRepository
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row===false) { return null; }
+        $row['pending_report_hold']=DonationWorkflowRepository::hasHold($id);
         $row['non_response_standby']=\BloodMatch\Services\NonResponseStandbyService::state($id)['standby_started_at'];
         return $row;
     }
@@ -61,6 +62,7 @@ final class UserRepository
         $stmt->execute([$id]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row===false) { return null; }
+        $row['pending_report_hold']=DonationWorkflowRepository::hasHold($id);
         $row['non_response_standby']=\BloodMatch\Services\NonResponseStandbyService::state($id)['standby_started_at'];
         return $row;
     }

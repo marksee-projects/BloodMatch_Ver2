@@ -584,6 +584,7 @@ final class AnalyticsRepository
                     $unavailable++;
                 }
             } else {
+                $d['pending_report_hold']=DonationWorkflowRepository::hasHold((int)$d['id']);
                 $eligibility = DonorEligibilityService::evaluateDonor($d, null, $window);
                 if ($eligibility['eligible']) { $available++; }
                 elseif ($avail === 'standby' || !empty($d['non_response_standby'])) { $standby++; }

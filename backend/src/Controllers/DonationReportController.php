@@ -55,6 +55,10 @@ final class DonationReportController
             'match_id' => (int) $r['match_id'],
             'status' => (string) $r['status'],
             'note' => $r['report_note'],
+            'occurred_at' => $r['occurred_at']??null,
+            'reviewed_at' => $r['reviewed_at']??null,
+            'completion_basis' => $r['completion_basis']??'legacy_admin',
+            'workflow_state' => $r['workflow_state']??'needs_review',
             'rejection_reason' => $r['rejection_reason'],
             'reported_at' => (string) $r['reported_at'],
             'confirmed_at' => $r['confirmed_at'],
@@ -65,28 +69,17 @@ final class DonationReportController
 
     public function staffQueue(): void
     {
-        $actor = AuthMiddleware::requireRoles(['admin'], 'admin.reports.queue');
-
-        $chapterId = null;
-
-        $rows = (new DonationReportRepository())->listPendingByChapter($chapterId);
-        Response::success(['pending_reports' => array_map(static fn (array $r): array => [
-            'id' => (int) $r['id'],
-            'match_id' => (int) $r['match_id'],
-            'donor_name' => (string) $r['donor_name'],
-            'required_blood_type' => (string) $r['required_blood_type'],
-            'facility_name' => (string) $r['facility_name'],
-            'report_note' => $r['report_note'],
-            'reported_at' => (string) $r['reported_at'],
-            'request_status' => (string) $r['request_status'],
-            'match_status' => (string) $r['match_status'],
-            'can_reject' => (int) $r['donor_id'] !== (int) $actor['id'],
-            'can_confirm' => (int) $r['donor_id'] !== (int) $actor['id']
-                && (string) $r['match_status'] === 'RESPONDED'
-                && (((string)$r['request_status']==='OPEN' && !\BloodMatch\Services\RequestService::hasDeadlinePassed($r)) || (in_array((string)$r['request_status'],['EXPIRED','FULFILLED','CANCELLED'],true) && $r['reported_at']<=$r['needed_datetime']))
-                && !DonationService::offerInvalid(['id'=>$r['match_id'],'generation'=>$r['match_generation']],
-                    array_replace($r,['status'=>$r['request_status']]),(new \BloodMatch\Repositories\UserRepository())->findById((int)$r['donor_id'])),
-        ], $rows)]);
+        $actor=AuthMiddleware::requireRoles(['admin'],'admin.reports.queue');
+        try {
+            $rows=\BloodMatch\Repositories\DonationWorkflowRepository::listFor($actor,true);
+            foreach($rows as &$row) {
+                $own=(int)$row['donor_id']===(int)$actor['id'] || (int)$row['requester_id']===(int)$actor['id'];
+                $row['can_reject']=!$own && $row['status']==='PENDING';
+                $row['can_confirm']=!$own && $row['status']==='PENDING' && !empty($row['occurred_at']);
+            }
+            unset($row);
+            Response::success(['pending_reports'=>$rows]);
+        } catch(RuntimeException $e) { Response::error($e->getMessage(),503); }
     }
 
     public function confirm(array $params): void
@@ -109,7 +102,8 @@ final class DonationReportController
                 (int) $params['id'],
                 $confirm,
                 Request::json()['rejection_reason'] ?? null,
-                Request::json()['evidence_note'] ?? null
+                Request::json()['evidence_note'] ?? null,
+                Request::int('expected_version')
             );
         } catch (ValidationException $e) {
             Response::error($e->getMessage(), 400, $e->errors());

@@ -42,6 +42,9 @@ final class MatchResponseService
                         $repo->setStatus($matchId, 'RESPONDED');
                     }
                 }
+                if (!$wasResponded && \BloodMatch\Repositories\DonationWorkflowRepository::ready()) {
+                    \BloodMatch\Config\Database::pdo()->prepare('UPDATE matches SET responded_at=? WHERE id=?')->execute([AuthService::nowUtc(),$matchId]);
+                }
                 $title = 'A donor responded to your blood request';
                 $body = NotificationService::displayName($actorId) . ' has offered to help with your blood request. Open BloodMatch to review the response.';
                 $notificationId=null;

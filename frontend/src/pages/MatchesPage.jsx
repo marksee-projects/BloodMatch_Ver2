@@ -22,6 +22,7 @@ function formatDate(value) {
 }
 
 function eligibilityMessage(user) {
+  if (user?.pending_report_hold) return 'A donation report hold is active. Open Donation reports to resolve the claim before making another offer.'
   if (user?.verification_status !== 'verified') return 'Your blood type can support this request. Complete account verification before offering to donate.'
   if (!user?.donor_enrolled) return 'Your blood type can support this request. Enroll as a donor before offering to help.'
   if (user?.availability !== 'available') return 'Your blood type can support this request. Set your donor status to available to join its eligible matches.'

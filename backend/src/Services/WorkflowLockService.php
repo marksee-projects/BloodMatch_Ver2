@@ -94,6 +94,9 @@ final class WorkflowLockService
         if ((int) $actor['id'] === $donorId) {
             throw new RuntimeException('You cannot decide on your own donation report.', 403);
         }
+        if ((int)$actor['id'] === (int)($request['requester_id']??0)) {
+            throw new RuntimeException('The requester cannot administratively review their own request\'s reports.',403);
+        }
     }
 
     public static function assertDonorActor(array $actor): void

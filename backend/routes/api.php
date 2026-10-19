@@ -111,7 +111,16 @@ return static function (Router $router): void {
      $router->add('GET', '/api/profile/{id}', [new MemberProfileController(), 'show']);
     $router->add('POST', '/api/matches/{matchId}/respond', [new MatchesController(), 'respond']);
     $router->add('POST', '/api/matches/{matchId}/withdraw', [new MatchesController(), 'withdraw']);
-    $router->add('POST', '/api/donation-reports', [new DonationReportController(), 'submit']);
+    $donationCompletion = new \BloodMatch\Controllers\DonationCompletionController();
+    $router->add('GET','/api/donation-completion',[$donationCompletion,'index']);
+    $router->add('POST','/api/donation-completion',[$donationCompletion,'submit']);
+    $router->add('POST','/api/donation-completion/{id}/acknowledge',[$donationCompletion,'acknowledge']);
+    $router->add('POST','/api/donation-completion/{id}/review',[$donationCompletion,'review']);
+    $router->add('POST','/api/donation-completion/{id}/clarification',[$donationCompletion,'clarification']);
+    $router->add('POST','/api/donation-completion/{id}/revise',[$donationCompletion,'revise']);
+    $router->add('POST','/api/donation-completion/{id}/release-hold',[$donationCompletion,'releaseHold']);
+    $router->add('GET','/api/donation-completion/{id}/events',[$donationCompletion,'events']);
+    $router->add('POST', '/api/donation-reports', [$donationCompletion, 'submit']);
     $router->add('GET', '/api/my/donation-reports', [new DonationReportController(), 'myReports']);
     $router->add('GET', '/api/admin/donation-reports', [new DonationReportController(), 'staffQueue']);
     $router->add('POST', '/api/admin/donation-reports/{id}/confirm', [new DonationReportController(), 'confirm']);

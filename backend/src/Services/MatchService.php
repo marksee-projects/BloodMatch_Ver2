@@ -76,9 +76,14 @@ final class MatchService
         $reqChapter = $request['request_chapter_id'] !== null ? (int) $request['request_chapter_id'] : null;
 
         $scored = [];
+        $holdOnlyDonors = [];
         foreach ($pool as $donor) {
+            $donor['pending_report_hold']=\BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$donor['id']);
             $donor['non_response_standby']=NonResponseStandbyService::state((int)$donor['id'])['standby_started_at'];
             $eligibility = DonorEligibilityService::evaluateForRequest($donor, $request, $nowUtc);
+            if (($eligibility['code']??null)==='pending_report_hold' && DonorEligibilityService::evaluateForRequest($donor,$request,$nowUtc,null,true)['eligible']) {
+                $holdOnlyDonors[(int)$donor['id']]=true;
+            }
             if (!$eligibility['eligible']) {
                 continue;
             }
@@ -176,6 +181,7 @@ final class MatchService
         $closed = 0;
         foreach ($existingByDonor as $donorId => $existing) {
             $status = (string) $existing['status'];
+            if ($status==='RESPONDED' && isset($holdOnlyDonors[$donorId])) continue;
             if (!isset($scored[$donorId]) && $status==='RESPONDED' && $onlyDonorId===null && $trigger==='material_change') {
                 $pending=(new \BloodMatch\Repositories\DonationReportRepository())->pendingExistsForMatchForUpdate((int)$existing['id']);
                 if (!$pending) {

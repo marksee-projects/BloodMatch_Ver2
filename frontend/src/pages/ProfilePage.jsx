@@ -19,6 +19,7 @@ import { Input } from '../components/ui/Input'
 import { Badge } from '../components/ui/Badge'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import styles from './ProfilePage.module.css'
+import { donationStatus } from '../services/donationCompletion'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 
@@ -370,13 +371,14 @@ export default function ProfilePage() {
               {profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}
             </div>
             <p>{profile.role === 'admin' ? 'Admin/Officer' : profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
-            {profile.role === 'member' && <span className={styles.availabilityText}><Drop size={16} weight="fill" aria-hidden="true" /> {availabilityStatus}</span>}
+            {profile.role === 'member' && <span className={styles.availabilityText}><Drop size={16} weight="fill" aria-hidden="true" /> {profile.pending_report_hold ? 'Pending donation-report hold' : availabilityStatus}</span>}
           </div>
 
           <div className={styles.headerActions}>
             {profile.role === 'member' && profile.verification_status !== 'verified' && <Button variant="secondary" disabled>Verification required</Button>}
             {profile.role === 'member' && profile.verification_status === 'verified' && !profile.donor_enrolled && <Button variant="secondary" onClick={enrollAsDonor} isLoading={enrolling}>Enroll as donor</Button>}
             <Button to="/matches" variant="secondary">Manage requests</Button>
+            <Button to="/donation-reports" variant="secondary">Donation reports</Button>
           </div>
         </div>
         <nav className={styles.headerNav} aria-label="Profile sections">
@@ -492,10 +494,10 @@ export default function ProfilePage() {
                   {reports.map((report) => (
                     <article key={report.id} className={styles.historyRow}>
                       <div className={styles.historyBlood}>{report.required_blood_type}</div>
-                      <div><h4>{report.facility_name}</h4><p>{formatDate(report.reported_at)}</p>
+                      <div><h4>{report.facility_name}</h4><p>Submitted {formatDate(report.reported_at)}</p>{report.occurred_at && <p>Donated {formatDate(report.occurred_at)}</p>}
                         {report.status === 'REJECTED' && <p className={styles.rejectionReason}>Rejection reason: {report.rejection_reason || 'No reason recorded'}</p>}
                       </div>
-                      <Badge variant={report.status === 'CONFIRMED' ? 'success' : report.status === 'REJECTED' ? 'emergency' : 'urgent'}>{titleCase(report.status)}</Badge>
+                      <Badge variant={report.status === 'CONFIRMED' ? 'success' : report.status === 'REJECTED' ? 'emergency' : 'urgent'}>{donationStatus(report)}</Badge>
                     </article>
                   ))}
                 </div>

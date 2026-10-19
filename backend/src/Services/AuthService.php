@@ -287,6 +287,7 @@ final class AuthService
     public function publicUser(array $user): array
     {
         $window = DonorEligibilityService::evaluateWindows($user['last_verified_donation_at'] ?? null);
+        $user['pending_report_hold']=\BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$user['id']);
         $eligibility = DonorEligibilityService::evaluateDonor($user, null, $window);
         return [
             'id' => (int) $user['id'],
@@ -299,6 +300,7 @@ final class AuthService
             'donor_enrolled' => !empty($user['donor_enrolled_at']),
             'availability' => $user['donor_availability'] ?? null,
             'availability_window' => $window,
+            'pending_report_hold' => \BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$user['id']),
             'donor_eligible' => $eligibility['eligible'],
             'non_response_standby' => $user['non_response_standby'] ?? null,
             'verification_status' => (string) $user['verification_status'],

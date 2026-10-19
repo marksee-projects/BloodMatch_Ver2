@@ -89,7 +89,8 @@ final class DonorEligibilityService
         array $donor,
         array $request,
         ?string $nowUtc = null,
-        ?array $window = null
+        ?array $window = null,
+        bool $ignoreReportHold = false
     ): array {
         $nowUtc = $nowUtc ?? self::nowUtc();
 
@@ -107,6 +108,9 @@ final class DonorEligibilityService
         }
         if (empty($donor['donor_enrolled_at'])) {
             return self::blocked('not_enrolled', 'Enroll as a donor before responding.');
+        }
+        if (!$ignoreReportHold && !empty($donor['pending_report_hold'])) {
+            return self::blocked('pending_report_hold','A claimed donation remains unresolved. Open your donation reports; this hold is separate from standby and cooldown.');
         }
 
         // Enrollment is historical participation, not proof of current age/consent.

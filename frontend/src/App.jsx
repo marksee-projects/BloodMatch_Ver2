@@ -15,6 +15,7 @@ import ProfilePage from './pages/ProfilePage'
 import { CreateRequestEntry, RequestCreationProvider, useRequestCreation } from './context/RequestCreationContext'
 import MatchesPage from './pages/MatchesPage'
 import MyResponsesPage from './pages/MyResponsesPage'
+import DonationReportsPage from './pages/DonationReportsPage'
 import NotificationFlyout from './components/NotificationFlyout'
 import MessengerFlyout from './components/chat/MessengerFlyout'
 import FloatingChatContainer from './components/chat/FloatingChatContainer'
@@ -531,6 +532,7 @@ function AppShell() {
             <Route path="/requests/mine" element={<RequireAuth><Navigate to="/profile" replace /></RequireAuth>} />
             <Route path="/requests/:id/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
             <Route path="/matches" element={<RequireAuth><MatchesPage /></RequireAuth>} />
+            <Route path="/donation-reports" element={<RequireAuth><DonationReportsPage /></RequireAuth>} />
             <Route path="/responses" element={<RequireAuth><MyResponsesPage /></RequireAuth>} />
             <Route path="/my-responses" element={<RequireAuth><Navigate to="/responses" replace /></RequireAuth>} />
             <Route path="/notifications" element={<RequireAuth><NotificationsPage /></RequireAuth>} />

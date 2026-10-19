@@ -1,6 +1,6 @@
 param(
     [ValidateSet('Preview','Install','Upgrade','Verify','Remove')][string]$Action = 'Preview',
-    [ValidateSet('Safety','Email','MembershipEmail','All')][string]$Kind = 'All',
+    [ValidateSet('Safety','Email','MembershipEmail','DonationFollowup','All')][string]$Kind = 'All',
     [string]$PhpPath = 'C:\xampp\php\php.exe'
 )
 $ErrorActionPreference = 'Stop'
@@ -15,7 +15,7 @@ $specs = foreach ($item in $kinds) {
     $legacyArguments = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $wrapper + '" -Kind ' + $item + ' -PhpPath "' + $php + '"'
     $taskExecutable = $executable
     $taskArguments = $legacyArguments
-    if ($item -eq 'MembershipEmail') {
+    if ($item -in @('MembershipEmail','DonationFollowup')) {
         # Console applications can flash a window even under hidden PowerShell.
         # php-win is the installed PHP runtime built without a console window.
         $taskExecutable = (Resolve-Path -LiteralPath (Join-Path (Split-Path -Parent $php) 'php-win.exe')).Path

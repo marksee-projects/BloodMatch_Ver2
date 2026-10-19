@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict'
+import { donationTimeToUtc, donationTimeForPicker, donationStatus } from '../frontend/src/services/donationCompletion.js'
+assert.equal(donationTimeToUtc('2026-10-19T12:30'), '2026-10-19T04:30:00Z')
+assert.equal(donationTimeForPicker('2026-10-19 04:30:00'), '2026-10-19T12:30')
+assert.equal(donationTimeForPicker('2026-10-18 23:30:00'), '2026-10-19T07:30')
+assert.throws(() => donationTimeToUtc(''))
+assert.throws(() => donationTimeToUtc('invalid'))
+assert.throws(() => donationTimeToUtc('2026-02-30T12:00'))
+assert.equal(donationStatus({ status: 'CONFIRMED', completion_basis: 'mutual' }), 'Mutually acknowledged donation')
+assert.equal(donationStatus({ status: 'CONFIRMED', completion_basis: 'admin' }), 'Admin-confirmed donation')
+assert.equal(donationStatus({ status: 'REJECTED' }), 'Rejected report')
+assert.equal(donationStatus({ status: 'PENDING', requester_response: 'did_not_donate' }), 'Disputed — admin review')
+assert.equal(donationStatus({ status: 'PENDING', requester_response: 'not_sure' }), 'Uncertain — admin review')
+assert.equal(donationStatus({ status: 'PENDING', workflow_state: 'clarification' }), 'Clarification requested')
+assert.equal(donationStatus({ status: 'PENDING', workflow_state: 'awaiting_requester' }), 'Pending requester acknowledgment')
+console.log('PASS 13 donation UI date/status checks; no API, database, or mail.')

@@ -44,3 +44,22 @@ button.conversation:hover:not(:disabled), button.conversation[aria-pressed=true]
 .suggestions { display: flex; flex-wrap: wrap; gap: var(--space-2); padding: var(--space-3); }
 
 .message, .own { min-width: 0; flex-shrink: 0; }
+
+button.conversation, .suggestions button {
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
+}
+.suggestions button { white-space: normal; text-align: left; }
+button.conversation:hover:not(:disabled), .suggestions button:hover:not(:disabled) {
+  background: var(--color-bg);
+  color: var(--color-text);
+  border-color: transparent;
+  box-shadow: inset 0 0 0 1px var(--color-border);
+  transform: none;
+}
+:global([data-theme='dark']) button.conversation:hover:not(:disabled),
+:global([data-theme='dark']) .suggestions button:hover:not(:disabled) {
+  background: var(--color-surface-hover);
+}
+@media (prefers-reduced-motion: reduce) {
+  button.conversation, .suggestions button { transition: none; }
+}

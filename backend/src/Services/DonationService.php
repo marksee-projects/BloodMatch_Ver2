@@ -21,59 +21,11 @@ final class DonationService
         $s->execute(["offer-invalid:{$match['id']}:{$match['generation']}:{$donor['id']}"]);
         return $s->fetchColumn()!==false && !DonorEligibilityService::evaluateForRequest($donor,$request)['eligible'];
     }
-    public function submit(int $donorId, int $matchId, ?string $note): array
+    public function submit(int $donorId,int $matchId,?string $note,mixed $occurredAt=null): array
     {
-        $repo = new MatchRepository();
-        $match = $repo->findByIdDetailed($matchId);
-
-        if ($match === null) {
-            throw new RuntimeException('Match not found.', 404);
-        }
-        if ((int) $match['donor_id'] !== $donorId) {
-            AuditLogger::log($donorId, 'authz.denied', null, null, [
-                'endpoint' => 'donation_reports.submit',
-                'reason' => 'not_match_owner',
-            ]);
-            throw new RuntimeException('You can only report donations for your own matches.', 403);
-        }
-        if ((string) $match['status'] !== 'RESPONDED') {
-            throw new RuntimeException('Only responded matches can receive a donation report.', 409);
-        }
-        if ((string) $match['request_status'] !== 'OPEN') {
-            throw new RuntimeException('This request is no longer active.', 409);
-        }
-
-        return WorkflowLockService::transaction(function () use ($donorId, $matchId, $note, $match, $repo): array {
-            $request = WorkflowLockService::request((int) $match['request_id']);
-            $users = WorkflowLockService::users([$donorId, (int) $request['requester_id']]);
-            WorkflowLockService::assertDonorActor($users[$donorId]);
-            $currentMatch = $repo->findByIdForUpdate($matchId);
-            if ($currentMatch === null || (int) $currentMatch['donor_id'] !== $donorId
-                || (int) $currentMatch['request_id'] !== (int) $request['id']) {
-                throw new RuntimeException('Match not found.', 404);
-            }
-            WorkflowLockService::assertOpen($request);
-            if ((string) $currentMatch['status'] !== 'RESPONDED') {
-                throw new RuntimeException('Only responded matches can receive a donation report.', 409);
-            }
-            $reports = new DonationReportRepository();
-            if ($reports->pendingExistsForMatchForUpdate($matchId)) {
-                throw new RuntimeException('A donation report is already pending for this match.', 409);
-            }
-            $nowUtc = AuthService::nowUtc();
-            WorkflowLockService::assertOpenBeforeDeadline($request, $nowUtc);
-            $reportId = $reports->insert($matchId, $donorId, $note, $nowUtc);
-            $reviewers = array_diff((new UserRepository())->activeIdsByRole('admin'), [$donorId]);
-            foreach ($reviewers as $reviewerId) {
-                NotificationService::notify((int)$reviewerId, 'donation.reported', 'Donation report awaiting review',
-                    NotificationService::displayName($donorId) . " submitted a donation report for " . NotificationService::requestDescription((int)$request['requester_id']) . '. It is awaiting review.', [
-                        'related_type'=>'donation_report', 'related_id'=>$reportId,
-                        'dedup_key'=>"donation:{$reportId}:submitted:{$reviewerId}",
-                    ]);
-            }
-            AuditLogger::log($donorId, 'donation.reported', 'donation_report', (string) $reportId, ['match_id' => $matchId]);
-            return ['id' => $reportId, 'status' => 'PENDING'];
-        });
+        $actor=(new UserRepository())->findById($donorId);
+        if (!$actor) throw new RuntimeException('Donor not found.',404);
+        return (new DonationCompletionService())->submit($actor,$matchId,$occurredAt,$note);
     }
 
     public static function normalizeRejectionReason(mixed $value): string
@@ -91,132 +43,9 @@ final class DonationService
         return $reason;
     }
 
-    public function decide(array $actor, int $reportId, bool $confirm, mixed $rejectionReason = null, mixed $evidenceNote = null): array
+    public function decide(array $actor,int $reportId,bool $confirm,mixed $rejectionReason=null,mixed $evidenceNote=null,?int $expectedVersion=null): array
     {
-        $endpoint = $confirm ? 'admin.reports.confirm' : 'admin.reports.reject';
-        AuthMiddleware::requireRoles(['admin'], $endpoint);
-
-        // Pre-transaction authorization reads (scope + self rules).
-        $pre = (new DonationReportRepository())->findById($reportId);
-        if ($pre === null) {
-            throw new RuntimeException('Donation report not found.', 404);
-        }
-        if ((int) $pre['donor_id'] === (int) $actor['id']) {
-            AuditLogger::log((int) $actor['id'], 'authz.denied', 'donation_report', (string) $reportId, [
-                'endpoint' => $endpoint,
-                'reason' => 'self_confirmation_forbidden',
-            ]);
-            throw new RuntimeException('You cannot decide on your own donation report.', 403);
-        }
-
-        if ($evidenceNote!==null && (!is_string($evidenceNote) || !mb_check_encoding($evidenceNote,'UTF-8') || mb_strlen($evidenceNote)>500)) throw new RuntimeException('Evidence note must be up to 500 characters.',400);
-        $evidenceNote=is_string($evidenceNote)?trim($evidenceNote):null;
-        $reason = $confirm ? null : self::normalizeRejectionReason($rejectionReason);
-
-        try {
-            $fulfilledNow = WorkflowLockService::transaction(function () use ($actor, $pre, $reportId, $confirm, $reason, $evidenceNote): bool {
-                $request = WorkflowLockService::request((int) $pre['request_id']);
-                $users = WorkflowLockService::users([(int) $actor['id'], (int) $pre['donor_id'], (int) $request['requester_id']]);
-                $reviewer = $users[(int) $actor['id']];
-                WorkflowLockService::assertReportReviewer($reviewer, $request, (int) $pre['donor_id']);
-                $match = (new MatchRepository())->findByIdForUpdate((int) $pre['match_id']);
-                $row = (new DonationReportRepository())->findByIdForUpdate($reportId);
-                if ($row === null || $match === null || (int) $row['match_id'] !== (int) $match['id']
-                    || (int) $match['request_id'] !== (int) $request['id'] || (int) $row['donor_id'] !== (int) $match['donor_id']) {
-                    throw new RuntimeException('Donation report not found.', 404);
-                }
-                if ((string) $row['status'] !== 'PENDING') {
-                    throw new RuntimeException("Report already decided (current: {$row['status']}).", 409);
-                }
-                $nowUtc = AuthService::nowUtc();
-                $fulfilledNow = false;
-                if ($confirm) {
-                    if (in_array($request['status'],['EXPIRED','FULFILLED','CANCELLED'],true)) {
-                        if ($row['reported_at']>$request['needed_datetime'] || (trim((string)$row['report_note'])==='' && empty($evidenceNote))) throw new RuntimeException('Late review requires a timely report and documented evidence.',409);
-                    } else { WorkflowLockService::assertOpenBeforeDeadline($request,$nowUtc); }
-                    $donor=$users[(int)$row['donor_id']];
-                    if (self::offerInvalid($match,$request,$donor)) {
-                        throw new RuntimeException('This invalidated offer requires explicit reasoned rejection.',409);
-                    }
-                    if ((string) $match['status'] !== 'RESPONDED') {
-                        throw new RuntimeException('Only a responded match can be confirmed as a donation.', 409);
-                    }
-                    (new DonationReportRepository())->markConfirmed($reportId, (int) $reviewer['id'], $nowUtc);
-                    if ($evidenceNote!==null && $evidenceNote!=='') { $e=\BloodMatch\Config\Database::pdo()->prepare('UPDATE donation_reports SET review_evidence=? WHERE id=?');$e->execute([$evidenceNote,$reportId]); }
-                    $userRepo = new UserRepository();
-                    $userRepo->setLastVerifiedDonation((int) $row['donor_id'], $nowUtc);
-                    $userRepo->setAvailability((int) $row['donor_id'], 'standby');
-                    (new MatchRepository())->setStatus((int) $row['match_id'], 'COMPLETED');
-                    $completed = MatchRepository::countCompleted((int) $request['id']);
-                    if (in_array($request['status'],['OPEN','EXPIRED'],true) && $completed >= (int) $request['quantity_units']) {
-                        if ($request['status']==='EXPIRED') {
-                            $fulfilled=\BloodMatch\Config\Database::pdo()->prepare("UPDATE blood_requests SET status='FULFILLED' WHERE id=? AND status='EXPIRED'");$fulfilled->execute([$request['id']]);
-                            $closedCount=MatchRepository::closeUnfinishedForRequest((int)$request['id']);
-                        } else { $closedCount = MatchRepository::fulfillAndCloseUnresolved((int) $request['id']); }
-                        $fulfilledNow = true;
-                        AuditLogger::log((int) $reviewer['id'], 'request.fulfilled', 'blood_request', (string) $request['id'], [
-                            'completed_units' => $completed, 'required_units' => (int) $request['quantity_units'],
-                            'closed_matches' => $closedCount,
-                        ]);
-                    }
-                } else {
-                    (new DonationReportRepository())->markRejected($reportId, (int) $reviewer['id'], $nowUtc, $reason);
-                    if ($match['status']==='RESPONDED' && self::offerInvalid($match,$request,$users[(int)$row['donor_id']])
-                        && !(new DonationReportRepository())->pendingExistsForMatchForUpdate((int)$match['id'])) {
-                        (new MatchRepository())->setStatus((int)$match['id'],'CLOSED');
-                    }
-                }
-                AuditLogger::log((int) $reviewer['id'], $confirm ? 'donation.confirmed' : 'donation.rejected', 'donation_report', (string) $reportId, [
-                    'donor_id' => (int) $row['donor_id'], 'match_id' => (int) $row['match_id'],
-                    'rejection_reason' => $reason,
-                ]);
-                \BloodMatch\Services\NotificationService::notify(
-                    (int) $pre['donor_id'],
-                    'donation.' . ($confirm ? 'confirmed' : 'rejected'),
-                    $confirm ? 'Donation confirmed — thank you!' : 'Donation report rejected',
-                    $confirm
-                        ? 'Your donation was confirmed. Thank you for saving a life!'
-                        : 'Your donation report could not be confirmed.',
-                    [
-                        'related_type' => 'donation_report',
-                        'related_id' => $reportId,
-                        'dedup_key' => \BloodMatch\Services\NotificationService::dedupDonation($reportId, $confirm ? 'confirmed' : 'rejected'),
-                        'email' => \BloodMatch\Services\NotificationService::EMAIL_NONE,
-                    ]
-                );
-
-                if ($confirm) {
-                    NotificationService::notify((int)$request['requester_id'], 'donation.confirmed', 'Donation confirmed',
-                        NotificationService::displayName((int)$row['donor_id']) . "'s donation for your blood request was confirmed.", [
-                            'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
-                            'dedup_key'=>"donation:{$reportId}:confirmed:requester",
-                        ]);
-                }
-                if ($fulfilledNow) {
-                    NotificationService::notify((int)$request['requester_id'], 'request.fulfilled', 'Blood request fulfilled',
-                        'Your blood request has been fulfilled.', [
-                            'related_type'=>'blood_request', 'related_id'=>(int)$request['id'],
-                            'dedup_key'=>"request:{$request['id']}:fulfilled",
-                        ]);
-                }
-                return $fulfilledNow;
-            });
-        } catch (Throwable $e) {
-            $code = $e->getCode();
-            if ((int) $code === 403) {
-                AuditLogger::log((int) $actor['id'], 'authz.denied', 'donation_report', (string) $reportId, [
-                    'endpoint' => $endpoint, 'reason' => 'locked_review_authorization_denied',
-                ]);
-            }
-            if ($e instanceof RuntimeException && (($code >= 400 && $code <= 499) || (int) $code === 503)) {
-                throw $e;
-            }
-            error_log('[donations] decision failed: ' . $e->getMessage());
-            throw new RuntimeException('Could not process the donation report.', 500);
-        }
-        return [
-            'decision' => $confirm ? 'CONFIRMED' : 'REJECTED',
-            'request_fulfilled_now' => $fulfilledNow,
-        ];
+        if ($expectedVersion===null) throw new RuntimeException('The exact report version is required. Reload the report.',400);
+        return (new DonationCompletionService())->review($actor,$reportId,$expectedVersion,$confirm?'confirm':'reject',$confirm?$evidenceNote:$rejectionReason);
     }
 }

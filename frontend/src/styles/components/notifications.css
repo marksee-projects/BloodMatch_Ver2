@@ -477,11 +477,25 @@
 }
 
 
-/* Match the navigation surface and override the generic button hover rule. */
-button.notif-item-fb:hover:not(:disabled), button.notif-filter-btn:hover:not(:disabled) {
-  background: var(--color-surface); color: var(--color-text);
-  border-color: var(--color-border); transform: none; box-shadow: none;
+/* A visible neutral surface and outline, like the navigation controls.
+   Use an inset outline because these controls have no physical border. */
+button.notif-item-fb, button.notif-filter-btn {
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast), color var(--transition-fast);
+}
+button.notif-item-fb:hover:not(:disabled),
+button.notif-filter-btn:hover:not(:disabled),
+button.notif-filter-btn.active:hover:not(:disabled) {
+  background: var(--color-bg); color: var(--color-text);
+  border-color: var(--color-border); transform: none;
+  box-shadow: inset 0 0 0 1px var(--color-border);
+}
+[data-theme='dark'] button.notif-item-fb:hover:not(:disabled),
+[data-theme='dark'] button.notif-filter-btn:hover:not(:disabled),
+[data-theme='dark'] button.notif-filter-btn.active:hover:not(:disabled) {
+  background: var(--color-surface-hover);
 }
 .notif-item-time-fb, .notif-filter-btn.active { color: var(--color-text); }
 button.notif-item-fb:hover .notif-item-time-fb { color: var(--color-text); }
-button.notif-filter-btn.active:hover:not(:disabled) { background: var(--color-surface); color: var(--color-text); }
+@media (prefers-reduced-motion: reduce) {
+  button.notif-item-fb, button.notif-filter-btn { transition: none; }
+}

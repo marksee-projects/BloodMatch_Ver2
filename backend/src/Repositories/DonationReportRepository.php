@@ -130,6 +130,7 @@ final class DonationReportRepository
     public function listByDonor(int $donorId): array
     {
         $reasonColumn = self::supportsRejectionReason() ? 'dr.rejection_reason' : 'NULL AS rejection_reason';
+        if (DonationWorkflowRepository::ready()) $reasonColumn .= ', dr.occurred_at,dr.reviewed_at,dr.completion_basis,dr.workflow_state';
         $stmt = Database::pdo()->prepare(
             'SELECT dr.id, dr.match_id, dr.report_note, dr.status, dr.reported_at, dr.confirmed_at, ' . $reasonColumn . ',
                     br.required_blood_type, br.facility_name
