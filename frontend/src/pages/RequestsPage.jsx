@@ -31,6 +31,11 @@ export default function RequestsPage() {
   const { data: requests = [], isLoading, refetch } = useQuery({
     queryKey: ['my-requests', user?.id],
     enabled: Boolean(user?.id),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
     queryFn: async () => {
       const data = await api.get('/api/my/requests')
       return data.requests || []

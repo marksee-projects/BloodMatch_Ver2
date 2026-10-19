@@ -15,7 +15,7 @@ $specs = foreach ($item in $kinds) {
     $legacyArguments = '-NoProfile -NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File "' + $wrapper + '" -Kind ' + $item + ' -PhpPath "' + $php + '"'
     $taskExecutable = $executable
     $taskArguments = $legacyArguments
-    if ($item -in @('MembershipEmail','DonationFollowup')) {
+    if ($item -in @('Safety','MembershipEmail','DonationFollowup')) {
         # Console applications can flash a window even under hidden PowerShell.
         # php-win is the installed PHP runtime built without a console window.
         $taskExecutable = (Resolve-Path -LiteralPath (Join-Path (Split-Path -Parent $php) 'php-win.exe')).Path

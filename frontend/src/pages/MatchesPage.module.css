@@ -58,9 +58,13 @@
 .modalBackdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: var(--space-4); background: var(--color-backdrop); }
 .modalContent { width: min(520px, 100%); padding: var(--space-6); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-lg); }
 .modalContent h2 { margin: 0 0 var(--space-3); font-size: var(--text-h2); }
+.reportTitle { text-align: center; }
+.modalContent .reportDescription { margin: var(--space-3) 0 var(--space-6); text-align: center; line-height: 1.65; }
 .modalContent p { margin: 0 0 var(--space-4); color: var(--color-text-muted); line-height: 1.55; }
 .modalContent label { display: block; margin-bottom: var(--space-2); font-weight: 600; }
-.modalContent textarea { width: 100%; resize: vertical; }
+.modalContent input, .modalContent textarea { box-sizing: border-box; width: 100%; min-height: 44px; padding: var(--space-3); margin-bottom: var(--space-4); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font: inherit; }
+.modalContent input:focus-visible, .modalContent textarea:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.modalContent textarea { resize: vertical; }
 .modalActions { display: flex; justify-content: flex-end; gap: var(--space-3); margin-top: var(--space-5); }
 
 @media (max-width: 900px) {

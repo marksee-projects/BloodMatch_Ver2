@@ -1,0 +1,2 @@
+.page { box-sizing: border-box; width: 100%; max-width: 1120px; margin: 0 auto; padding: var(--space-8) var(--space-6); }
+@media (max-width: 680px) { .page { padding: var(--space-5) var(--space-4) var(--space-8); } }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { publishNotificationRead } from '../services/notificationReadState'
 import { useAuth } from '../context/AuthContext'
 import { useActionNoticeState, useNotify } from '../context/NotificationContext'
 import { formatNotificationTime, notificationDeepLink as deepLink, notificationDisplayText } from '../services/notifications'
@@ -34,7 +35,8 @@ export default function NotificationsPage() {
 
   const markRead = async (id) => {
     try {
-      await api.post(`/api/notifications/${id}/read`)
+      const result = await api.post(`/api/notifications/${id}/read`)
+      if (typeof result?.unread_count === 'number') publishNotificationRead(result.unread_count)
       await load()
     } catch (err) {
       setErrorAlert(err.message)
@@ -43,7 +45,8 @@ export default function NotificationsPage() {
 
   const markAll = async () => {
     try {
-      await api.post('/api/notifications/read-all')
+      const result = await api.post('/api/notifications/read-all')
+      publishNotificationRead(typeof result?.unread_count === 'number' ? result.unread_count : 0)
       notify({ severity: 'success', message: 'All notifications marked as read.' })
       await load()
     } catch (err) {

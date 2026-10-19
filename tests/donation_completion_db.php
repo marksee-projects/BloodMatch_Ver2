@@ -21,6 +21,9 @@ $p->beginTransaction();
 try {
  $a=dcUser('a');$b=dcUser('b');$owner=dcUser('owner');$outsider=dcUser('outsider');$admin=$users->findById((int)$admin);
  $request=dcRequest((int)$owner['id']);$ma=dcMatch($request,(int)$a['id']);$mb=dcMatch($request,(int)$b['id']);$ra=dcSubmit($a,$ma);$rb=dcSubmit($b,$mb);
+ $responseRepo=new \BloodMatch\Repositories\BloodRequestRepository();
+ dcCheck(in_array($ma,array_map('intval',array_column($responseRepo->listByRespondedDonor((int)$a['id']),'match_id')),true),'My Responses SQL returns the donor response');
+ dcCheck($responseRepo->listByRespondedDonor((int)$outsider['id'])===[],'My Responses SQL excludes other donors');
  dcCheck(Workflow::hasHold((int)$a['id']),'Submission creates a distinct report hold');
  dcCheck(DonorEligibilityService::evaluateDonor($users->findById((int)$a['id']))['code']==='pending_report_hold','Held donor cannot make a new offer');
  dcDenied(fn()=>$service->acknowledge($outsider,$ra,1,'received',null),403,'Outsider cannot acknowledge');

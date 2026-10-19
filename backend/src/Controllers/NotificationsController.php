@@ -71,7 +71,8 @@ final class NotificationsController
     public function markAllRead(): void
     {
         $actor = AuthMiddleware::requireActiveUser(self::ENDPOINT . '.read_all');
-        $count = (new NotificationRepository())->markAllRead((int) $actor['id']);
-        Response::success(['marked_read' => $count]);
+        $repo = new NotificationRepository();
+        $count = $repo->markAllRead((int) $actor['id']);
+        Response::success(['marked_read' => $count, 'unread_count' => $repo->unreadCount((int) $actor['id'])]);
     }
 }

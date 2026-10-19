@@ -55,8 +55,21 @@ export default function HomeFeedPage() {
     },
     getNextPageParam: (lastPage) => lastPage.has_more ? lastPage.page + 1 : undefined,
     enabled: Boolean(user),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
     retry: false
   })
+  React.useEffect(() => {
+    const onFocus = () => {
+      if (user?.id && document.visibilityState === 'visible') refetchFeed({ cancelRefetch: false })
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [user?.id, refetchFeed])
   const loadedPageCount = data?.pages.length || 0
   // Restore a shared Load more URL sequentially; Back hides cached later pages.
   React.useEffect(() => {

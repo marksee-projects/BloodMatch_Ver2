@@ -22,6 +22,7 @@ import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { BloodTypeBlock } from '../components/ui/BloodTypeBlock'
 import ConfirmationDialog from '../components/ConfirmationDialog'
+import DonationDateTimeFields from '../components/DonationDateTimeFields'
 import styles from './MyResponsesPage.module.css'
 import { donationTimeToUtc } from '../services/donationCompletion'
 
@@ -321,10 +322,9 @@ export default function MyResponsesPage() {
             aria-modal="true"
             aria-labelledby="report-modal-title"
           >
-            <h2 id="report-modal-title">Report completed donation</h2>
-            <p>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
-            <label htmlFor="donation-occurred-at">Actual donation date/time ? Asia/Manila (UTC+08:00)</label>
-            <input id="donation-occurred-at" type="datetime-local" required value={occurredAt} onChange={e => setOccurredAt(e.target.value)} />
+            <h2 id="report-modal-title" className={styles.reportTitle}>Report completed donation</h2>
+            <p className={styles.reportDescription}>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
+            <DonationDateTimeFields value={occurredAt} onChange={setOccurredAt} />
             <label htmlFor="response-report-note">Optional private reference or supporting note</label>
             <textarea
               id="response-report-note"

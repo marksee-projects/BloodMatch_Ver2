@@ -4,6 +4,8 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-route
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { donationTimeToUtc } from '../services/donationCompletion'
+import DonationDateTimeFields from '../components/DonationDateTimeFields'
 import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
 import { useRequestCreation } from '../context/RequestCreationContext'
@@ -44,6 +46,7 @@ export default function MatchesPage() {
   const responseBusyRef = useRef(false)
   const [reportingMatchId, setReportingMatchId] = useState(null)
   const [reportNote, setReportNote] = useState('')
+  const [occurredAt, setOccurredAt] = useState('')
   const [submittingReport, setSubmittingReport] = useState(false)
   const [donorFilters, setDonorFilters] = useState(emptyMatchFilters)
 
@@ -64,6 +67,7 @@ export default function MatchesPage() {
     setConfirmation(null)
     setReportingMatchId(null)
     setReportNote('')
+    setOccurredAt('')
     setDonorFilters(emptyMatchFilters)
   }, [id])
 
@@ -120,15 +124,17 @@ export default function MatchesPage() {
 
   const onSubmitReport = async (event) => {
     event.preventDefault()
-    if (!reportingMatchId) return
+    if (!reportingMatchId || submittingReport) return
     setSubmittingReport(true)
     setMessage(null)
     setErrorAlert(null)
     try {
-      await api.post('/api/donation-reports', { match_id: reportingMatchId, note: reportNote || null })
-      setMessage('Donation report sent for chapter officer confirmation.')
+      await api.post('/api/donation-reports', { match_id: reportingMatchId, occurred_at: donationTimeToUtc(occurredAt), note: reportNote || null })
+      setMessage('Donation report sent to the requester for acknowledgment. Your donor offers are held while it is unresolved.')
       setReportingMatchId(null)
       setReportNote('')
+      setOccurredAt('')
+      await refresh()
       await load()
     } catch (error) {
       setErrorAlert(error.message)
@@ -345,11 +351,12 @@ export default function MatchesPage() {
       {reportingMatchId && (
         <div className={styles.modalBackdrop} role="presentation">
           <form className={styles.modalContent} onSubmit={onSubmitReport} role="dialog" aria-modal="true" aria-labelledby="report-title">
-            <h2 id="report-title">Report completed donation</h2>
-            <p>The report will be reviewed by an Admin/Officer before the donation is confirmed.</p>
-            <label htmlFor="report-note">Optional note</label>
+            <h2 id="report-title" className={styles.reportTitle}>Report completed donation</h2>
+            <p className={styles.reportDescription}>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
+            <DonationDateTimeFields value={occurredAt} onChange={setOccurredAt} />
+            <label htmlFor="report-note">Optional private reference or supporting note</label>
             <textarea id="report-note" value={reportNote} onChange={(event) => setReportNote(event.target.value)} maxLength={500} rows={4} />
-            <div className={styles.modalActions}><Button type="button" variant="secondary" onClick={() => setReportingMatchId(null)}>Cancel</Button><Button type="submit" isLoading={submittingReport}>Send report</Button></div>
+            <div className={styles.modalActions}><Button type="button" variant="secondary" disabled={submittingReport} onClick={() => setReportingMatchId(null)}>Cancel</Button><Button type="submit" isLoading={submittingReport}>Send report</Button></div>
           </form>
         </div>
       )}

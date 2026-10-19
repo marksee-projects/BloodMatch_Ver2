@@ -4,7 +4,8 @@ ALTER TABLE matches ADD COLUMN responded_at DATETIME NULL;
 -- Recover only actual recorded response events, never creation/update timestamps.
 UPDATE matches m SET responded_at=(SELECT MAX(a.created_at) FROM audit_log a
  WHERE a.action='match.responded' AND a.actor_id=m.donor_id AND a.target_type='blood_request'
- AND a.target_id=CAST(m.request_id AS CHAR) AND JSON_UNQUOTE(JSON_EXTRACT(a.context,'$.match_id'))=CAST(m.id AS CHAR));
+ AND a.target_id=CAST(m.request_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci
+ AND CONVERT(JSON_UNQUOTE(JSON_EXTRACT(a.context,'$.match_id')) USING utf8mb4) COLLATE utf8mb4_unicode_ci=CAST(m.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci);
 ALTER TABLE donation_reports
  ADD COLUMN occurred_at DATETIME NULL,
  ADD COLUMN content_version INT UNSIGNED NOT NULL DEFAULT 1,

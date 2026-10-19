@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link, useNavigate } from 'react-router-dom'
 import { ArrowRight, Bell, X, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
+import { publishNotificationRead } from '../services/notificationReadState'
 import { useAuth } from '../context/AuthContext'
 import { useActionNoticeState } from '../context/NotificationContext'
 import { formatNotificationTime, notificationDeepLink, notificationDisplayText } from '../services/notifications'
@@ -32,6 +33,24 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   const closeRef = useRef(null)
   const navigate = useNavigate()
   const loadSequence = useRef(0)
+  const clearingRead = useRef(false)
+
+  const toggleOpen = async () => {
+    setOpen(!open)
+    if (open || clearingRead.current) return
+    clearingRead.current = true
+    try {
+      const result = await api.post('/api/notifications/read-all')
+      const count = typeof result?.unread_count === 'number' ? result.unread_count : 0
+      setUnread(count)
+      publishNotificationRead(count)
+      await load()
+    } catch (err) {
+      setError(err.message || 'Could not mark notifications as read.')
+    } finally {
+      clearingRead.current = false
+    }
+  }
 
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current
@@ -99,6 +118,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
         const r = await api.post(`/api/notifications/${n.id}/read`)
         if (typeof r?.unread_count === 'number') {
           setUnread(r.unread_count)
+          publishNotificationRead(r.unread_count)
         } else {
           await refreshUnread()
         }
@@ -227,7 +247,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
         <button
           type="button"
           className="mobile-link"
-          onClick={() => setOpen((o) => !o)}
+          onClick={toggleOpen}
           aria-haspopup="dialog"
           aria-expanded={open}
           aria-label={label}
@@ -253,7 +273,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
       <button
         type="button"
         className="nav-control notif-bell"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggleOpen}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={label}

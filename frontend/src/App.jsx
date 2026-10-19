@@ -17,6 +17,7 @@ import MatchesPage from './pages/MatchesPage'
 import MyResponsesPage from './pages/MyResponsesPage'
 import DonationReportsPage from './pages/DonationReportsPage'
 import NotificationFlyout from './components/NotificationFlyout'
+import { notificationReadRevision } from './services/notificationReadState'
 import MessengerFlyout from './components/chat/MessengerFlyout'
 import FloatingChatContainer from './components/chat/FloatingChatContainer'
 import Footer from './components/Footer'
@@ -87,6 +88,13 @@ function AppShell() {
   const { user, loading, logout, refresh } = useAuth()
   const queryClient = useQueryClient()
   const [unread, setUnread] = useState(0)
+  useEffect(() => {
+    const onRead = event => {
+      if (typeof event.detail?.unreadCount === 'number') setUnread(event.detail.unreadCount)
+    }
+    window.addEventListener('bloodmatch:notifications-read', onRead)
+    return () => window.removeEventListener('bloodmatch:notifications-read', onRead)
+  }, [])
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileOpen, setMobileOpen] = useState(false)
@@ -136,16 +144,22 @@ function AppShell() {
       if (isFetching) return
       isFetching = true
       try {
+        const readRevision = notificationReadRevision()
         const d = await api.get('/api/notifications/unread-count')
-        if (active && typeof d?.unread_count === 'number') {
+        if (active && readRevision === notificationReadRevision() && typeof d?.unread_count === 'number') {
           setUnread(d.unread_count)
           if (d.unread_count > 0) {
             const latest = await api.get('/api/notifications?read=unread&page_size=50')
             const initial = !notificationsInitialized.current
-            if (active) notificationsInitialized.current = true
-            if (active) for (const notice of [...(latest.notifications || [])].reverse()) {
+            if (active && readRevision === notificationReadRevision()) notificationsInitialized.current = true
+            if (active && readRevision === notificationReadRevision()) for (const notice of [...(latest.notifications || [])].reverse()) {
               if (seenNotifications.current.has(notice.id)) continue
               seenNotifications.current.add(notice.id)
+              if (notice.type === 'request.expired') {
+                queryClient.invalidateQueries({ queryKey: ['my-requests', user.id] })
+                queryClient.invalidateQueries({ queryKey: ['my-responses', user.id] })
+                queryClient.invalidateQueries({ queryKey: ['request-matches'] })
+              }
               if (notice.related_request_status && notice.related_request_status !== 'OPEN' && notice.type === 'match.new') continue
               const to = notificationDeepLink(notice, user.role)
               const emergency = notice.type === 'match.new' && notice.related_request_urgency === 'emergency'

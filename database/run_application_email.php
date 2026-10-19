@@ -51,6 +51,14 @@ try {
                     'account_status'=>$account['account_status'],'email_verified'=>!empty($account['email_verified_at']),
                     'can_create_request'=>!empty($account['email_verified_at']) && \BloodMatch\Services\CapabilityMatrix::evaluate($user)['create_request'],
                     'donor_eligible'=>$eligibility['eligible'],'donor_reason_code'=>$eligibility['code'],'blood_type'=>$user['blood_type'],'pending_jobs'=>$jobs];
+                // Include terminal jobs as well: an empty pending list cannot
+                // distinguish successful delivery, cancellation, failure or no enqueue.
+                $s=$pdo->prepare("SELECT n.id AS notification_id,n.created_at AS decision_notification_at,n.emailed_at,e.id AS job_id,e.status,e.attempts,e.created_at AS queued_at,e.next_attempt_at,e.last_error_code,e.cancel_reason
+                    FROM notifications n LEFT JOIN email_outbox e ON e.notification_id=n.id
+                    WHERE n.user_id=? AND n.type='verification.decision' ORDER BY n.id DESC LIMIT 10");
+                $s->execute([$account['id']]);
+                $last=array_key_last($result['recipient_review']['accounts']);
+                $result['recipient_review']['accounts'][$last]['recent_verification_delivery']=$s->fetchAll(\PDO::FETCH_ASSOC);
             }
         }
         $result['status']='review';$result['exit_code']=0;

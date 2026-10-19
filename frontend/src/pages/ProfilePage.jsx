@@ -89,18 +89,34 @@ export default function ProfilePage() {
       if (isOtherProfile) {
         return { profile: response.profile, reports: [], requests: [] }
       }
-      const [donations, requests] = await Promise.all([
-        api.get('/api/my/donation-reports'),
-        api.get('/api/my/requests')
-      ])
+      const donations = await api.get('/api/my/donation-reports')
       return {
         profile: response.profile,
-        reports: donations.reports || [],
-        requests: requests.requests || []
+        reports: donations.reports || []
       }
     },
     retry: false
   })
+
+  const { data: requestHistory = [], isPending: requestsLoading, error: requestsError, refetch: refetchRequests } = useQuery({
+    queryKey: ['my-requests', user?.id],
+    enabled: Boolean(user?.id) && !isOtherProfile,
+    queryFn: async ({ signal }) => (await api.get('/api/my/requests', { signal })).requests || [],
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: 'always',
+    refetchOnReconnect: 'always',
+    refetchInterval: 5000,
+    refetchIntervalInBackground: false,
+    retry: false
+  })
+  useEffect(() => {
+    const onFocus = () => {
+      if (user?.id && !isOtherProfile && document.visibilityState === 'visible') refetchRequests({ cancelRefetch: false })
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [user?.id, isOtherProfile, refetchRequests])
 
   const { data: presence } = useQuery({
     queryKey: ['member-presence', profileId, user?.id],
@@ -111,7 +127,6 @@ export default function ProfilePage() {
   })
   const profile = data?.profile
   const reports = data?.reports || []
-  const requestHistory = data?.requests || []
   const filteredRequests = requestFilter === 'ALL' ? requestHistory : requestHistory.filter((request) => request.status === requestFilter)
 
   useEffect(() => setPictureFailed(false), [profile?.profile_picture_url])
@@ -408,7 +423,7 @@ export default function ProfilePage() {
         <div className={styles.profileContent}>
           {activeSection === 'expired' && <section className={styles.activitySection} aria-labelledby="request-history-heading">
             <div className={styles.cardHeader}><h2 id="request-history-heading">Expired posts</h2></div>
-            {!requestHistory.some(r => r.status === 'EXPIRED') ? <Card className={styles.compactCard}><p className={styles.emptyText}>No expired requests.</p></Card> : requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(request => <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{...request, requester_name: profile.full_name, requester_chapter_name: profile.chapter_name, requester_profile_picture_url: profile.profile_picture_url, requester_verification_status: profile.verification_status}}>
+            {requestsError ? <div className="alert alert-error" role="alert">{requestsError.message}<Button variant="secondary" onClick={() => refetchRequests()}>Try again</Button></div> : requestsLoading ? <p>Loading requests…</p> : !requestHistory.some(r => r.status === 'EXPIRED') ? <Card className={styles.compactCard}><p className={styles.emptyText}>No expired requests.</p></Card> : requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(request => <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{...request, requester_name: profile.full_name, requester_chapter_name: profile.chapter_name, requester_profile_picture_url: profile.profile_picture_url, requester_verification_status: profile.verification_status}}>
               <div className={styles.postCounts}><Badge variant={request.status === 'OPEN' ? 'brand' : 'neutral'}>{titleCase(request.status)}</Badge></div>
               <RequestHistoryActions request={request} onSaved={handleRequestSaved} />
             </FeedCard>)}
