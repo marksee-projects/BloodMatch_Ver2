@@ -35,7 +35,7 @@ if (("$check").Trim() -ne $db) {
 }
 Write-Host "=== TEST DB: $db (port $DbPort) ===" -ForegroundColor Cyan
 
-$names = 'DB_HOST', 'DB_PORT', 'DB_NAME', 'TEST_DB_NAME', 'TEST_DB_PORT', 'MAIL_HOST', 'MAIL_PORT', 'APP_SECURE_COOKIES'
+$names = 'DB_HOST', 'DB_PORT', 'DB_NAME', 'TEST_DB_NAME', 'TEST_DB_PORT', 'MAIL_HOST', 'MAIL_PORT', 'APP_SECURE_COOKIES', 'BLOODMATCH_TEST_ISOLATION'
 $saved = @{}
 foreach ($n in $names) { $saved[$n] = [Environment]::GetEnvironmentVariable($n, 'Process') }
 
@@ -54,6 +54,7 @@ try {
     $env:TEST_DB_PORT = $DbPort
     $env:MAIL_HOST = '127.0.0.1'
     $env:MAIL_PORT = '1'
+    $env:BLOODMATCH_TEST_ISOLATION = '1'
     $env:APP_SECURE_COOKIES = 'false'
 
     $srv = Start-Process $PhpPath -ArgumentList '-d', 'variables_order=EGPCS', '-d', "session.save_path=`"$testSessionPath`"", '-S', "127.0.0.1:$Port", '-t', 'backend/public' -PassThru -WindowStyle Hidden

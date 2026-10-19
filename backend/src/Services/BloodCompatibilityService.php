@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace BloodMatch\Services;
 
 use BloodMatch\Config\Database;
+use BloodMatch\Repositories\DonationStorageRepository;
 use PDO;
 use RuntimeException;
 
@@ -15,15 +16,15 @@ final class BloodCompatibilityService
     public static function getCompatibleDonorTypes(string $recipientType): array
     {
         if (self::$cache === null) {
-            $rows = Database::pdo()
-                ->query('SELECT recipient_type, allowed_donor_types FROM compatibility_matrix')
-                ->fetchAll(PDO::FETCH_ASSOC);
             self::$cache = [];
-            foreach ($rows as $row) {
-                self::$cache[$row['recipient_type']] = array_map(
-                    static fn (string $t): string => trim($t),
-                    explode(',', (string) $row['allowed_donor_types'])
-                );
+            if (DonationStorageRepository::consolidated()) {
+                $rows = Database::pdo()->query('SELECT recipient_type, donor_type FROM compatibility_pairs ORDER BY CAST(recipient_type AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci, preference_order')->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($rows as $row) self::$cache[$row['recipient_type']][] = $row['donor_type'];
+            } else {
+                $rows = Database::pdo()->query('SELECT recipient_type, allowed_donor_types FROM compatibility_matrix')->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($rows as $row) {
+                    self::$cache[$row['recipient_type']] = array_map('trim', explode(',', (string)$row['allowed_donor_types']));
+                }
             }
         }
 

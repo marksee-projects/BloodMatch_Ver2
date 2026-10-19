@@ -24,13 +24,18 @@ final class Database
         $user = Env::get('DB_USER', '');
         $pass = Env::get('DB_PASS', '');
 
+        $isolated = Env::get('BLOODMATCH_TEST_ISOLATION', '') === '1';
+        if ($isolated && ($host !== '127.0.0.1' || $name !== 'bloodmatch_test' || $port !== '3306')) {
+            throw new RuntimeException('Isolated tests require bloodmatch_test on 127.0.0.1:3306.');
+        }
+
         if ($name === '' || $user === '') {
             throw new RuntimeException('Database configuration is incomplete.');
         }
 
         $portsToTry = [(string) $port];
         $altPort = ((string) $port === '3307') ? '3306' : '3307';
-        if (!in_array($altPort, $portsToTry, true)) {
+        if (!$isolated && !in_array($altPort, $portsToTry, true)) {
             $portsToTry[] = $altPort;
         }
 
@@ -43,6 +48,13 @@ final class Database
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES => false,
                 ]);
+                if ($isolated) {
+                    $target = self::$pdo->query('SELECT DATABASE() AS db, @@port AS port')->fetch();
+                    if ($target['db'] !== 'bloodmatch_test' || (int)$target['port'] !== 3306) {
+                        self::$pdo = null;
+                        throw new RuntimeException('Isolated database target mismatch.');
+                    }
+                }
                 self::$pdo->exec("SET time_zone = '+00:00'");
                 return self::$pdo;
             } catch (PDOException $e) {

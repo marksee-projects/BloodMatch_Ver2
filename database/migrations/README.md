@@ -30,7 +30,7 @@ Current migration state: 001–016 applied (verified via `run_migrations.php`; s
 |---|---|
 | `001_create_chapters.sql` | Fixed 3-chapter reference (Mt. Samat/Orani, Mt. Tarak/Mariveles, Meridian Heights/Balanga City) with canonical centroids |
 | `002_create_users.sql` | Accounts: identity, role, `verification_status` + `account_status`/`deactivated_at`, chapter FK, DOB, blood type + provenance (`blood_type`, `blood_type_source`, `blood_type_verified`), donor enrollment/availability, `last_verified_donation_at`, coordinates |
-| `003_create_password_resets.sql` | Hashed single-use reset tokens (~30-min expiry, `used_at`) |
+| `003_create_password_resets.sql` | Historical reset-token schema; removed by migration 034 |
 | `004_create_audit_log.sql` | Append-only `audit_log` + `UPDATE`/`DELETE`-blocking triggers |
 | `005_create_auth_throttle.sql` | Login/reset throttling (`identifier`, `failed_count`, `locked_until`) |
 | `006_create_member_documents.sql` | Verification evidence (`national_id`/`donor_card`/`parental_consent`, 64-hex `stored_name` outside webroot) |
@@ -52,3 +52,5 @@ Latest approval supersedes chapter-scoped Officer rules. `024_consolidate_staff_
 
 Do not run all pending migrations for this checkpoint. The generic runner refuses pending 024. Use `review_staff_role_migration.php` (default read-only) and its reviewed-hash/maintenance apply mode. Review affected accounts, create an external backup, apply to bloodmatch_test:3306 and run the focused regression before application bloodmatch:3306. DDL auto-commits separately; retain backups and inspect interrupted state rather than dropping a database or blindly retrying. Exact commands: [Staff checkpoint](../../docs/STAFF_ROLE_CONSOLIDATION_CHECKPOINT.md).
 
+
+Migration `034_remove_password_resets.sql` removes the password recovery table. Deploy the matching application removal first. Keep migration 003 as schema history.

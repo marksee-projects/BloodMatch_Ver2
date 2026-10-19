@@ -5,7 +5,7 @@ if(PHP_SAPI!=='cli')exit;
 require dirname(__DIR__).'/backend/src/autoload.php';
 require dirname(__DIR__).'/database/operational_checkpoint_support.php';
 use BloodMatch\Services\{DonationCompletionService as Completion,DonationFollowupService,AuthService,DonorEligibilityService};
-use BloodMatch\Repositories\{DonationWorkflowRepository as Workflow,DonationReportRepository,UserRepository};
+use BloodMatch\Repositories\{DonationWorkflowRepository as Workflow,DonationReportRepository,UserRepository,DonationStorageRepository as Storage};
 $p=operationalTarget('test');Workflow::requireReady();
 $admin=$p->query("SELECT id FROM users WHERE role='admin' AND email='markseejr@gmail.com' AND account_status='active'")->fetchColumn();
 if(!$admin)throw new RuntimeException('The canonical test administrator is required.');
@@ -34,7 +34,7 @@ try {
  dcCheck($users->findById((int)$a['id'])['last_verified_donation_at']===$reports->findById($ra)['occurred_at'],'Safety anchor uses actual occurrence');
  $result=$service->acknowledge($owner,$rb,1,'received',null);
  dcCheck($result['workflow_state']==='completed' && dcStatus($request)==='FULFILLED','Genuine excess donation recorded after fulfillment');
- $s=$p->prepare('SELECT COUNT(*) FROM donation_credits WHERE match_id IN (?,?)');$s->execute([$ma,$mb]);dcCheck((int)$s->fetchColumn()===2,'Each real match has one credit');
+ $s=$p->prepare(Storage::consolidated()?'SELECT COUNT(*) FROM donation_reports WHERE credit_recorded_at IS NOT NULL AND match_id IN (?,?)':'SELECT COUNT(*) FROM donation_credits WHERE match_id IN (?,?)');$s->execute([$ma,$mb]);dcCheck((int)$s->fetchColumn()===2,'Each real match has one credit');
  $s=$p->prepare("SELECT COUNT(*) FROM notifications WHERE dedup_key LIKE ?");$s->execute(["donation-workflow:$ra:%"]);$before=(int)$s->fetchColumn();
  dcCheck($service->acknowledge($owner,$ra,1,'received',null)['changed']===false,'Repeated acknowledgment is idempotent');
  $s->execute(["donation-workflow:$ra:%"]);dcCheck((int)$s->fetchColumn()===$before,'Repeated acknowledgment emits no new alert');
@@ -71,7 +71,7 @@ try {
  $selfRequest=dcRequest((int)$admin['id']);$selfMatch=dcMatch($selfRequest,(int)$a['id']);$selfReport=dcSubmit($a,$selfMatch);
  dcDenied(fn()=>$service->review($admin,$selfReport,1,'confirm','Self review is forbidden.'),403,'Requester administrator cannot review their own request');
  $r=dcRequest((int)$owner['id']);$m=dcMatch($r,(int)$b['id']);$legacy=$reports->insert($m,(int)$b['id'],null,AuthService::nowUtc());
- $p->prepare('INSERT INTO donation_report_holds(report_id,donor_id,started_at) VALUES(?,?,UTC_TIMESTAMP())')->execute([$legacy,$b['id']]);
+ Storage::startHold($legacy,(int)$b['id'],AuthService::nowUtc());
  dcDenied(fn()=>$service->review($admin,$legacy,1,'confirm','Legacy report review.'),409,'Legacy missing occurrence cannot receive invented credit');
  $r=dcRequest((int)$owner['id']);$m=dcMatch($r,(int)$b['id']);$timer=dcSubmit($b,$m);
  $p->prepare('UPDATE donation_reports SET reported_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 49 HOUR),occurred_at=DATE_SUB(UTC_TIMESTAMP(),INTERVAL 50 HOUR) WHERE id=?')->execute([$timer]);

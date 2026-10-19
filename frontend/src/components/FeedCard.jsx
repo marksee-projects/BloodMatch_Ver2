@@ -1,8 +1,8 @@
 import { useChat } from '../context/ChatContext'
 import React, { useId, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowRight, CaretDown, CheckCircle, Drop, User } from '@phosphor-icons/react'
+import { ArrowRight, CaretDown, CheckCircle, User } from '@phosphor-icons/react'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
@@ -56,9 +56,10 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
     onSettled: () => { responseBusyRef.current = false }
   })
   const responded = request.responded || response.isSuccess
-  const isEnrolledNow = Boolean(user && user.donor_enrolled === true)
-  const isNotEnrolled = !isEnrolledNow && (request.reason_code === 'not_enrolled' || Boolean(user && user.donor_enrolled === false && user.role === 'member'))
+  const isNotEnrolled = request.reason_code === 'not_enrolled'
   const canRespond = request.can_respond === true && !responded
+  const profileTo = request.can_view_requester_profile === true && Number(request.requester_id) > 0 ? `/profile/${request.requester_id}` : null
+  const ProfileIdentity = profileTo ? Link : 'span'
   const confirmResponse = () => {
     if (!canRespond || response.isPending || responseBusyRef.current) return
     responseBusyRef.current = true
@@ -72,24 +73,15 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
   return (
     <Card padding="none" className={styles.feedCard}>
       <article className={styles.cardBody}>
-        <button
-          type="button"
-          className={styles.summaryButton}
-          aria-expanded={expanded}
-          aria-controls={detailsId}
-          onClick={() => setExpanded((current) => !current)}
-        >
-          <span className={styles.avatar}>
-            {request.requester_profile_picture_url ? (
-              <img src={request.requester_profile_picture_url} alt="" />
-            ) : (
-              <User size={22} aria-hidden="true" />
-            )}
-          </span>
+        <header className={styles.summaryHeader}>
+          <ProfileIdentity {...(profileTo ? { to: profileTo, 'aria-label': `View ${request.requester_name || 'requester'}'s profile` } : {})} className={styles.avatar}>
+            <User size={22} aria-hidden="true" />
+            {request.requester_profile_picture_url && <img key={request.requester_profile_picture_url} src={request.requester_profile_picture_url} alt="" onError={event => { event.currentTarget.hidden = true }} />}
+          </ProfileIdentity>
 
           <span className={styles.identity}>
             <span className={styles.nameRow}>
-              <span className={styles.requesterName}>{request.requester_name || 'Community member'}</span>
+              <ProfileIdentity {...(profileTo ? { to: profileTo } : {})} className={styles.requesterName}>{request.requester_name || 'Community member'}</ProfileIdentity>
               {request.requester_verification_status === 'verified' && (
                 <CheckCircle size={17} weight="fill" aria-label="Verified member" />
               )}
@@ -102,9 +94,9 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
           <span className={styles.summaryMeta}>
             <Badge variant={urgencyVariant}>{request.urgency === 'critical' ? 'EMERGENCY' : request.urgency.toUpperCase()}</Badge>
             <BloodTypeBlock bloodType={request.required_blood_type} level="normal" />
-            <CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" />
+            <button type="button" className={styles.summaryButton} aria-label={expanded ? 'Hide request details' : 'Show request details'} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded(current => !current)}><CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" /></button>
           </span>
-        </button>
+        </header>
 
         {expanded && (
           <div id={detailsId} className={styles.expandedContent}>
@@ -128,30 +120,24 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
             </dl>
 
             {!hideActions && (
-              <div>
+              <div className={styles.actionArea}>
                 <footer className={styles.actions}>
-                  {!responded && <Button type="button" variant="primary" disabled={(!canRespond && !isNotEnrolled) || response.isPending}
+                  {!responded && <Button type="button" variant="primary" disabled={!canRespond || response.isPending}
                     isLoading={response.isPending} aria-describedby={responseReason ? reasonId : undefined}
                     title={isNotEnrolled ? 'Enroll as donor to respond.' : undefined}
                     onClick={() => {
-                      if (isNotEnrolled) {
-                        navigate('/profile')
-                        return
-                      }
+                      if (!canRespond || response.isPending) return
                       response.reset()
                       setConfirmingResponse(true)
                     }}>
                     Offer to donate
                   </Button>}
-                  <Button variant="secondary" disabled={!canChat || Number(request.requester_id) === Number(user?.id)} onClick={() => openChatWithUser(request.requester_id)}>Request message</Button>
-                  <Button className={styles.viewRequest} variant="secondary" to={`/requests/${request.id}/matches`}>View request</Button>
+                  <Button className={styles.messageAction} variant="secondary" disabled={!canChat || Number(request.requester_id) === Number(user?.id)} onClick={() => openChatWithUser(request.requester_id)}>Request message</Button>
                 </footer>
                 {isNotEnrolled ? (
                   <div className={styles.enrollPrompt} role="region" aria-label="Donor enrollment required">
                     <div className={styles.enrollPromptContent}>
-                      <div className={styles.enrollPromptText}>
-                        <strong className={styles.enrollPromptTitle}>Enroll as a donor to respond</strong>
-                      </div>
+                      <p id={reasonId} className={styles.responseReason} role="status">{responseReason || 'Enroll as a donor before responding.'}</p>
                     </div>
                     <button
                       type="button"
@@ -162,25 +148,9 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                       <span>Enroll as donor</span>
                       <ArrowRight size={14} weight="bold" aria-hidden="true" />
                     </button>
-                    <p
-                      id={reasonId}
-                      className={`${styles.responseReason} ${styles.clickableReason}`}
-                      role="status"
-                      title="Enroll as donor to respond."
-                      onClick={() => navigate('/profile')}
-                      style={{ display: 'none' }}
-                    >
-                      {responseReason || 'Enroll as donor to respond.'}
-                    </p>
                   </div>
                 ) : responseReason ? (
-                  <p
-                    id={reasonId}
-                    className={styles.responseReason}
-                    role="status"
-                  >
-                    {responseReason}
-                  </p>
+                  <div className={styles.eligibilityHelp}><p id={reasonId} className={styles.responseReason} role="status">{responseReason}</p>{!responded && !canRespond && <Button variant="secondary" to={request.reason_code === 'pending_report_hold' ? '/donation-reports' : '/profile'}>{request.reason_code === 'pending_report_hold' ? 'Donation reports' : 'Review donor eligibility'}</Button>}</div>
                 ) : null}
                 {response.isError && <p className={styles.responseReason} role="alert">{response.error.message}</p>}
               </div>

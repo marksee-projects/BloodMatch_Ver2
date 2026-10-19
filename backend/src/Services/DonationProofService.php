@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace BloodMatch\Services;
 use BloodMatch\Config\Database;
-use BloodMatch\Repositories\DonationWorkflowRepository;
+use BloodMatch\Repositories\{DonationWorkflowRepository,DonationStorageRepository};
 use RuntimeException;
 final class DonationProofService
 {
@@ -110,17 +110,17 @@ final class DonationProofService
             AND GREATEST(COALESCE(d.reviewed_at,d.reported_at),COALESCE(d.confirmed_at,d.reported_at),COALESCE(h.released_at,d.reported_at))<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)
             AND (u.last_verified_donation_at IS NULL OR u.last_verified_donation_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL ".(int)$donorDays." DAY))
             AND NOT EXISTS(SELECT 1 FROM donation_correction_requests c WHERE c.report_id=d.id AND (c.resolved_at IS NULL OR c.resolved_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)))";
-        $reports=$p->query('SELECT d.id'.$guard)->fetchAll(\PDO::FETCH_COLUMN);$counts=['due_donation_proof'=>0,'due_donation_corrections'=>0];
+        $reports=$p->query(DonationStorageRepository::sql('SELECT d.id'.$guard))->fetchAll(\PDO::FETCH_COLUMN);$counts=['due_donation_proof'=>0,'due_donation_corrections'=>0];
         foreach($reports as $id) {
             $s=$p->prepare('SELECT id,stored_name FROM donation_report_evidence WHERE report_id=?');$s->execute([$id]);$files=$s->fetchAll();$counts['due_donation_proof']+=count($files);
             $s=$p->prepare('SELECT COUNT(*) FROM donation_correction_requests WHERE report_id=?');$s->execute([$id]);$counts['due_donation_corrections']+=(int)$s->fetchColumn();
             if ($apply) WorkflowLockService::transaction(function() use($p,$id,$donorDays) {
                 DonationCompletionService::locked((int)$id,null,function($row) use($p,$id,$donorDays) {
                     // Re-evaluate all retention conditions under the report/user locks.
-                    $review=$p->prepare("SELECT 1 FROM donation_reports d JOIN users u ON u.id=d.donor_id LEFT JOIN donation_report_holds h ON h.report_id=d.id WHERE d.id=? AND d.status<>'PENDING' AND (h.report_id IS NULL OR h.released_at IS NOT NULL)
+                    $review=$p->prepare(DonationStorageRepository::sql("SELECT 1 FROM donation_reports d JOIN users u ON u.id=d.donor_id LEFT JOIN donation_report_holds h ON h.report_id=d.id WHERE d.id=? AND d.status<>'PENDING' AND (h.report_id IS NULL OR h.released_at IS NOT NULL)
                         AND GREATEST(COALESCE(d.reviewed_at,d.reported_at),COALESCE(d.confirmed_at,d.reported_at),COALESCE(h.released_at,d.reported_at))<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)
                         AND (u.last_verified_donation_at IS NULL OR u.last_verified_donation_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL ".(int)$donorDays." DAY))
-                        AND NOT EXISTS(SELECT 1 FROM donation_correction_requests c WHERE c.report_id=d.id AND (c.resolved_at IS NULL OR c.resolved_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)))");$review->execute([$id]);if(!$review->fetchColumn()) return;
+                        AND NOT EXISTS(SELECT 1 FROM donation_correction_requests c WHERE c.report_id=d.id AND (c.resolved_at IS NULL OR c.resolved_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)))"));$review->execute([$id]);if(!$review->fetchColumn()) return;
                     $s=$p->prepare('SELECT id,stored_name FROM donation_report_evidence WHERE report_id=? FOR UPDATE');$s->execute([$id]);foreach($s->fetchAll() as $f) { $path=DocumentStorageService::pathFor($f['stored_name']);if(is_link($path)) throw new RuntimeException('Unsafe evidence retention path.');if(is_file($path)&&!unlink($path)) throw new RuntimeException('Evidence retention cleanup failed.');$p->prepare('DELETE FROM donation_report_evidence WHERE id=?')->execute([$f['id']]); }
                     $p->prepare('DELETE FROM donation_correction_requests WHERE report_id=?')->execute([$id]);
                 });

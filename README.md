@@ -27,7 +27,7 @@ docs/               api.md, erd.md (+erd.svg), traceability.md, use-case-diagram
 
 ## Current capabilities
 
-- Auth + registration with mandatory Privacy Notice acknowledgment (`privacy_acknowledged`), chapter binding, secure sessions, throttling, password reset (hashed single-use ~30-min tokens)
+- Auth + registration with mandatory Privacy Notice acknowledgment (`privacy_acknowledged`), chapter binding, secure sessions, throttling
 - 3-tier RBAC (member/officer/admin) with backend chapter scoping; admin user/role/chapter/deactivate endpoints; officer user listing
 - Profile management via Bataan municipality/barangay selector (`location_id` → backend-resolved reference coordinates; raw `latitude`/`longitude` rejected), document upload with ID Privacy Notice acknowledgment, donor enrollment/availability
 - Profile pictures (`users.profile_picture`, `POST/GET /api/profile/picture`): upload through Profile, JPG/PNG/WEBP ≤5 MB, navbar avatar with fallback icon, authenticated owner-only access, replacement deletes old file

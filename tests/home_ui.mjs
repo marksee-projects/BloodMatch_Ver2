@@ -32,7 +32,7 @@ const { api } = require('./src/services/apiClient.js')
 const originalPost = api.post
 const responseCalls = []
 api.post = async (...args) => { responseCalls.push(args); return { status: 'RESPONDED' } }
-const request = { id: 17, requester_name: 'Rafael Garcia', requester_verification_status: 'verified', requester_chapter_name: 'Mt. Samat Chapter', urgency: 'emergency', required_blood_type: 'AB+', facility_name: 'Mariveles Mental Wellness and General Hospital', location: { municipality_name: 'Mariveles' }, quantity_units: 2, needed_datetime: '2026-10-09 15:00:00', created_at: new Date(Date.now() - 7200000).toISOString().slice(0, 19).replace('T', ' '), can_respond: true }
+const request = { id: 17, requester_id: 5, can_view_requester_profile: true, requester_name: 'Rafael Garcia', requester_verification_status: 'verified', requester_chapter_name: 'Mt. Samat Chapter', urgency: 'emergency', required_blood_type: 'AB+', facility_name: 'Mariveles Mental Wellness and General Hospital', location: { municipality_name: 'Mariveles' }, quantity_units: 2, needed_datetime: '2026-10-09 15:00:00', created_at: new Date(Date.now() - 7200000).toISOString().slice(0, 19).replace('T', ' '), can_respond: true }
 let expanded = false
 let confirmingResponse = false
 let inCard = false
@@ -91,7 +91,7 @@ try {
   const collapsed = renderCard(request)
   for (const text of ['Rafael Garcia', 'Verified member', 'Mt. Samat Chapter member', 'Posted 2 hours ago', 'EMERGENCY', 'AB+']) assert(collapsed.includes(text), text)
   assert(!collapsed.includes('Mariveles'), 'Hospital and municipality are absent from the collapsed header')
-  const summary = cardTree.props.children.props.children[0]
+  const summary = findElement(cardTree, element => element.type === 'button' && element.props['aria-controls'])
   summary.props.onClick()
   assert(expanded, 'Actual disclosure callback expands the card')
   const details = renderCard(request)
@@ -99,20 +99,24 @@ try {
   const facts = details.match(/<dl class="metadata">([\s\S]*?)<\/dl>/)[1]
   assert.deepEqual([...facts.matchAll(/<dt>(.*?)<\/dt>/g)].map(match => match[1]), ['Hospital', 'Municipality', 'Blood needed', 'Needed by'], 'All four facts are inside the same gray details box')
   assert.equal(details.split(request.facility_name).length - 1, 1, 'Long hospital name occurs once')
-  assert(details.match(/<button(?![^>]*disabled)[^>]*>I can help<\/button>/), 'Eligible I can help is enabled')
-  assert(details.includes('href="/requests/17/matches"'), 'View request retains its existing destination')
-  findElement(cardTree, element => element.props?.children === 'I can help').props.onClick()
-  assert.equal(responseCalls.length, 0, 'I can help opens confirmation without submitting')
+  assert(details.match(/<button(?![^>]*disabled)[^>]*>Offer to donate<\/button>/), 'Eligible Offer to donate is enabled')
+  assert(!details.includes('>View request</a>'), 'Expanded Home card omits the redundant View request action')
+  assert.equal((details.match(/href="\/profile\/5"/g) || []).length, 2, 'Name and avatar link to the authorized requester profile')
+  assert(!renderCard({ ...request, can_view_requester_profile: false }).includes('href="/profile/5"'), 'Denied profile access renders no profile link')
+  assert(renderCard({ ...request, requester_profile_picture_url: '/api/profile/picture?user_id=5&v=123' }).includes('src="/api/profile/picture?user_id=5&amp;v=123"'), 'Card reuses the existing account picture URL unchanged')
+  assert(!/<button[^>]*>[\s\S]*?<a[\s\S]*?<\/button>/.test(details.match(/<header[\s\S]*?<\/header>/)[0]), 'Profile links are separate from the disclosure button')
+  findElement(cardTree, element => element.props?.children === 'Offer to donate').props.onClick()
+  assert.equal(responseCalls.length, 0, 'Offer to donate opens confirmation without submitting')
   const confirmationMarkup = renderCard(request)
-  assert(confirmationMarkup.includes('role="alertdialog"') && confirmationMarkup.includes('Confirm I can help'), 'Shared accessible confirmation appears')
+  assert(confirmationMarkup.includes('role="alertdialog"') && confirmationMarkup.includes('Offer to donate'), 'Shared accessible confirmation appears')
   assert(confirmationMarkup.includes('final medical eligibility decision'), 'Facility screening notice is shown before responding')
-  const dialog = findElement(cardTree, element => element.props?.confirmLabel === 'Confirm I can help')
+  const dialog = findElement(cardTree, element => element.props?.confirmLabel === 'Offer to donate')
   dialog.props.onCancel()
   assert.equal(responseCalls.length, 0, 'Cancellation does not submit a response')
   assert(!renderCard(request).includes('role="alertdialog"'), 'Cancellation dismisses confirmation')
-  findElement(cardTree, element => element.props?.children === 'I can help').props.onClick()
+  findElement(cardTree, element => element.props?.children === 'Offer to donate').props.onClick()
   renderCard(request)
-  const confirmedDialog = findElement(cardTree, element => element.props?.confirmLabel === 'Confirm I can help')
+  const confirmedDialog = findElement(cardTree, element => element.props?.confirmLabel === 'Offer to donate')
   confirmedDialog.props.onConfirm()
   confirmedDialog.props.onConfirm()
   await new Promise(resolve => setImmediate(resolve))
@@ -120,19 +124,29 @@ try {
   assert.equal(confirmingResponse, false, 'Successful mocked response dismisses confirmation')
   confirmingResponse = true
   const staleConfirmation = renderCard({ ...request, can_respond: false, reason_text: 'This request is no longer open.' })
-  assert(staleConfirmation.match(/<button[^>]*disabled[^>]*>Confirm I can help<\/button>/), 'Confirmation disables submission when eligibility changes while it is open')
-  findElement(cardTree, element => element.props?.confirmLabel === 'Confirm I can help').props.onConfirm()
+  assert(staleConfirmation.match(/<button[^>]*disabled[^>]*>Offer to donate<\/button>/), 'Confirmation disables submission when eligibility changes while it is open')
+  findElement(cardTree, element => element.props?.confirmLabel === 'Offer to donate').props.onConfirm()
   assert.equal(responseCalls.length, 1, 'Stale confirmation cannot submit even when its callback is invoked directly')
   confirmingResponse = false
   renderCard(request)
   for (const reason of ['Donation cooldown is active', 'You are unavailable']) {
     const disabled = renderCard({ ...request, can_respond: false, reason_text: reason })
-    assert(disabled.match(/<button[^>]*disabled[^>]*>I can help<\/button>/), 'Ineligible and staff I can help remain disabled')
+    assert(disabled.match(/<button[^>]*disabled[^>]*>Offer to donate<\/button>/), 'Ineligible and staff Offer to donate remain disabled')
     assert(disabled.includes('class="responseReason"') && disabled.includes(reason.replaceAll("'", '&#x27;')), 'Plain safety reason remains visible')
   }
   const staff = renderCard({ ...request, can_respond: false, reason_code: 'staff_account', reason_text: "Staff accounts can't donate" })
-  assert(staff.match(/<button[^>]*disabled[^>]*>I can help<\/button>/), 'Staff I can help stays disabled')
+  assert(staff.match(/<button[^>]*disabled[^>]*>Offer to donate<\/button>/), 'Staff Offer to donate stays disabled')
   assert(!staff.includes('Staff accounts') && !staff.includes('class="responseReason"'), 'Staff-only donation message is omitted')
+  for (const [code, reason] of [['not_enrolled','Enroll as a donor before responding.'],['membership_unverified','Complete account verification before donating.'],['pending_report_hold','A claimed donation remains unresolved.'],['cooldown','The post-donation cooldown period is still active.']]) {
+    const denied = renderCard({ ...request, can_respond: false, reason_code: code, reason_text: reason })
+    assert(denied.match(/<button[^>]*disabled[^>]*>Offer to donate<\/button>/), `${code} keeps the main action disabled`)
+    assert(denied.includes(reason), `${code} keeps the server eligibility reason visible`)
+    findElement(cardTree, element => element.props?.children === 'Offer to donate').props.onClick()
+    assert.equal(confirmingResponse, false, 'Direct invocation cannot open an ineligible offer confirmation')
+    assert.equal(responseCalls.length, 1, 'Blocked offer creates no request, even if its callback is invoked')
+    if (code === 'not_enrolled') assert(denied.includes('Enroll as donor</span>'), 'Enrollment has a separate relevant CTA')
+    if (code === 'pending_report_hold') assert(denied.includes('href="/donation-reports"'), 'Held donor can resolve the report')
+  }
   assert(renderCard({ ...request, urgency: 'routine' }).includes('ROUTINE'), 'Routine wording retained')
   expanded = false
   const collapsedResponse = renderCard({ ...request, responded: true, can_respond: false })
@@ -140,7 +154,7 @@ try {
   assert(!collapsedResponse.includes('class="expandedContent"'), 'Top status does not require expanded details')
   expanded = true
   const expandedResponse = renderCard({ ...request, responded: true, can_respond: false })
-  assert(!expandedResponse.match(/<button[^>]*>I can help(?:ed)?<\/button>/), 'Already responded action is replaced by the top status')
+  assert(!expandedResponse.match(/<button[^>]*>Offer to donate(?:ed)?<\/button>/), 'Already responded action is replaced by the top status')
   expanded = false
   function home(url, requests) {
     const params = new URLSearchParams(url.split('?')[1] || '')

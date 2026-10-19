@@ -40,6 +40,14 @@ final class Mailer
 
     public static function send(string $toEmail, string $subject, string $htmlBody, string $mailClass = EmailAttemptBudget::NORMAL): bool
     {
+        // Explicit test-only transport: no sockets, external delivery or accounting worker.
+        if (\BloodMatch\Config\Env::get('BLOODMATCH_TEST_ISOLATION', '') === '1') {
+            $target = \BloodMatch\Config\Database::pdo()->query('SELECT DATABASE() AS db, @@port AS port')->fetch();
+            if ($target['db'] !== 'bloodmatch_test' || (int)$target['port'] !== 3306) {
+                throw new \RuntimeException('Fake transport refused a non-test target.');
+            }
+            return true;
+        }
         if (filter_var($toEmail, FILTER_VALIDATE_EMAIL) === false) { return false; }
         $domain = strtolower((string) substr(strrchr($toEmail, '@') ?: '', 1));
         if (preg_match('/(^|\.)(local|test|invalid)$/', $domain) === 1) {

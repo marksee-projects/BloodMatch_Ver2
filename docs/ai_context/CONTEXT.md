@@ -276,22 +276,15 @@ Only appropriate active/available donors normally appear as active matches.
 Automated email notifications for:
 
 - Account verification updates
-- Password reset
 - Blood request alerts
 - Donor match notifications
 - Important system notifications
 
 > Anti-spam rule: if one event causes a notification, the same event must not repeatedly generate identical notifications.
 
-### 8.6 Password Reset
+### 8.6 Password Recovery Removed
 
-Specified behavior (implementation status: see §10):
-
-- Reset tokens are **hashed**
-- Tokens are **single-use**
-- Tokens expire after approximately **30 minutes**
-- Passwords must be securely hashed
-- Reset tokens must never be stored or exposed as plain reusable credentials
+Removed by explicit product decision on 2026-10-19. There is no forgot/reset-password UI or API. Migration 034 drops `password_resets`; account deletion and retention no longer depend on it. Historical audit events remain.
 
 ---
 
@@ -444,7 +437,7 @@ Availability statuses: `Available`, `Unavailable`, `Standby`, `Deactivated`.
 **Channels:**
 
 - **In-app notification center:** dedicated notification records with read/unread status and timestamps.
-- **Email:** only direct OTP/password reset through shared accounting, queued initial Emergency donor opportunities, and membership verification decisions. Other lifecycle events use in-app alerts; material-edit/rematch/response email stays off.
+- **Email:** only direct OTP through shared accounting, queued initial Emergency donor opportunities, and membership verification decisions. Other lifecycle events use in-app alerts; material-edit/rematch/response email stays off.
 
 **Emergency-request outreach:** notify all currently eligible compatible donors within the defined outreach scope (cross-chapter included). No arbitrary small recipient cap; dedup + rate-limiting prevent duplicates from repeated events/runs. Emergency notifications may send immediately, including off-hours, respecting user settings and platform delivery limits. Outreach stops when the request is FULFILLED, CANCELLED, or EXPIRED.
 
@@ -470,7 +463,7 @@ Rationale: BloodMatch is a private community of verified DeMolay members, and me
 
 ### 9.10 Audit Logging (FR-18)
 
-Append-only audit log. Mandatory events include: registration; login success/failure; logout; password-reset events; verification decisions; request creation/edit/cancellation/fulfillment/expiration; donation reports & confirmations; availability/standby/cooldown/reactivation changes; role or chapter changes; administrative overrides; cross-chapter authorizations; other significant security/system actions.
+Append-only audit log. Mandatory events include: registration; login success/failure; logout; verification decisions; request creation/edit/cancellation/fulfillment/expiration; donation reports & confirmations; availability/standby/cooldown/reactivation changes; role or chapter changes; administrative overrides; cross-chapter authorizations; other significant security/system actions.
 
 Record contents: timestamp, actor/account reference, action, target record (where applicable), relevant context — without unnecessarily storing sensitive document contents.
 
@@ -557,7 +550,7 @@ Full working-tree inspection found (on 2026-08-26):
 | Phase 2 foundational schema (chapters, users, password_resets, audit_log) — ✅ IMPLEMENTED AND VERIFIED 2026-08-26 (migrations 001–004 on blank DB; FK/CHECK/append-only triggers tested; see docs/erd.md). Table/column existence only — no behavior implemented | ✅ IMPLEMENTED AND VERIFIED (schema only) |
 | FR-01 User Registration — verified 2026-08-26 (`AuthService::register`, `POST /api/register`; creates `verification_status='pending'`, `account_status='active'`; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-02 Login/Logout — verified 2026-08-26 (`AuthService::login/logout`, session regeneration, `auth_throttle` lockout; evidence `docs/test-log-phase3.md`) | ✅ IMPLEMENTED AND VERIFIED |
-| Password reset flow (§8.6) — verified 2026-08-26 / email wired 2026-08-27 (hashed single-use ~30-min tokens, reuse/expiry rejected, token delivered via best-effort email; evidence `docs/test-log-phase3.md`, `docs/test-log-phase10.md`) | ✅ IMPLEMENTED AND VERIFIED |
+| Password recovery (?8.6) | Removed by product decision on 2026-10-19; migration 034 retires the token table |
 | FR-04 Profile management — verified 2026-08-26, extended 2026-09-24 (`ProfileController` GET/PUT whitelist; forbidden-field rejection; `location_id` Bataan selector with backend-resolved coordinates, raw `latitude`/`longitude` rejected; blood-provenance rules; `matches_refreshed` on location change; evidence `docs/test-log-phase5.md`, `docs/test-log-location.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-10 Officer verification — verified 2026-08-26 (own-chapter queue, pending→verified/rejected, donor-card provenance with non-medical disclaimer, audit trail; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |
 | FR-11 Verification restrictions — verified 2026-08-26 (self/officer/admin-target and cross-chapter blocks all enforced+audited; capability-matrix helper live; request/donor gating cells deferred to P6/P7 endpoints; evidence `docs/test-log-phase5.md`) | ✅ IMPLEMENTED AND VERIFIED |

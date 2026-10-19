@@ -27,7 +27,7 @@ final class DonationWorkflowRepository
     public static function hasHold(int $donorId): bool
     {
         if (!self::ready()) return false;
-        $s=Database::pdo()->prepare('SELECT 1 FROM donation_report_holds WHERE donor_id=? AND released_at IS NULL LIMIT 1');
+        $s=Database::pdo()->prepare(DonationStorageRepository::sql('SELECT 1 FROM donation_report_holds h WHERE donor_id=? AND released_at IS NULL LIMIT 1'));
         $s->execute([$donorId]);return $s->fetchColumn()!==false;
     }
 
@@ -55,14 +55,14 @@ final class DonationWorkflowRepository
             : '(dr.donor_id=? OR br.requester_id=?)';
         if ($admin && \BloodMatch\Services\OfferChatService::ready()) $where='('.$where." OR EXISTS(SELECT 1 FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL))";
         $correctionColumns=\BloodMatch\Services\OfferChatService::ready()?"(SELECT COUNT(*) FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL) AS pending_correction_count,(SELECT MIN(created_at) FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL) AS oldest_correction_at,":"0 AS pending_correction_count,NULL AS oldest_correction_at,";
-        $s=Database::pdo()->prepare("SELECT dr.*,$correctionColumns m.request_id,br.requester_id,br.status AS request_status,br.facility_name,
+        $s=Database::pdo()->prepare(DonationStorageRepository::sql("SELECT dr.*,$correctionColumns m.request_id,br.requester_id,br.status AS request_status,br.facility_name,
             donor.full_name AS donor_name,requester.full_name AS requester_name,
             (SELECT h.release_basis FROM donation_report_holds h WHERE h.report_id=dr.id) AS hold_release_basis,
             TIMESTAMPDIFF(HOUR,dr.reported_at,UTC_TIMESTAMP()) AS age_hours,
             EXISTS (SELECT 1 FROM donation_report_holds h WHERE h.report_id=dr.id AND h.released_at IS NULL) AS has_report_hold
             FROM donation_reports dr JOIN matches m ON m.id=dr.match_id JOIN blood_requests br ON br.id=m.request_id
             JOIN users donor ON donor.id=dr.donor_id JOIN users requester ON requester.id=br.requester_id
-            WHERE $where ORDER BY dr.reported_at ASC");
+            WHERE $where ORDER BY dr.reported_at ASC"));
         $s->execute($admin?[]:[$actor['id'],$actor['id']]);
         return $s->fetchAll();
     }

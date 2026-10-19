@@ -71,7 +71,7 @@ try {
             if ((int)$q($sql,str_contains($sql,' OR ')?[REMOVAL_ID,REMOVAL_ID]:[REMOVAL_ID])->fetchColumn()!==0) { throw new LogicException('Protected linked '.$label.' requires separate review; no removal.'); }
         }
         // Unknown references cannot silently expand the authorized cascade scope.
-        $allowed=['audit_log.actor_id','member_documents.user_id','password_resets.user_id','notifications.user_id',
+        $allowed=['audit_log.actor_id','member_documents.user_id','notifications.user_id',
             'blood_requests.requester_id','matches.donor_id','donation_reports.donor_id','donation_reports.confirmed_by',
             'verification_decisions.target_user_id','verification_decisions.officer_id','donor_opportunities.donor_id','donor_response_state.user_id'];
         foreach ($q("SELECT TABLE_NAME,COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_SCHEMA=DATABASE() AND REFERENCED_TABLE_NAME='users'")->fetchAll(PDO::FETCH_ASSOC) as $fk) {

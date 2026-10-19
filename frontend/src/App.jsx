@@ -10,8 +10,6 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from './context/ThemeContext'
 import { clearCsrf } from './services/apiClient'
 import RegisterPage from './pages/RegisterPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import { CreateRequestEntry, RequestCreationProvider, useRequestCreation } from './context/RequestCreationContext'
 import MatchesPage from './pages/MatchesPage'
@@ -510,8 +508,6 @@ function AppShell() {
 
             <Route path="/chat" element={<RequireAuth><ChatPage /></RequireAuth>} />
             <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
             <Route path="/profile/:id" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 

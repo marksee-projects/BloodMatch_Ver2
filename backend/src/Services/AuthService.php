@@ -7,27 +7,21 @@ namespace BloodMatch\Services;
 use BloodMatch\Http\Session;
 use BloodMatch\Repositories\AuthThrottleRepository;
 use BloodMatch\Repositories\Exceptions\DuplicateEntryException;
-use BloodMatch\Repositories\PasswordResetRepository;
 use BloodMatch\Repositories\UserRepository;
 use BloodMatch\Utils\Request;
 use BloodMatch\Utils\Validator;
-use RuntimeException;
-use Throwable;
 
 final class AuthService
 {
     private const MAX_FAILED_ATTEMPTS = 5;
     private const LOCK_MINUTES = 15;
-    private const RESET_TOKEN_TTL_SECONDS = 1800;
 
     private UserRepository $users;
-    private PasswordResetRepository $resets;
     private AuthThrottleRepository $throttle;
 
     public function __construct()
     {
         $this->users = new UserRepository();
-        $this->resets = new PasswordResetRepository();
         $this->throttle = new AuthThrottleRepository();
     }
 
@@ -207,81 +201,6 @@ final class AuthService
         }
         PresenceService::leave();
         Session::destroy();
-    }
-
-    public function requestPasswordReset(string $email): void
-    {
-        $email = strtolower(trim($email));
-        $key = 'reset:' . $email;
-        $now = self::nowUtc();
-
-        if ($this->throttle->isLocked($key, $now)) {
-            throw new Exceptions\AuthException('Too many attempts. Try again later.', 429);
-        }
-
-        $user = $this->users->findByEmail($email);
-
-        if ($user === null || (string) $user['account_status'] === 'deactivated') {
-            $this->throttle->recordFailure($key, self::MAX_FAILED_ATTEMPTS, self::LOCK_MINUTES, $now);
-            return;
-        }
-
-        $token = bin2hex(random_bytes(32));
-        $expiresAt = gmdate('Y-m-d H:i:s', time() + self::RESET_TOKEN_TTL_SECONDS);
-        $this->resets->create((int) $user['id'], hash('sha256', $token), $expiresAt);
-
-        $this->throttle->clear($key);
-        AuditLogger::log((int) $user['id'], 'auth.password_reset.requested', 'user', (string) $user['id']);
-
-        if (\BloodMatch\Services\Mailer::isConfigured()) {
-            \BloodMatch\Services\Mailer::send(
-                (string) $user['email'],
-                '[BloodMatch] Password reset',
-                '<p>A password reset was requested for your BloodMatch account.</p>'
-                . '<p>Your single-use reset token (valid ~30 minutes):</p>'
-                . '<p><strong>' . htmlspecialchars($token, ENT_QUOTES, 'UTF-8') . '</strong></p>'
-                . '<p>If you did not request this, ignore this email.</p>',
-                EmailAttemptBudget::ACCOUNT
-            );
-        }
-    }
-
-    public function confirmPasswordReset(string $token, string $newPassword): void
-    {
-        if (
-            strlen($newPassword) < 8
-            || strlen($newPassword) > 72
-            || !preg_match('/[A-Za-z]/', $newPassword)
-            || !preg_match('/\d/', $newPassword)
-        ) {
-            throw new Exceptions\ValidationException([
-                'password' => ['Password must be 8-72 characters and contain a letter and a number.'],
-            ]);
-        }
-
-        $tokenHash = hash('sha256', $token);
-        $now = self::nowUtc();
-
-        $reset = $this->resets->findValidByHash($tokenHash, $now);
-        if ($reset === null) {
-            throw new Exceptions\AuthException('Reset link is invalid or has expired.', 400);
-        }
-
-        $pdo = \BloodMatch\Config\Database::pdo();
-        try {
-            $pdo->beginTransaction();
-            $this->resets->markUsed((int) $reset['id'], $now);
-            $this->users->updatePasswordHash((int) $reset['user_id'], password_hash($newPassword, PASSWORD_BCRYPT));
-            $this->resets->deleteOtherUnused((int) $reset['user_id'], (int) $reset['id']);
-            $pdo->commit();
-        } catch (Throwable $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
-            throw new RuntimeException('Could not complete password reset.', 0, $e);
-        }
-
-        AuditLogger::log((int) $reset['user_id'], 'auth.password_reset.completed', 'user', (string) $reset['user_id']);
     }
 
     public function publicUser(array $user): array

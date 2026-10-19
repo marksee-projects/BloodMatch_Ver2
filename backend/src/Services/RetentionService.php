@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace BloodMatch\Services;
 use BloodMatch\Config\Database;
+use BloodMatch\Repositories\DonationStorageRepository;
 use RuntimeException;
 final class RetentionService
 {
@@ -51,7 +52,6 @@ final class RetentionService
         $summary+=DonationProofService::retention($apply,$donorDays);
         $queries=[
             'old_throttle_records'=>"DELETE FROM auth_throttle WHERE updated_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY)",
-            'old_password_resets'=>"DELETE FROM password_resets WHERE expires_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 DAY)",
             'stale_chat_requests'=>"DELETE FROM chat_requests WHERE status<>'accepted' AND updated_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)",
             'closed_chat_reports'=>"DELETE FROM chat_reports WHERE status IN ('resolved','dismissed') AND resolved_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)",
             'stale_conversations'=>"DELETE FROM conversations WHERE updated_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)",
@@ -69,6 +69,7 @@ final class RetentionService
             $queries['aged_audit'].=" AND NOT EXISTS(SELECT 1 FROM donation_correction_requests cr JOIN donation_reports d ON d.id=cr.report_id JOIN matches cm ON cm.id=d.match_id WHERE (cr.resolved_at IS NULL OR cr.resolved_at>DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR)) AND ((a.target_type='donation_report' AND a.target_id=CAST(d.id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci) OR (a.target_type='blood_request' AND a.target_id=CAST(cm.request_id AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci)))";
         }
         foreach($queries as $name=>$sql) {
+            $sql=DonationStorageRepository::sql($sql);$queries[$name]=$sql;
             $countSql=preg_replace('/^DELETE(?:\s+\w+)?\s+FROM/i','SELECT COUNT(*) FROM',$sql);
             $summary[$name.'_due']=(int)$p->query($countSql)->fetchColumn();
         }
@@ -82,7 +83,7 @@ final class RetentionService
         if ($apply) {
             $p->exec("UPDATE chat_requests r LEFT JOIN conversations c ON c.id=r.conversation_id SET r.status='cancelled',r.conversation_id=NULL,r.updated_at=UTC_TIMESTAMP() WHERE r.status='accepted' AND c.id IS NULL");
             $holdGuard=\BloodMatch\Repositories\DonationWorkflowRepository::ready()?' AND NOT EXISTS(SELECT 1 FROM donation_report_holds hh WHERE hh.donor_id=u.id AND hh.released_at IS NULL)':'';
-            $s=$p->prepare("UPDATE users u JOIN account_closures c ON c.user_id=u.id SET u.blood_type=NULL,u.blood_type_source=NULL,u.blood_type_verified=0,u.last_verified_donation_at=NULL,u.donor_availability=NULL,u.donor_enrolled_at=NULL WHERE c.profile_erased_at IS NOT NULL AND c.closed_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR) AND (u.last_verified_donation_at IS NULL OR u.last_verified_donation_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL $donorDays DAY)) AND NOT EXISTS(SELECT 1 FROM donation_reports d WHERE d.donor_id=u.id AND d.status='PENDING')$holdGuard");$s->execute();
+            $s=$p->prepare(DonationStorageRepository::sql("UPDATE users u JOIN account_closures c ON c.user_id=u.id SET u.blood_type=NULL,u.blood_type_source=NULL,u.blood_type_verified=0,u.last_verified_donation_at=NULL,u.donor_availability=NULL,u.donor_enrolled_at=NULL WHERE c.profile_erased_at IS NOT NULL AND c.closed_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL 1 YEAR) AND (u.last_verified_donation_at IS NULL OR u.last_verified_donation_at<DATE_SUB(UTC_TIMESTAMP(),INTERVAL $donorDays DAY)) AND NOT EXISTS(SELECT 1 FROM donation_reports d WHERE d.donor_id=u.id AND d.status='PENDING')$holdGuard"));$s->execute();
             $targetDb=(string)$p->query('SELECT DATABASE()')->fetchColumn();
             $dir=dirname(__DIR__,2).'/storage/maintenance';
             foreach(glob($dir.'/*.sql')?:[] as $path) {

@@ -232,7 +232,6 @@ function cleanDemo(PDO $p, array $review): string {
         // This accounting table deliberately has no donor FK. Keep attempt history.
         $p->exec('DELETE FROM email_donor_reservations WHERE donor_id NOT IN ('.$list.')');
         $p->exec('DELETE FROM users WHERE id NOT IN ('.$list.')');
-        $p->exec('DELETE FROM password_resets');
         $p->exec("DELETE FROM auth_throttle WHERE identifier LIKE 'login:%' OR identifier LIKE 'chat_send:%'");
         $p->exec("UPDATE email_outbox SET status='cancelled',cancel_reason='demo_cleanup',lease_token=NULL,lease_expires_at=NULL,updated_at=UTC_TIMESTAMP(6) WHERE status IN ('pending','leased')");
         $update=$p->prepare('UPDATE users SET password_hash=?,email_code_hash=NULL,email_code_expires_at=NULL WHERE id=?');

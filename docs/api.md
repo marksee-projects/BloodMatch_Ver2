@@ -102,18 +102,7 @@ All responses adhere to the standard JSON envelopes:
 - **Auth:** Authenticated.
 - **Response (200):** `{ "authenticated": true, "user": { "id": 42, "email": "...", "role": "member", "chapter_id": 1, "verification_status": "verified" } }`
 
-### `POST /api/password-reset/request`
-- **Purpose:** Request single-use password reset token (valid for 30 minutes).
-- **Auth:** Public / Anonymous.
-- **Request Body:** `{ "email": "maria@example.com" }`
-- **Response (200):** `{ "message": "If that email exists, a password reset token has been issued." }`
-
-### `POST /api/password-reset/confirm`
-- **Purpose:** Set new password using valid single-use reset token.
-- **Auth:** Public / Anonymous.
-- **Request Body:** `{ "token": "64_hex_token", "password": "NewSecurePassword123" }`
-- **Response (200):** `{ "message": "Password updated successfully." }`
-- **Errors:** 400 Invalid, expired, or already-used token.
+Password recovery is not supported. The former password-reset endpoints were removed on 2026-10-19 and return 404.
 
 ---
 

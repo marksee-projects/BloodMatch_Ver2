@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
 import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
+import { User } from '@phosphor-icons/react'
 import { emptyMatchFilters, filterMatches, matchChapterOptions } from '../services/matchFilters'
 import { donorSections, donorPage } from '../services/donorSections'
 import styles from '../pages/MatchesPage.module.css'
@@ -66,7 +67,7 @@ export default function OfferAcceptancePanel({ requestId, matches = [], onRefres
       {isLoading && <p role="status">Loading donor offers…</p>}
       {!isLoading && !rows.length && <div className={styles.emptyState}><h3>{groups[tab].length ? 'No donors match your filters' : tab === 'offers' ? 'No donor offers yet' : 'No suggested donors right now'}</h3><p>{groups[tab].length ? 'Adjust your search or reset the filters.' : tab === 'offers' ? 'Donors will appear here after selecting Offer to donate.' : 'Suggestions update when compatible donors are eligible and available.'}</p></div>}
       <div className={styles.donorCards}>{paged.rows.map(row => <article key={row.match_id} className={styles.donorCard}>
-        <div className={styles.donorCardIdentity}><div className={styles.donorAvatar}><span aria-hidden="true">{(row.display_name || row.donor_name || 'D').slice(0,1)}</span>{row.profile_picture_url && <img key={row.profile_picture_url} src={row.profile_picture_url} alt="" onError={e => { e.currentTarget.hidden = true }} />}</div><div className={styles.donorIdentity}><h3>{row.display_name || row.donor_name}</h3><p>{row.chapter_name || 'Chapter not assigned'}</p></div></div>
+        <div className={styles.donorCardIdentity}><div className={styles.donorAvatar}><User size={22} aria-hidden="true" />{row.profile_picture_url && <img key={row.profile_picture_url} src={row.profile_picture_url} alt="" onError={e => { e.currentTarget.hidden = true }} />}</div><div className={styles.donorIdentity}><h3>{row.display_name || row.donor_name}</h3><p>{row.chapter_name || 'Chapter not assigned'}</p></div></div>
         <Badge variant={row.status === 'COMPLETED' ? 'success' : tab === 'offers' ? 'brand' : 'neutral'}>{row.status === 'COMPLETED' ? 'Completed' : tab === 'suggestions' ? 'Suggested' : row.context_id ? row.status === 'CLOSED' ? 'Accepted · inactive' : 'Accepted' : row.status === 'RESPONDED' ? 'Offered' : 'Inactive'}</Badge>
         <div className={styles.donorMetrics}><span>Preference: {row.availability || 'Not provided'}</span><span>{row.approximate_distance_km != null ? `About ${row.approximate_distance_km} km` : 'Distance not available'}</span></div>
         <div className={styles.donorCardActions}>

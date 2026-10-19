@@ -126,9 +126,6 @@ export default function LandingPage() {
                   {showPassword ? <EyeSlash size={20} /> : <Eye size={20} />}
                 </button>
               </div>
-              <Link to="/forgot-password" className={styles.forgotLink}>
-                Forgot password?
-              </Link>
 
               <Button
                 type="submit"

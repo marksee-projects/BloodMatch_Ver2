@@ -25,6 +25,11 @@ $ran = 0;
 
 foreach ($files as $file) {
     $name = basename($file);
+    // 032 changes the authoritative compatibility reference; do not reseed stale snapshots.
+    $s=$pdo->prepare('SELECT 1 FROM schema_migrations WHERE name=?');
+    $s->execute(['032_consolidate_donation_storage.sql']);$normalized=$s->fetchColumn()!==false;
+    if (($name==='002_compatibility_matrix.sql' && $normalized)
+        || ($name==='006_compatibility_pairs.sql' && !$normalized)) continue;
     $sql = file_get_contents($file);
     if ($sql === false || trim($sql) === '') {
         continue;

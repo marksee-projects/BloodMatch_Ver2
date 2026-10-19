@@ -186,12 +186,9 @@
   background: var(--color-surface, #ffffff);
 }
 
-/* Keep the request card visible without pushing the chat composer off-screen. */
+/* Only the compact donation reminder lives in the chat; details use a portal. */
 .bodyArea > section {
-  max-height: 45%;
-  min-height: 0;
-  flex-shrink: 1;
-  overflow-y: auto;
+  flex-shrink: 0;
   margin: var(--space-2);
 }
 

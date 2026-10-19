@@ -29,7 +29,6 @@ final class AccountDeletionController
                 $s=$p->prepare("UPDATE matches m LEFT JOIN donation_reports dr ON dr.match_id=m.id AND dr.status='PENDING' SET m.status='CLOSED' WHERE m.donor_id=? AND m.status<>'COMPLETED' AND dr.id IS NULL");$s->execute([$a['id']]);
                 $s=$p->prepare('INSERT INTO account_closures(user_id,closed_at,erase_after) VALUES(?,UTC_TIMESTAMP(),DATE_ADD(UTC_TIMESTAMP(),INTERVAL 30 DAY))');$s->execute([$a['id']]);
                 $s=$p->prepare("UPDATE users SET account_status='deactivated',deactivated_at=UTC_TIMESTAMP(),password_hash=?,email_code_hash=NULL,email_code_expires_at=NULL WHERE id=?");$s->execute([password_hash(bin2hex(random_bytes(32)),PASSWORD_BCRYPT),$a['id']]);
-                $s=$p->prepare('DELETE FROM password_resets WHERE user_id=?');$s->execute([$a['id']]);
                 $s=$p->prepare("UPDATE chat_requests SET status='cancelled',updated_at=UTC_TIMESTAMP() WHERE status='pending' AND (sender_id=? OR recipient_id=?)");$s->execute([$a['id'],$a['id']]);
                 $s=$p->prepare("UPDATE email_outbox e JOIN notifications n ON n.id=e.notification_id SET e.status='cancelled',e.cancel_reason='account_closed' WHERE n.user_id=? AND e.status IN ('pending','leased')");$s->execute([$a['id']]);
                 AuditLogger::log((int)$a['id'],'account.closed','user',(string)$a['id']);

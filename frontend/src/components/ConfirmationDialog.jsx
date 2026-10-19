@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Button } from './ui/Button'
 import styles from './ConfirmationDialog.module.css'
 
-export default function ConfirmationDialog({ open, title, children, confirmLabel, cancelLabel = 'Keep editing', destructive = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel }) {
+export default function ConfirmationDialog({ open, title, children, confirmLabel, cancelLabel = 'Keep editing', destructive = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel, dialogRole = 'alertdialog', panelClassName = '' }) {
   const panelRef = useRef(null)
   const titleId = useId()
   const descriptionId = useId()
@@ -54,13 +54,13 @@ export default function ConfirmationDialog({ open, title, children, confirmLabel
   if (!open) return null
   const dialog = (
     <div className={styles.backdrop}>
-      <section ref={panelRef} className={styles.panel} role="alertdialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={children ? descriptionId : undefined} aria-busy={busy} tabIndex={-1}>
+      <section ref={panelRef} className={`${styles.panel} ${panelClassName}`} role={dialogRole} aria-modal="true" aria-labelledby={titleId} aria-describedby={children && dialogRole === 'alertdialog' ? descriptionId : undefined} aria-busy={busy} tabIndex={-1}>
         <h2 id={titleId}>{title}</h2>
         {children && <div id={descriptionId} className={styles.description}>{children}</div>}
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <div className={styles.actions}>
           {cancelLabel && <Button type="button" variant="secondary" disabled={busy} onClick={onCancel}>{cancelLabel}</Button>}
-          <Button type="button" variant={destructive ? 'destructive' : 'primary'} disabled={confirmDisabled} isLoading={busy} onClick={onConfirm}>{confirmLabel}</Button>
+          {confirmLabel && <Button type="button" variant={destructive ? 'destructive' : 'primary'} disabled={confirmDisabled} isLoading={busy} onClick={onConfirm}>{confirmLabel}</Button>}
         </div>
       </section>
     </div>

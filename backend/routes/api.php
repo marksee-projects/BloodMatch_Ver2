@@ -24,7 +24,6 @@ use BloodMatch\Controllers\Auth\EmailVerificationController;
 use BloodMatch\Controllers\Auth\LoginController;
 use BloodMatch\Controllers\Auth\LogoutController;
 use BloodMatch\Controllers\Auth\MeController;
-use BloodMatch\Controllers\Auth\PasswordResetController;
 use BloodMatch\Controllers\Auth\RegisterController;
 use BloodMatch\Controllers\ChaptersController;
 use BloodMatch\Controllers\HealthController;
@@ -61,8 +60,6 @@ return static function (Router $router): void {
     $router->add('POST', '/api/auth/verify', [new EmailVerificationController(), 'verify']);
     $router->add('POST', '/api/auth/verify/resend', [new EmailVerificationController(), 'resend']);
 
-    $router->add('POST', '/api/password-reset/request', [new PasswordResetController(), 'request']);
-    $router->add('POST', '/api/password-reset/confirm', [new PasswordResetController(), 'confirm']);
 
     $router->add('GET', '/api/admin/users', [new UserAdminController(), 'index']);
     $router->add('POST', '/api/admin/users/{id}/role', [new UserAdminController(), 'setRole']);

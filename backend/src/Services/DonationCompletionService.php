@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace BloodMatch\Services;
 
 use BloodMatch\Config\Database;
-use BloodMatch\Repositories\{DonationReportRepository,DonationWorkflowRepository,MatchRepository,UserRepository};
+use BloodMatch\Repositories\{DonationReportRepository,DonationWorkflowRepository,DonationStorageRepository,MatchRepository,UserRepository};
 use RuntimeException;
 
 final class DonationCompletionService
@@ -59,7 +59,7 @@ final class DonationCompletionService
             $s=Database::pdo()->prepare("INSERT INTO donation_reports(match_id,donor_id,report_note,status,reported_at,occurred_at,workflow_state) VALUES(?,?,?,'PENDING',?,?,'awaiting_requester')");
             $s->execute([$matchId,$donor['id'],$note,$now,$occurred]);$id=(int)Database::pdo()->lastInsertId();
             if ($context) Database::pdo()->prepare('UPDATE donation_reports SET offer_context_id=? WHERE id=?')->execute([$context['id'],$id]);
-            Database::pdo()->prepare('INSERT INTO donation_report_holds(report_id,donor_id,started_at) VALUES(?,?,?)')->execute([$id,$donor['id'],$now]);
+            DonationStorageRepository::startHold($id,(int)$donor['id'],$now);
             $row=(new DonationReportRepository())->findByIdForUpdate($id);
             DonationProofService::attach($id,1,(int)$donor['id'],$proofs);
             DonationWorkflowRepository::event($row,(int)$donor['id'],'submitted',null,$now);
@@ -84,18 +84,22 @@ final class DonationCompletionService
         if (!in_array($match['status'],['RESPONDED','CLOSED'],true)) throw new RuntimeException('This match cannot receive another donation credit.',409);
         $s=Database::pdo()->prepare("SELECT 1 FROM donation_reports WHERE match_id=? AND status='CONFIRMED' LIMIT 1 FOR UPDATE");$s->execute([$match['id']]);
         if ($s->fetchColumn()!==false) throw new RuntimeException('This match already has a recorded donation.',409);
-        $s=Database::pdo()->prepare('SELECT 1 FROM donation_credits WHERE donor_id=? AND occurred_at=? LIMIT 1 FOR UPDATE');$s->execute([$row['donor_id'],$row['occurred_at']]);
-        if ($s->fetchColumn()!==false) throw new RuntimeException('This donor already has a recorded donation at this occurrence time. Request staff clarification instead of awarding duplicate credit.',409);
-        $s=Database::pdo()->prepare('INSERT INTO donation_credits(report_id,match_id,donor_id,occurred_at,recorded_at,completion_basis) VALUES(?,?,?,?,?,?)');
-        $s->execute([$row['id'],$match['id'],$row['donor_id'],$row['occurred_at'],$now,$basis]);
-        Database::pdo()->prepare("UPDATE donation_reports SET status='CONFIRMED',workflow_state='completed',completion_basis=?,confirmed_by=?,confirmed_at=?,reviewed_at=COALESCE(?,reviewed_at),review_evidence=? WHERE id=?")
-            ->execute([$basis,$reviewer['id']??null,$now,$reviewer!==null?$now:null,$reason,$row['id']]);
+        if (DonationStorageRepository::duplicateCredit((int)$row['donor_id'],$row['occurred_at'])) throw new RuntimeException('This donor already has a recorded donation at this occurrence time. Request staff clarification instead of awarding duplicate credit.',409);
+        if (!DonationStorageRepository::consolidated()) {
+            $s=Database::pdo()->prepare('INSERT INTO donation_credits(report_id,match_id,donor_id,occurred_at,recorded_at,completion_basis) VALUES(?,?,?,?,?,?)');
+            $s->execute([$row['id'],$match['id'],$row['donor_id'],$row['occurred_at'],$now,$basis]);
+        }
+        $creditSql=DonationStorageRepository::consolidated()?',credit_recorded_at=?':'';
+        $completionArgs=[$basis,$reviewer['id']??null,$now,$reviewer!==null?$now:null,$reason];
+        if (DonationStorageRepository::consolidated()) $completionArgs[]=$now;
+        $completionArgs[]=$row['id'];
+        Database::pdo()->prepare("UPDATE donation_reports SET status='CONFIRMED',workflow_state='completed',completion_basis=?,confirmed_by=?,confirmed_at=?,reviewed_at=COALESCE(?,reviewed_at),review_evidence=?$creditSql WHERE id=?")
+            ->execute($completionArgs);
         $donor=$users[(int)$row['donor_id']];
         // Historical field name retained for compatibility: it is a platform restriction anchor, not a medical verification claim.
         (new UserRepository())->setLastVerifiedDonation((int)$row['donor_id'],DonationCompletionPolicy::restrictionAnchor($donor['last_verified_donation_at'],$row['occurred_at']));
         (new UserRepository())->setAvailability((int)$row['donor_id'],'standby');
-        Database::pdo()->prepare("UPDATE donation_report_holds SET released_at=?,released_by=?,release_type='donation_recorded',release_basis=? WHERE report_id=? AND released_at IS NULL")
-            ->execute([$now,$reviewer['id']??null,$basis==='mutual'?'Mutually acknowledged donation recorded.':$reason,$row['id']]);
+        DonationStorageRepository::releaseHold((int)$row['id'],$now,$reviewer['id']??null,'donation_recorded',$basis==='mutual'?'Mutually acknowledged donation recorded.':$reason);
         (new MatchRepository())->setStatus((int)$match['id'],'COMPLETED');
         $row=array_replace($row,['status'=>'CONFIRMED','workflow_state'=>'completed','completion_basis'=>$basis,'confirmed_at'=>$now,'reviewed_at'=>$reviewer!==null?$now:$row['reviewed_at']]);
         DonationWorkflowRepository::event($row,$reviewer!==null?(int)$reviewer['id']:(int)$request['requester_id'],$basis==='mutual'?'mutually_acknowledged':'admin_confirmed',$reason,$now);
@@ -204,7 +208,7 @@ final class DonationCompletionService
                 }
                 Database::pdo()->prepare("UPDATE donation_reports SET status='PENDING',workflow_state='clarification',reviewed_at=? WHERE id=?")->execute([$now,$row['id']]);
                 // If a rejected report is reopened for correction, restore only its own hold.
-                Database::pdo()->prepare('UPDATE donation_report_holds SET released_at=NULL,released_by=NULL,release_basis=NULL,release_type=NULL WHERE report_id=?')->execute([$row['id']]);
+                DonationStorageRepository::reopenHold((int)$row['id']);
                 $row['workflow_state']='clarification';$row['status']='PENDING';$row['reviewed_at']=$now;
             }
             $type=$action==='reject'?'rejected':'clarification_requested';
@@ -273,11 +277,10 @@ final class DonationCompletionService
             if (strtolower((string)$actor['email'])!=='markseejr@gmail.com') throw new RuntimeException('Forbidden.',403);
             DonationCompletionPolicy::assertVersion($row,$version);
             if ($row['status']!=='REJECTED') throw new RuntimeException('Reject the report before resolving its no-donation hold. Correct genuine donations instead.',409);
-            $s=Database::pdo()->prepare('SELECT * FROM donation_report_holds WHERE report_id=? FOR UPDATE');$s->execute([$row['id']]);$hold=$s->fetch();
+            $hold=DonationStorageRepository::hold((int)$row['id']);
             if (!$hold || $hold['released_at']!==null) return ['changed'=>false];
             $now=AuthService::nowUtc();
-            Database::pdo()->prepare("UPDATE donation_report_holds SET released_at=?,released_by=?,release_type='no_donation',release_basis=? WHERE report_id=? AND released_at IS NULL")
-                ->execute([$now,$actor['id'],$basis,$row['id']]);
+            DonationStorageRepository::releaseHold((int)$row['id'],$now,(int)$actor['id'],'no_donation',$basis);
             $releaseEvent=DonationWorkflowRepository::event($row,(int)$actor['id'],'hold_released_no_donation',$basis,$now);
             foreach(array_unique([(int)$row['donor_id'],(int)$request['requester_id']]) as $recipient) self::notify($row,$recipient,'hold_released','Report-specific hold released','An administrator documented that no donation occurred for this report. Other holds, restrictions and eligibility checks still apply.',"hold-release:$releaseEvent");
             return ['changed'=>true];

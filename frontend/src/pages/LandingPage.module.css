@@ -180,19 +180,6 @@
   background: var(--color-brand-navy);
 }
 
-.forgotLink {
-  display: block;
-  margin-top: var(--space-2);
-  font-size: var(--text-sm);
-  color: rgba(255, 255, 255, 0.60);
-  text-decoration: none;
-  text-align: right;
-  transition: color var(--transition-fast);
-}
-.forgotLink:hover {
-  color: #fff;
-  text-decoration: underline;
-}
 
 .divider {
   display: flex;

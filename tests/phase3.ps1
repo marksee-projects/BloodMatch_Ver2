@@ -140,47 +140,13 @@ $r = Post $s2 '/api/logout' @{} $csrf2
 $r = GetReq $s2 '/api/auth/me'
 if ($r.status -eq 401) { Ok 'T11 logout invalidates session (401)' } else { Bad 'T11' "got $($r.status)" }
 
-# --- T12 reset request unknown email: generic 200 ---
+# --- T12/T13 removed password recovery endpoints ---
 $sAnon = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $csrfAnon = Get-Csrf $sAnon
-$r = Post $sAnon '/api/password-reset/request' @{ email = "nobody$suffix@test.local" } $csrfAnon
-if ($r.status -eq 200) { Ok 'T12 reset request unknown email generic 200' } else { Bad 'T12' "got $($r.status)" }
-
-# --- T13 reset request known email; token hashed in DB ---
-$s3 = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$csrf3 = Get-Csrf $s3
-$r = Post $s3 '/api/password-reset/request' @{ email = $email1 } $csrf3
-$row = DbQuery "SELECT LENGTH(token_hash), used_at, TIMESTAMPDIFF(MINUTE, UTC_TIMESTAMP(), expires_at) FROM password_resets pr JOIN users u ON u.id = pr.user_id WHERE u.email = '$email1' ORDER BY pr.id DESC LIMIT 1;"
-$parts = ($row -split "`t")
-if ($r.status -eq 200 -and $parts[0] -eq '64' -and $parts[1] -eq 'NULL' -and [int]$parts[2] -ge 28 -and [int]$parts[2] -le 31) {
-    Ok 'T13 reset row: sha256 hex(64), unused, ~30min expiry'
-} else { Bad 'T13' "row='$row'" }
-
-# --- T14 confirm with garbage token ---
-$r = Post $s3 '/api/password-reset/confirm' @{ token = ('f' * 64); password = 'NewPass123' } $csrf3
-if ($r.status -eq 400) { Ok 'T14 garbage token 400' } else { Bad 'T14' "got $($r.status)" }
-
-# --- T15 real reset: craft token server-side, confirm, login new password ---
-$plainToken = ('a7c93b41e2d8f605' + ([guid]::NewGuid().ToString('N')))
-$hash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($plainToken))).Replace('-', '').ToLower()
-DbQuery "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($uid1, '$hash', DATE_ADD(UTC_TIMESTAMP(), INTERVAL 30 MINUTE));"
-$r = Post $s3 '/api/password-reset/confirm' @{ token = $plainToken; password = 'Br4ndNew9' } $csrf3
-if ($r.status -ne 200) { Bad 'T15a confirm' "got $($r.status)" } 
-$r = Post $s3 '/api/login' @{ email = $email1; password = 'Br4ndNew9' } $csrf3
-if ($r.status -eq 200) { Ok 'T15 reset completes; new password logs in' } else { Bad 'T15' "new-password login got $($r.status)" }
-$r = Post $s3 '/api/password-reset/confirm' @{ token = $plainToken; password = 'Again678x' } $csrf3
-if ($r.status -eq 400) { Ok 'T16 token single-use (reuse 400)' } else { Bad 'T16' "got $($r.status)" }
-$sOld = New-Object Microsoft.PowerShell.Commands.WebRequestSession
-$csrfOld = Get-Csrf $sOld
-$oldLogin = Post $sOld '/api/login' @{ email = $email1; password = 'Str0ngPass1' } $csrfOld
-if ($oldLogin.status -eq 401) { Ok 'T17 old password rejected after reset' } else { Bad 'T17' "got $($oldLogin.status)" }
-
-# --- T18 expired token ---
-$expiredPlain = 'deadbeef' + ([guid]::NewGuid().ToString('N'))
-$expiredHash = [System.BitConverter]::ToString([System.Security.Cryptography.SHA256]::Create().ComputeHash([Text.Encoding]::UTF8.GetBytes($expiredPlain))).Replace('-', '').ToLower()
-DbQuery "INSERT INTO password_resets (user_id, token_hash, expires_at) VALUES ($uid1, '$expiredHash', DATE_SUB(UTC_TIMESTAMP(), INTERVAL 5 MINUTE));"
-$r = Post $s3 '/api/password-reset/confirm' @{ token = $expiredPlain; password = 'Exp1red9z' } $csrf3
-if ($r.status -eq 400) { Ok 'T18 expired token 400' } else { Bad 'T18' "got $($r.status)" }
+foreach ($path in @('/api/password-reset/request', '/api/password-reset/confirm')) {
+    $r = Post $sAnon $path @{} $csrfAnon
+    if ($r.status -eq 404) { Ok "Removed endpoint $path returns 404" } else { Bad $path "got $($r.status)" }
+}
 
 # --- T19 lockout after 5 failures ---
 $lockEmail = "lock$(Get-Random)@test.local"
@@ -197,17 +163,13 @@ if ($r.status -eq 429) { Ok 'T20 even correct password blocked while locked' } e
 DbQuery "UPDATE users SET account_status='deactivated', deactivated_at=NOW() WHERE id=$uid1;"
 $s5 = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $csrf5 = Get-Csrf $s5
-$r = Post $s5 '/api/login' @{ email = $email1; password = 'Br4ndNew9' } $csrf5
+$r = Post $s5 '/api/login' @{ email = $email1; password = 'Str0ngPass1' } $csrf5
 if ($r.status -eq 403) { Ok 'T21 deactivated login 403' } else { Bad 'T21' "got $($r.status)" }
 DbQuery "UPDATE users SET account_status='active', deactivated_at=NULL WHERE id=$uid1;"
 
 # --- T22 audit trail exists ---
-$rows = DbQuery "SELECT COUNT(DISTINCT action) FROM audit_log WHERE action IN ('user.registered','auth.login.success','auth.login.failed','auth.logout','auth.password_reset.requested','auth.password_reset.completed');"
-if ([int]$rows -ge 5) { Ok "T22 audit events recorded ($rows distinct auth actions)" } else { Bad 'T22' "only $rows distinct actions" }
-
-# --- T23 no plaintext token anywhere ---
-$plainLeak = DbQuery "SELECT COUNT(*) FROM password_resets WHERE token_hash NOT REGEXP '^[0-9a-f]{64}$';"
-if ([int]$plainLeak -eq 0) { Ok 'T23 all stored tokens are 64-hex hashes only' } else { Bad 'T23' "$plainLeak bad rows" }
+$rows = DbQuery "SELECT COUNT(DISTINCT action) FROM audit_log WHERE action IN ('user.registered','auth.login.success','auth.login.failed','auth.logout');"
+if ([int]$rows -ge 4) { Ok "T22 audit events recorded ($rows distinct auth actions)" } else { Bad 'T22' "only $rows distinct actions" }
 
 Write-Host ''
 Write-Host "== RESULT: $($script:pass) passed, $($script:fail) failed =="

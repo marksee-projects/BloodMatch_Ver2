@@ -1,4 +1,12 @@
 .card { flex-shrink: 0; min-width: 0; padding: var(--space-4); margin-bottom: var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-card); background: var(--color-surface); }
+.reminder { flex: none; display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control); background: var(--color-surface-sunken); min-width: 0; }
+.reminder > div { min-width: 0; flex: 1; }
+.reminder strong { display: block; font-size: var(--text-sm); line-height: 1.4; }
+.reminder span { display: block; margin-top: var(--space-1); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--text-xs); color: var(--color-text-muted); }
+.reminder > :global(.ui-button) { flex: none; font-size: var(--text-sm) !important; padding-inline: var(--space-3) !important; }
+.modalPanel { width: min(100%, 40rem); display: grid; grid-template-rows: auto minmax(0,1fr) auto; overflow: hidden; }
+.modalPanel > div:first-of-type { overflow-y: auto; min-height: 0; overscroll-behavior: contain; padding-inline: var(--space-2); }
+.modalPanel .card { margin: 0; padding: 0; border: 0; }
 .card h2, .card h3 { margin: 0 0 var(--space-2); font-size: var(--text-body); }
 .card p, .card small { margin: var(--space-2) 0; color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.6; }
 .card label { display: block; margin-bottom: var(--space-2); font-weight: 600; font-size: var(--text-sm); }
