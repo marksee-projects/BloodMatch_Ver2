@@ -5,6 +5,7 @@ require dirname(__DIR__).'/backend/src/autoload.php';require __DIR__.'/donation_
 $o=getopt('',['target:','rehearse','apply','application-approved','writers-stopped','backup-file:','backup-sha:']);
 try{
     $target=$o['target']??'test';$p=consolidationTarget($target);
+    if($p->query("SELECT 1 FROM schema_migrations WHERE name='035_retire_donation_sources.sql'")->fetchColumn())throw new LogicException('Sources retired: direct source reconstruction is unavailable. Use the verified full backup recovery plan.');
     $name='032_consolidate_donation_storage.sql';$s=$p->prepare('SELECT 1 FROM schema_migrations WHERE name=?');$s->execute([$name]);if(!$s->fetchColumn())throw new LogicException('Recovery requires a recorded 032 and retained sources.');
     if(isset($o['apply'])&&isset($o['rehearse']))throw new LogicException('Choose apply or rehearsal.');
     if(!isset($o['apply'])&&!isset($o['rehearse'])){echo "Prepared recovery: rebuild retained sources from current authoritative reports/pairs, reconcile, then remove only the 032 marker. No schema/data changed.\n";exit;}

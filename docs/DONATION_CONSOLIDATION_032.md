@@ -1,12 +1,30 @@
 # Donation storage consolidation checkpoint - 19 October 2026
 
+**Latest checkpoint:** source retirement was subsequently approved and completed by migration 035. Main now has 34 tables; see [retirement evidence](DONATION_SOURCE_RETIREMENT_035.md). Retained-source/reconstruction statements below describe the earlier rollout checkpoint. No ERD update was performed for retirement, per user instruction.
+
 ## Status and boundaries
 
-**Implemented and tested on `bloodmatch_test:3306` only. Application execution is not approved or performed.**
+**Application rollout approved and migrations 032/033 applied to `bloodmatch:3306` on 19 October 2026. Source-table retirement remains unapproved and unexecuted.**
 
-The application remains at its separate credit/hold design. Its read-only preflight passed all 11 checks. This task performed no application schema/data migration, source-table retirement, scheduler execution/installation, external email, or browser test. The unrelated UI edits and existing handoff changes were left untouched. `.env` was not edited.
+The application now uses consolidated reports and ordered compatibility pairs. The earlier test-only checkpoint below is retained as test evidence; it was superseded by the approved application rollout. Unrelated edits were preserved. `.env` was not edited, no synthetic main-database fixtures were created, and no source tables were retired. Browser and actual photo handling remain unverified.
 
-**Concurrent unrelated change:** while this task was running, migration `034_remove_password_resets.sql` was applied independently to the application and related password-recovery removal edits appeared in the workspace. Those changes were preserved, not executed or reverted by this task. The latest application metadata snapshot has **36 tables** and records 034 but neither 032 nor 033. The test snapshot still includes `password_resets`. Re-preflight the application at the maintenance window; do not apply 034 to the test database as an incidental part of this consolidation.
+## Approved application rollout evidence
+
+- Exact target: `127.0.0.1:3306/bloodmatch`; all 11 preflight checks zero; reviewed 032/033 hashes matched the tested files.
+- Enabled the existing HTTP maintenance gate and paused only the two owned, previously enabled application tasks (MembershipEmail and Safety). No scheduler installed or manually started; no SMTP or notification action invoked by migration/read checks.
+- External pre-032 backup: `C:\BloodMatchBackups\bloodmatch-before-032-20261019-212427.sql`; SHA256 `6266f183697097ef93db24533702aebb622eefe2f198b0aa55bdab859cb01804`. Target header, complete dump footer and SHA verified before DDL.
+- Separate full pre-033 dump and backend code archive are in the same external backup directory. Paths/checksums and task state are recorded in ignored/private `backend/storage/maintenance/application-consolidation-state.json`.
+- Both migrations applied successfully. Original-column hashes matched across **all 35 original business tables**, excluding the intentionally changed migration ledger. Credit, hold and ordered compatibility reconciliation each reported zero mismatches. The existing legacy confirmation retained its original NULL occurrence and received no invented credit.
+- Read-only runtime checks passed for migration-selected storage, ordered compatibility service, administrative queue, active hold reads, proof retention queries, and immutable context trigger. No application fixture or fulfillment action was executed.
+- Current main schema: **37 physical tables**; six active donation tables plus three retained source tables. Separately approved source retirement would leave **34** main tables. The test schema has 38 because unrelated password-reset removal 034 was applied only to main.
+- Detailed migration evidence: ignored/private `application-consolidation032-result.json`, `application-consolidation033-result.json`, and `application-consolidation-before.json` in the maintenance directory. Full dump restore remains unrehearsed; the prior test recovery reconstruction rehearsal passed.
+- Completion: original MembershipEmail/Safety task enablement restored and both verified Ready; no task manually triggered. Owned maintenance lock removed; `.env` hash unchanged. Rollout state is `completed_sources_retained`.
+
+### Login follow-up
+
+The user's restarted PHP terminal retained test-database environment overrides: recent failed login audits appeared on `bloodmatch_test`, not main, despite `.env` naming main. No password/account change was made. Only the verified local PHP listener on port 8000 was replaced. `scripts/start_main_backend.ps1` now explicitly selects `bloodmatch:3306`, verifies the actual connection before serving, and restores its own process overrides on exit. The backend was started with this launcher; main-target preflight, HTTP health/database connectivity, and CSRF checks passed. Account login itself remains for the user to retry; no password was requested or tested.
+
+**Concurrent unrelated change at the earlier test checkpoint:** migration `034_remove_password_resets.sql` was applied independently to the application and related password-recovery removal edits appeared in the workspace. Those changes were preserved, not executed or reverted by this task. Before the approved rollout, main had 36 tables and recorded 034 but neither 032 nor 033. Current main rollout status is documented above. The test snapshot still includes `password_resets`; 034 was not applied to test as part of this consolidation.
 
 - 032 SHA256: `00ed99175af9a12121276df88daac5ac45aa4454fb493f65117e1b27b986219b`
 - 033 SHA256: `145ee96d22091473f16d60529cda524ed2a1d07f073c06c1da0c04a82010985f`
@@ -26,7 +44,7 @@ All readers/writers select storage through the 032 migration marker. Before appl
 
 **Six active donation tables:** reports, evidence, report events, accepted chat contexts, coordination events, and correction requests. Photos stay as individual child rows with version intervals and protected file storage. Corrections remain review requests and do not silently reverse completed donations.
 
-The test schema currently has **38 physical tables** because `donation_credits`, `donation_report_holds`, and `compatibility_matrix` are retained cutover sources. They are not dual-written after 032. After separately approved retirement, this tested design has **35 active base tables**. The current application has 36 following unrelated 034; adding the normalized pair table and retiring the three sources would leave **34** there. Retained sources can age through existing FK cascades; the verified backup and cutover digests are the durable pre-migration evidence.
+The test schema currently has **38 physical tables** because `donation_credits`, `donation_report_holds`, and `compatibility_matrix` are retained cutover sources. They are not dual-written after 032. After separately approved retirement, this tested design has **35 active base tables**. Main now has **37**, including those sources; retiring them would leave **34** there because unrelated 034 removed password resets only on main. Retained sources can age through existing FK cascades; the verified backup and cutover digests are the durable pre-migration evidence.
 
 ## Verification actually completed
 

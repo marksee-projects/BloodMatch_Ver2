@@ -1,8 +1,8 @@
 # BloodMatch ERD
 
-Generated from **bloodmatch:3306**, 2026-10-19 21:16 Asia/Manila. **APPLICATION SCHEMA - migration 032 NOT applied**. 36 physical base tables.
+Generated from **bloodmatch:3306**, 2026-10-19 21:26 Asia/Manila. **APPLICATION SCHEMA - migration 032 recorded**. 37 physical base tables.
 
-This is the actual application model, with separate donation credit/hold tables and the original compatibility list. It must not be presented as the tested consolidated schema.
+The active design uses six donation tables. `donation_credits`, `donation_report_holds`, and `compatibility_matrix` remain as cutover source snapshots, not current writers. After separately approved retirement: 34 active base tables, including `compatibility_pairs`.
 
 See [rollout and test checkpoint](DONATION_CONSOLIDATION_032.md), [data dictionary](data_dictionary_application.md), and [SVG](erd_application.svg). PK = primary key; FK = enforced reference; UK is shown on a column only for single-column uniqueness. Composite keys are listed in the dictionary.
 
@@ -14,6 +14,7 @@ erDiagram
     users ||--o{ blood_requests : "requester_id"
     hospitals |o--o{ blood_requests : "hospital_id"
     bataan_locations |o--o{ blood_requests : "location_id"
+    blood_requests |o--o| blood_requests : "renewed_from_id"
     users |o--o{ chat_reports : "reporter_id"
     chat_reports ||--o{ chat_report_evidence : "report_id"
     users ||--o{ chat_requests : "user_low"
@@ -35,8 +36,10 @@ erDiagram
     donation_reports ||--o| donation_credits : "report_id"
     users |o--o{ donation_reports : "confirmed_by"
     users ||--o{ donation_reports : "donor_id"
-    matches ||--o{ donation_reports : "match_id"
+    matches ||--o| donation_reports : "match_id"
     users |o--o{ donation_reports : "acknowledged_by"
+    users |o--o{ donation_reports : "hold_released_by"
+    matches ||--o| donation_reports : "match_id, donor_id"
     donation_chat_contexts |o--o{ donation_reports : "offer_context_id"
     users |o--o{ donation_report_events : "actor_id"
     donation_reports ||--o{ donation_report_events : "report_id"
@@ -116,7 +119,7 @@ erDiagram
         DATETIME expired_at "nullable"
         INT location_id FK "nullable"
         TEXT description "nullable"
-        BIGINT renewed_from_id "nullable"
+        BIGINT renewed_from_id UK,FK "nullable"
         VARCHAR closure_reason "nullable"
     }
     chapters {
@@ -162,6 +165,11 @@ erDiagram
     compatibility_matrix {
         VARCHAR recipient_type PK
         TEXT allowed_donor_types
+    }
+    compatibility_pairs {
+        ENUM recipient_type PK
+        ENUM donor_type PK
+        TINYINT preference_order
     }
     conversations {
         BIGINT id PK "auto_increment"
@@ -217,7 +225,7 @@ erDiagram
     }
     donation_reports {
         BIGINT id PK "auto_increment"
-        BIGINT match_id FK
+        BIGINT match_id UK,FK
         BIGINT donor_id FK
         VARCHAR report_note "nullable"
         VARCHAR rejection_reason "nullable"
@@ -239,6 +247,14 @@ erDiagram
         DATETIME reminder_sent_at "nullable"
         DATETIME escalated_at "nullable"
         BIGINT offer_context_id FK "nullable"
+        DATETIME credit_recorded_at "nullable"
+        DATETIME hold_started_at "nullable"
+        DATETIME hold_released_at "nullable"
+        BIGINT hold_released_by FK "nullable"
+        VARCHAR hold_release_basis "nullable"
+        VARCHAR hold_release_type "nullable"
+        BIGINT credited_donor_id "nullable; STORED GENERATED"
+        DATETIME credited_occurred_at "nullable; STORED GENERATED"
     }
     donation_report_events {
         BIGINT id PK "auto_increment"

@@ -17,9 +17,9 @@ try{
     $schema=[];foreach($columns as $c)$schema[$c['TABLE_NAME']][]=$c;
     $grouped=[];foreach($fks as $fk)$grouped[$fk['TABLE_NAME'].':'.$fk['CONSTRAINT_NAME']][]=$fk;
     $stamp=(new DateTimeImmutable('now',new DateTimeZone('Asia/Manila')))->format('Y-m-d H:i').' Asia/Manila';
-    $status=$test?'TESTED DISPOSABLE SCHEMA - application rollout pending':'APPLICATION SCHEMA - migration 032 '.($new?'recorded':'NOT applied');
+    $status=$test?'TESTED DISPOSABLE SCHEMA - see application snapshot for rollout status':'APPLICATION SCHEMA - migration 032 '.($new?'recorded':'NOT applied');
     $intro="Generated from **$name:3306**, $stamp. **$status**. ".count($tables)." physical base tables.\n\n";
-    $intro.=$new?"The active design uses six donation tables. `donation_credits`, `donation_report_holds`, and `compatibility_matrix` remain as cutover source snapshots, not current writers. After separately approved retirement: 35 active base tables, including `compatibility_pairs`.\n\n":"This is the actual application model, with separate donation credit/hold tables and the original compatibility list. It must not be presented as the tested consolidated schema.\n\n";
+    $intro.=$new?"The active design uses six donation tables. `donation_credits`, `donation_report_holds`, and `compatibility_matrix` remain as cutover source snapshots, not current writers. After separately approved retirement: ".(count($tables)-3)." active base tables, including `compatibility_pairs`.\n\n":"This is the actual application model, with separate donation credit/hold tables and the original compatibility list. It must not be presented as the tested consolidated schema.\n\n";
     $intro.="See [rollout and test checkpoint](DONATION_CONSOLIDATION_032.md), [data dictionary](data_dictionary$suffix.md), and [SVG](erd$suffix.svg). PK = primary key; FK = enforced reference; UK is shown on a column only for single-column uniqueness. Composite keys are listed in the dictionary.\n\n";
     $md="# BloodMatch ERD\n\n$intro```mermaid\nerDiagram\n";
     foreach($grouped as $parts){$f=$parts[0];$child=$f['TABLE_NAME'];$fkCols=array_column($parts,'COLUMN_NAME');$optional=false;foreach($schema[$child] as $c)if(in_array($c['COLUMN_NAME'],$fkCols,true)&&$c['IS_NULLABLE']==='YES')$optional=true;

@@ -1,6 +1,6 @@
 # BloodMatch data dictionary
 
-Generated from **bloodmatch_test:3306**, 2026-10-19 21:16 Asia/Manila. **TESTED DISPOSABLE SCHEMA - application rollout pending**. 38 physical base tables.
+Generated from **bloodmatch_test:3306**, 2026-10-19 21:26 Asia/Manila. **TESTED DISPOSABLE SCHEMA - see application snapshot for rollout status**. 38 physical base tables.
 
 The active design uses six donation tables. `donation_credits`, `donation_report_holds`, and `compatibility_matrix` remain as cutover source snapshots, not current writers. After separately approved retirement: 35 active base tables, including `compatibility_pairs`.
 

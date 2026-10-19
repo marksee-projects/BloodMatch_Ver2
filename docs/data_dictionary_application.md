@@ -1,8 +1,8 @@
 # BloodMatch data dictionary
 
-Generated from **bloodmatch:3306**, 2026-10-19 21:16 Asia/Manila. **APPLICATION SCHEMA - migration 032 NOT applied**. 36 physical base tables.
+Generated from **bloodmatch:3306**, 2026-10-19 21:26 Asia/Manila. **APPLICATION SCHEMA - migration 032 recorded**. 37 physical base tables.
 
-This is the actual application model, with separate donation credit/hold tables and the original compatibility list. It must not be presented as the tested consolidated schema.
+The active design uses six donation tables. `donation_credits`, `donation_report_holds`, and `compatibility_matrix` remain as cutover source snapshots, not current writers. After separately approved retirement: 34 active base tables, including `compatibility_pairs`.
 
 See [rollout and test checkpoint](DONATION_CONSOLIDATION_032.md), [data dictionary](data_dictionary_application.md), and [SVG](erd_application.svg). PK = primary key; FK = enforced reference; UK is shown on a column only for single-column uniqueness. Composite keys are listed in the dictionary.
 
@@ -118,11 +118,14 @@ Indexes / uniqueness:
 - `idx_breq_status` INDEX (`status`)
 - `idx_breq_urgency` INDEX (`urgency`)
 - `PRIMARY` UNIQUE (`id`)
+- `uq_request_renewal` UNIQUE (`renewed_from_id`)
 - FK `fk_breq_chapter`: (request_chapter_id) references `chapters` (id); DELETE RESTRICT; UPDATE CASCADE
 - FK `fk_breq_requester`: (requester_id) references `users` (id); DELETE CASCADE; UPDATE RESTRICT
 - FK `fk_requests_hospital`: (hospital_id) references `hospitals` (id); DELETE SET NULL; UPDATE CASCADE
 - FK `fk_requests_location`: (location_id) references `bataan_locations` (id); DELETE SET NULL; UPDATE CASCADE
+- FK `fk_request_renewal`: (renewed_from_id) references `blood_requests` (id); DELETE SET NULL; UPDATE RESTRICT
 - CHECK `chk_breq_geo`: ``latitude` is null and `longitude` is null or `latitude` is not null and `longitude` is not null`
+- CHECK `chk_request_positive_quantity`: ``quantity_units` > 0`
 
 ## chapters
 
@@ -178,6 +181,7 @@ Indexes / uniqueness:
 
 - `PRIMARY` UNIQUE (`id`)
 - `report_evidence` INDEX (`report_id`, `message_id`)
+- `uq_chat_evidence_message` UNIQUE (`report_id`, `message_id`)
 - FK `chat_report_evidence_ibfk_1`: (report_id) references `chat_reports` (id); DELETE CASCADE; UPDATE RESTRICT
 
 ## chat_requests
@@ -211,6 +215,8 @@ Indexes / uniqueness:
 
 ## compatibility_matrix
 
+**Retained source snapshot. Not authoritative after 032. Retirement requires separate approval.**
+
 | Column | Type | Nullable | Generated / extra |
 |---|---|---|---|
 | `recipient_type` | `varchar(3)` | NO |  |
@@ -220,6 +226,20 @@ Indexes / uniqueness:
 
 - `PRIMARY` UNIQUE (`recipient_type`)
 - CHECK `chk_cmatrix_type`: ``recipient_type` in ('A+','A-','B+','B-','AB+','AB-','O+','O-')`
+
+## compatibility_pairs
+
+| Column | Type | Nullable | Generated / extra |
+|---|---|---|---|
+| `recipient_type` | `enum('A+','A-','B+','B-','AB+','AB-','O+','O-')` | NO |  |
+| `donor_type` | `enum('A+','A-','B+','B-','AB+','AB-','O+','O-')` | NO |  |
+| `preference_order` | `tinyint(3) unsigned` | NO |  |
+
+Indexes / uniqueness:
+
+- `PRIMARY` UNIQUE (`recipient_type`, `donor_type`)
+- `uq_compatibility_order` UNIQUE (`recipient_type`, `preference_order`)
+- CHECK `chk_compatibility_order`: ``preference_order` between 1 and 8`
 
 ## conversations
 
@@ -314,6 +334,7 @@ Indexes / uniqueness:
 Indexes / uniqueness:
 
 - `actor_id` INDEX (`actor_id`)
+- `idx_correction_unresolved` INDEX (`report_id`, `resolved_at`)
 - `PRIMARY` UNIQUE (`id`)
 - `resolved_by` INDEX (`resolved_by`)
 - `uq_donation_correction` UNIQUE (`report_id`, `content_version`, `actor_reference`)
@@ -322,6 +343,8 @@ Indexes / uniqueness:
 - FK `donation_correction_requests_ibfk_3`: (resolved_by) references `users` (id); DELETE SET NULL; UPDATE RESTRICT
 
 ## donation_credits
+
+**Retained source snapshot. Not authoritative after 032. Retirement requires separate approval.**
 
 | Column | Type | Nullable | Generated / extra |
 |---|---|---|---|
@@ -370,22 +393,42 @@ Indexes / uniqueness:
 | `reminder_sent_at` | `datetime` | YES |  |
 | `escalated_at` | `datetime` | YES |  |
 | `offer_context_id` | `bigint(20) unsigned` | YES |  |
+| `credit_recorded_at` | `datetime` | YES |  |
+| `hold_started_at` | `datetime` | YES |  |
+| `hold_released_at` | `datetime` | YES |  |
+| `hold_released_by` | `bigint(20) unsigned` | YES |  |
+| `hold_release_basis` | `varchar(500)` | YES |  |
+| `hold_release_type` | `varchar(32)` | YES |  |
+| `credited_donor_id` | `bigint(20) unsigned` | YES | STORED GENERATED = case when `credit_recorded_at` is not null then `donor_id` else NULL end |
+| `credited_occurred_at` | `datetime` | YES | STORED GENERATED = case when `credit_recorded_at` is not null then `occurred_at` else NULL end |
 
 Indexes / uniqueness:
 
 - `fk_drep_confirmer` INDEX (`confirmed_by`)
 - `fk_report_acknowledger` INDEX (`acknowledged_by`)
+- `fk_report_hold_released_by` INDEX (`hold_released_by`)
+- `fk_report_match_donor` INDEX (`match_id`, `donor_id`)
 - `fk_report_offer_context` INDEX (`offer_context_id`)
 - `idx_drep_donor` INDEX (`donor_id`)
 - `idx_drep_match` INDEX (`match_id`)
 - `idx_drep_status` INDEX (`status`)
+- `idx_report_active_hold` INDEX (`donor_id`, `hold_released_at`, `hold_started_at`)
 - `idx_report_followup` INDEX (`status`, `workflow_state`, `reported_at`)
 - `PRIMARY` UNIQUE (`id`)
+- `uq_report_credited_occurrence` UNIQUE (`credited_donor_id`, `credited_occurred_at`)
+- `uq_report_match` UNIQUE (`match_id`)
 - FK `fk_drep_confirmer`: (confirmed_by) references `users` (id); DELETE SET NULL; UPDATE RESTRICT
 - FK `fk_drep_donor`: (donor_id) references `users` (id); DELETE CASCADE; UPDATE RESTRICT
 - FK `fk_drep_match`: (match_id) references `matches` (id); DELETE CASCADE; UPDATE RESTRICT
 - FK `fk_report_acknowledger`: (acknowledged_by) references `users` (id); DELETE SET NULL; UPDATE RESTRICT
+- FK `fk_report_hold_released_by`: (hold_released_by) references `users` (id); DELETE SET NULL; UPDATE RESTRICT
+- FK `fk_report_match_donor`: (match_id, donor_id) references `matches` (id, donor_id); DELETE CASCADE; UPDATE RESTRICT
 - FK `fk_report_offer_context`: (offer_context_id) references `donation_chat_contexts` (id); DELETE SET NULL; UPDATE RESTRICT
+- CHECK `chk_report_credit`: ``credit_recorded_at` is null or `status` = 'CONFIRMED' and `occurred_at` is not null and `completion_basis` is not null and `completion_basis` in ('mutual','admin')`
+- CHECK `chk_report_hold`: `(`hold_started_at` is not null or `hold_released_at` is null and `hold_released_by` is null and `hold_release_basis` is null and `hold_release_type` is null) and (`hold_released_at` is null or `hold_released_at` >= `hold_started_at`)`
+- CHECK `chk_report_response`: ``requester_response` is null or `requester_response` in ('received','did_not_donate','not_sure')`
+- CHECK `chk_report_version`: ``content_version` >= 1`
+- CHECK `chk_report_workflow`: ``workflow_state` in ('awaiting_requester','needs_review','clarification','completed','rejected')`
 
 ## donation_report_events
 
@@ -435,6 +478,8 @@ Indexes / uniqueness:
 - FK `donation_report_evidence_ibfk_2`: (uploader_id) references `users` (id); DELETE SET NULL; UPDATE RESTRICT
 
 ## donation_report_holds
+
+**Retained source snapshot. Not authoritative after 032. Retirement requires separate approval.**
 
 | Column | Type | Nullable | Generated / extra |
 |---|---|---|---|
@@ -592,6 +637,7 @@ Indexes / uniqueness:
 - `idx_matches_status` INDEX (`status`)
 - `PRIMARY` UNIQUE (`id`)
 - `uq_matches_request_donor` UNIQUE (`request_id`, `donor_id`)
+- `uq_match_identity` UNIQUE (`id`, `donor_id`)
 - FK `fk_matches_donor`: (donor_id) references `users` (id); DELETE CASCADE; UPDATE RESTRICT
 - FK `fk_matches_request`: (request_id) references `blood_requests` (id); DELETE CASCADE; UPDATE RESTRICT
 

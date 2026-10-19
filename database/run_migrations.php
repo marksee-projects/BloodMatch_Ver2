@@ -36,6 +36,10 @@ foreach ($files as $file) {
     if (in_array($name, $applied, true)) {
         continue;
     }
+    if ($name==='035_retire_donation_sources.sql') {
+        fwrite(STDERR,'[migrations] Source retirement requires its backup/dependency guard: database/retire_donation_sources.php.'.PHP_EOL);
+        exit(1);
+    }
     if (in_array($name,['032_consolidate_donation_storage.sql','033_immutable_donation_context.sql'],true)) {
         fwrite(STDERR, '[migrations] 032/033 require preservation preflight and a verified backup. Use database/review_donation_consolidation.php.'.PHP_EOL);
         exit(1);

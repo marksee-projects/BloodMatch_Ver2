@@ -6,7 +6,7 @@ use BloodMatch\Services\BloodCompatibilityService;
 $p=operationalTarget('test');if(\BloodMatch\Config\Env::get('BLOODMATCH_TEST_ISOLATION')!=='1')throw new LogicException('Isolation required.');
 $checks=0;function extra032(bool $ok,string $label):void{global $checks;if(!$ok)throw new RuntimeException('FAIL '.$label);$checks++;echo "PASS $label\n";}
 function reject032(callable $fn,int $code,string $label):void{global $p;$p->exec('SAVEPOINT extra_constraint');try{$fn();}catch(PDOException $e){$p->exec('ROLLBACK TO SAVEPOINT extra_constraint');$p->exec('RELEASE SAVEPOINT extra_constraint');extra032((int)($e->errorInfo[1]??0)===$code,$label);return;}throw new RuntimeException('FAIL '.$label);}
-$old=$p->query('SELECT recipient_type,allowed_donor_types FROM compatibility_matrix ORDER BY recipient_type')->fetchAll(PDO::FETCH_KEY_PAIR);
+$old=json_decode(file_get_contents(dirname(__DIR__).'/backend/storage/maintenance/consolidation032-fixtures.json'),true,512,JSON_THROW_ON_ERROR)['matrix'];
 foreach(['A+','A-','B+','B-','AB+','AB-','O+','O-'] as $donor){$expected=[];foreach($old as $recipient=>$list)if(in_array($donor,array_map('trim',explode(',',$list)),true))$expected[]=$recipient;extra032(BloodCompatibilityService::getCompatibleRecipientTypesForDonor($donor)===$expected,'Inverse compatibility and ordering preserved for '.$donor);}
 $p->beginTransaction();try{
     $state=json_decode(file_get_contents(dirname(__DIR__).'/backend/storage/maintenance/consolidation032-fixtures.json'),true,512,JSON_THROW_ON_ERROR);[$owner,$donor]=$state['users'];
