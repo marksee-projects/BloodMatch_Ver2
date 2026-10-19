@@ -52,8 +52,10 @@ final class DonationCompletionService
             $now=AuthService::nowUtc();$occurred=DonationCompletionPolicy::occurrence($occurredAt,$context?$context['responded_at']:self::responseAt($match),$now);
             $s=Database::pdo()->prepare('SELECT * FROM donation_reports WHERE match_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE');$s->execute([$matchId]);$prior=$s->fetch();
             if ($prior) {
+                $sameContext=($prior['offer_context_id']??null)===null ? $context===false || $context===null : (int)$prior['offer_context_id']===(int)($context['id']??0);
+                if ($prior['status']==='PENDING' && (int)$prior['content_version']===1 && $prior['occurred_at']===$occurred && $prior['report_note']===$note && $sameContext
+                    && (!$proofs || DonationProofService::matchesSubmittedProofs($prior,$proofs))) return ['id'=>(int)$prior['id'],'changed'=>false,'workflow_state'=>$prior['workflow_state']];
                 if ($proofs) throw new RuntimeException('This match already has a report. Open that report to add or correct its proof photos.',409);
-                if ($prior['status']==='PENDING' && $prior['occurred_at']===$occurred && $prior['report_note']===$note) return ['id'=>(int)$prior['id'],'changed'=>false];
                 throw new RuntimeException('This match already has a report. Open it for review or correction.',409);
             }
             $s=Database::pdo()->prepare("INSERT INTO donation_reports(match_id,donor_id,report_note,status,reported_at,occurred_at,workflow_state) VALUES(?,?,?,'PENDING',?,?,'awaiting_requester')");

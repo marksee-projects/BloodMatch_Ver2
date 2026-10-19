@@ -60,7 +60,7 @@ try{
   check(calls.length===0,'Opening a dialog creates no report, signal or acknowledgment')
   button('I donated').props.onClick();html=render()
   check(html.includes('Choose donation date')&&html.includes('Choose donation time'),'Form retains explicit picker buttons')
-  check(html.includes('Philippine time')&&!html.includes('UTC+08:00'),'Timezone is a concise field label instead of a paragraph')
+  check(html.includes('Donation time</label>')&&!html.includes('Philippine time')&&!html.includes('UTC+08:00')&&html.includes('step="60"'),'Time label is concise and picker uses minutes without seconds')
   check(html.includes('Upload donation proof'),'Optional private proof input remains')
   find(tree,n=>n.type?.name==='DonationDateTimeFields').props.onChange('2020-01-01T12:00')
   render()

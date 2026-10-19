@@ -173,7 +173,7 @@ $r = Feed $eligible ("?q=" + (Url $filterPrefix) + '&municipality_code=030803000
 if ([int]$r.body.data.total_matching -eq 1 -and (Card $r $alpha).Count -eq 1) { Ok 'H17 combined filters intersect without widening' } else { Bad 'H17 combined filters' "total=$($r.body.data.total_matching)" }
 $r = Feed $eligible ("?q=" + (Url $filterPrefix))
 $orderedIds = @($r.body.data.requests | ForEach-Object { [int]$_.id })
-if (($orderedIds -join ',') -eq (@($delta,$alpha,$beta,$gamma) -join ',')) { Ok 'H18 ordering is emergency, urgent, routine, then newest' } else { Bad 'H18 feed order' ($orderedIds -join ',') }
+if (($orderedIds -join ',') -eq (@($delta,$gamma,$beta,$alpha) -join ',')) { Ok 'H18 feed ordering is newest first across urgency categories' } else { Bad 'H18 feed order' ($orderedIds -join ',') }
 
 $percentId = New-Request $requester.id 'O+' "Literal % $suffix" 'routine' $future 'OPEN' $balangaId
 $underscoreId = New-Request $requester.id 'O+' "Literal _ $suffix" 'routine' $future 'OPEN' $balangaId

@@ -208,7 +208,7 @@ final class BloodRequestRepository
              $joins . '
              LEFT JOIN matches m ON m.request_id = br.id AND m.donor_id = ?
              WHERE ' . implode(' AND ', $where) . "
-             ORDER BY FIELD(br.urgency, 'emergency', 'urgent', 'routine'), br.created_at DESC, br.id DESC
+             ORDER BY br.created_at DESC, br.id DESC
              LIMIT {$pageSize} OFFSET {$offset}"
         );
         $stmt->execute(array_merge([$viewerId], $params));

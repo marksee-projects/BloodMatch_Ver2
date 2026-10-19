@@ -1,0 +1,250 @@
+{
+    "database": "bloodmatch",
+    "pages": [
+        {
+            "db_name": "bloodmatch",
+            "page_nr": 1,
+            "page_descr": "bloodmatch"
+        }
+    ],
+    "coordinates": [
+        {
+            "db_name": "bloodmatch",
+            "table_name": "account_closures",
+            "pdf_page_number": 1,
+            "x": 239,
+            "y": 487
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "audit_log",
+            "pdf_page_number": 1,
+            "x": 281,
+            "y": 629
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "auth_throttle",
+            "pdf_page_number": 1,
+            "x": 270,
+            "y": 1074
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "bataan_locations",
+            "pdf_page_number": 1,
+            "x": 940,
+            "y": 1016
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "blood_requests",
+            "pdf_page_number": 1,
+            "x": 1397,
+            "y": 65
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "chapters",
+            "pdf_page_number": 1,
+            "x": 940,
+            "y": 782
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "chat_report_evidence",
+            "pdf_page_number": 1,
+            "x": 626,
+            "y": 1051
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "chat_reports",
+            "pdf_page_number": 1,
+            "x": 530,
+            "y": 817
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "chat_requests",
+            "pdf_page_number": 1,
+            "x": 541,
+            "y": 65
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "compatibility_pairs",
+            "pdf_page_number": 1,
+            "x": 1397,
+            "y": 1300
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "conversation_participants",
+            "pdf_page_number": 1,
+            "x": 598,
+            "y": 464
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "conversations",
+            "pdf_page_number": 1,
+            "x": 671,
+            "y": 322
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donation_chat_contexts",
+            "pdf_page_number": 1,
+            "x": 1397,
+            "y": 878
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donation_coordination_events",
+            "pdf_page_number": 1,
+            "x": 1397,
+            "y": 1089
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donation_correction_requests",
+            "pdf_page_number": 1,
+            "x": 1953,
+            "y": 1365
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donation_report_events",
+            "pdf_page_number": 1,
+            "x": 1953,
+            "y": 1108
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donation_report_evidence",
+            "pdf_page_number": 1,
+            "x": 1953,
+            "y": 828
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donation_reports",
+            "pdf_page_number": 1,
+            "x": 1953,
+            "y": 65
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donor_opportunities",
+            "pdf_page_number": 1,
+            "x": 2349,
+            "y": 65
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "donor_response_state",
+            "pdf_page_number": 1,
+            "x": 940,
+            "y": 1530
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "email_attempts",
+            "pdf_page_number": 1,
+            "x": 2349,
+            "y": 1020
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "email_donor_reservations",
+            "pdf_page_number": 1,
+            "x": 2349,
+            "y": 1139
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "email_outbox",
+            "pdf_page_number": 1,
+            "x": 2349,
+            "y": 625
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "hospitals",
+            "pdf_page_number": 1,
+            "x": 940,
+            "y": 1319
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "matches",
+            "pdf_page_number": 1,
+            "x": 1397,
+            "y": 575
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "member_documents",
+            "pdf_page_number": 1,
+            "x": 98,
+            "y": 65
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "messages",
+            "pdf_page_number": 1,
+            "x": 646,
+            "y": 652
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "notifications",
+            "pdf_page_number": 1,
+            "x": 2349,
+            "y": 299
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "pending_registrations",
+            "pdf_page_number": 1,
+            "x": 212,
+            "y": 840
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "schema_migrations",
+            "pdf_page_number": 1,
+            "x": 2349,
+            "y": 1423
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "system_settings",
+            "pdf_page_number": 1,
+            "x": 2349,
+            "y": 1304
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "user_presence",
+            "pdf_page_number": 1,
+            "x": 668,
+            "y": 1262
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "users",
+            "pdf_page_number": 1,
+            "x": 940,
+            "y": 65
+        },
+        {
+            "db_name": "bloodmatch",
+            "table_name": "verification_decisions",
+            "pdf_page_number": 1,
+            "x": 45,
+            "y": 299
+        }
+    ]
+}

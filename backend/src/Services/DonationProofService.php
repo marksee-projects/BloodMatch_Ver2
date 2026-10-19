@@ -54,6 +54,18 @@ final class DonationProofService
             $path=DocumentStorageService::pathFor($f['stored_name']);if(is_file($path) && !is_link($path) && !unlink($path)) error_log('[donation-proof] uncommitted file cleanup failed');
         }
     }
+    /** Compare normalized private pixels, never randomized encrypted envelopes or filenames. */
+    public static function matchesSubmittedProofs(array $report,array $files): bool {
+        $s=Database::pdo()->prepare('SELECT stored_name,mime_type,size_bytes FROM donation_report_evidence WHERE report_id=? AND content_version<=? AND (retired_version IS NULL OR retired_version>?) ORDER BY id');
+        $s->execute([$report['id'],$report['content_version'],$report['content_version']]);$existing=$s->fetchAll();
+        if (count($existing)!==count($files)) return false;
+        $fingerprints=static function(array $rows): array {
+            $result=[];
+            foreach($rows as $f) $result[]=$f['mime_type'].'|'.$f['size_bytes'].'|'.hash('sha256',DocumentStorageService::read($f));
+            sort($result,SORT_STRING);return $result;
+        };
+        return $fingerprints($existing)===$fingerprints($files);
+    }
     public static function attach(int $reportId,int $version,int $uploader,array $files): void {
         if (!$files) return;
         OfferChatService::requireReady();

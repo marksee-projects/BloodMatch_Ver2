@@ -21,7 +21,7 @@ final class RequestActionsController
             $p=Database::pdo();$s=$p->prepare('SELECT id FROM blood_requests WHERE renewed_from_id=? LIMIT 1');$s->execute([$id]);if ($s->fetchColumn()) throw new RuntimeException('This request has already been renewed. Open its new post.',409);
             $new=array_replace($old,$fields,['review_status'=>RequestService::reviewStatusFor($actor)]);
             $newId=(new BloodRequestRepository())->create($new);$s=$p->prepare('UPDATE blood_requests SET renewed_from_id=? WHERE id=?');$s->execute([$id,$newId]);
-            (new MatchService())->generateForRequest($newId);
+            (new MatchService())->generateForRequest($newId, true, 'request_created', (int)$actor['id']);
             AuditLogger::log((int)$a['id'],'request.renewed','blood_request',(string)$newId,['previous_request_id'=>$id]);return ['id'=>$newId,'renewed_from_id'=>$id];
         });Response::success(['request'=>$r]); } catch(\Throwable $e) { $c=(int)$e->getCode();Response::error($e instanceof RuntimeException?$e->getMessage():'Request renewal is temporarily unavailable.',$c>=400&&$c<=499?$c:503); }
     }

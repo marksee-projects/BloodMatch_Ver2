@@ -4,7 +4,7 @@ import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-route
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
-import { donationReportForm } from '../services/donationCompletion'
+import { donationReportForm, donationTimeToUtc } from '../services/donationCompletion'
 import DonationDateTimeFields from '../components/DonationDateTimeFields'
 import DonationProofInput from '../components/DonationProofInput'
 import OfferAcceptancePanel from '../components/OfferAcceptancePanel'
@@ -50,6 +50,8 @@ export default function MatchesPage() {
   const [occurredAt, setOccurredAt] = useState('')
   const [proofPhotos, setProofPhotos] = useState([])
   const [submittingReport, setSubmittingReport] = useState(false)
+  const [reportError, setReportError] = useState('')
+  const reportBusyRef = useRef(false)
 
   const { data: pageData, error: matchError, refetch: load } = useQuery({
     queryKey: ['request-matches', id, user?.id],
@@ -70,6 +72,7 @@ export default function MatchesPage() {
     setReportingMatchId(null)
     setOccurredAt('')
     setProofPhotos([])
+    setReportError('')
   }, [id])
 
   const matches = pageData?.matches || []
@@ -123,11 +126,14 @@ export default function MatchesPage() {
 
   const onSubmitReport = async (event) => {
     event.preventDefault()
-    if (!reportingMatchId || submittingReport) return
+    if (!reportingMatchId || reportBusyRef.current) return
+    reportBusyRef.current = true
     setSubmittingReport(true)
     setMessage(null)
     setErrorAlert(null)
     try {
+      setReportError('')
+      if (new Date(donationTimeToUtc(occurredAt)).getTime() > Date.now()) throw new Error('Choose a donation time that has already passed. Future donations cannot be reported.')
       await api.postForm('/api/donation-reports', donationReportForm(reportingMatchId, occurredAt, proofPhotos))
       setMessage('Donation report sent to the requester for acknowledgment. Your donor offers are held while it is unresolved.')
       setReportingMatchId(null)
@@ -136,8 +142,9 @@ export default function MatchesPage() {
       await refresh()
       await load()
     } catch (error) {
-      setErrorAlert(error.message)
+      setReportError(error.message)
     } finally {
+      reportBusyRef.current = false
       setSubmittingReport(false)
     }
   }
@@ -250,7 +257,7 @@ export default function MatchesPage() {
           <div className={styles.donorActions}>
             {!isRequesterView && hasActiveResponse && <DonationOfferStatus matchId={ownMatch.match_id} />}
             {!isRequesterView && !hasActiveResponse && <Button disabled={!canRespond || actionLoading} onClick={() => setConfirmation('respond')}><Check size={18} /> Offer to donate</Button>}
-            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(ownMatch.match_id) }}>I donated</Button>}
+            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportError(''); setReportingMatchId(ownMatch.match_id) }}>I donated</Button>}
             {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
             {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && (
               !user?.donor_enrolled ? (
@@ -292,6 +299,7 @@ export default function MatchesPage() {
             <p className={styles.reportDescription}>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
             <DonationDateTimeFields value={occurredAt} onChange={setOccurredAt} />
             <DonationProofInput files={proofPhotos} onChange={setProofPhotos} disabled={submittingReport} />
+            {reportError && <p className="alert alert-error" role="alert">{reportError}</p>}
             <div className={styles.modalActions}><Button type="button" variant="secondary" disabled={submittingReport} onClick={() => setReportingMatchId(null)}>Cancel</Button><Button type="submit" isLoading={submittingReport}>Send report</Button></div>
           </form>
         </div>
