@@ -36,6 +36,19 @@
 .sectionHeading h2 { margin: 0; font-size: var(--text-h2); }
 .sectionHeading p { margin: var(--space-1) auto 0; color: var(--color-text-muted); font-size: var(--text-sm); text-align: center; }
 .matchList { display: flex; flex-direction: column; }
+.donorTabs { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-bottom: var(--space-4); }
+.donorTabs button { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-3); min-height: 44px; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font: inherit; font-weight: 600; cursor: pointer; }
+.donorTabs button[aria-selected='true'] { background: var(--color-brand-navy); color: var(--color-accent-fg); border-color: var(--color-brand-navy); }
+.donorTabs button:hover:not([aria-selected='true']) { background: var(--color-bg); }
+.donorTabs button:focus-visible, .matchesSurface [role='tabpanel']:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.donorTabs span { font-size: var(--text-sm); }
+.donorExplanation { color: var(--color-text-muted); font-size: var(--text-sm); line-height: 1.6; }
+.donorCards { display: grid; gap: var(--space-3); }
+.donorCard { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-control); }
+.donorCard h3 { overflow-wrap: anywhere; }
+.donorMetrics { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); color: var(--color-text-muted); font-size: var(--text-sm); }
+.donorCardActions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.donorCardActions small { flex-basis: 100%; color: var(--color-text-muted); }
 .matchFilters { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: var(--space-3); }
 .filterField { min-width: 0; display: flex; flex-direction: column; gap: var(--space-2); }
 .filterField label { font-size: var(--text-sm); font-weight: 600; }

@@ -53,6 +53,25 @@ Use the normal interactive `-p` on mysqldump if required. Retain and verify the 
 
 ## 2. User-run focused suites
 
+Requester donor tabs follow-up: replaced the duplicated offers/potential-donors presentation with one counted default Donor offers tab and Suggested donors tab, consistent compact cards and preserved filtering/ranking. Suggested rows receive only the request owner's own read-only consent presentation (pending/incoming/declined/retry/authorized conversation); other viewers receive `chat:null`. Ordinary message acceptance still uses existing consent service and creates no donation workflow context. Actual/accepted offers take precedence so a donor is not shown in both tabs, including during independently refreshed query snapshots. No migration or urgency exception was added. Focused offline checks: 11 grouping/filter/ranking checks and 10 consent-presentation checks passed, plus the existing 19 offer/proof policy checks and changed-PHP lint. The database suite is extended with 12 assertions across all three urgencies for message-only consent, privacy and absence of donation effects; user must rerun it. Earlier 47-check result predates this extension.
+
+User-run commands from the repository root:
+
+```powershell
+& 'C:\xampp\php\php.exe' tests/offer_chat_db.php
+if ($LASTEXITCODE -ne 0) { throw 'Stop and save the full offer/chat failure.' }
+& 'C:\xampp\php\php.exe' tests/donation_completion_db.php
+if ($LASTEXITCODE -ne 0) { throw 'Stop and save the full completion failure.' }
+```
+
+Browser acceptance: at Routine/Urgent/Emergency, initial suggestions show no Accept action; Request to message remains pending until donor approval; accepted message consent opens chat but leaves offer/report/hold/credit counts unchanged. A later actual donor offer appears only in Donor offers, Accept & chat reuses the conversation and attaches the exact context; accepted offers remain visible with Open chat after withdrawal/closure. Verify filter counts, retained chapter/distance order, one-day declined retry, keyboard tab navigation and narrow layouts. No real emails or schedule changes are needed.
+
+Subsequent user results: **47 offer/chat DB checks passed**, fixtures rolled back, no files/SMTP; **13 isolated offer/chat API checks passed**, server stopped and environment restored. The current donation-completion DB regression result and authenticated browser acceptance remain outstanding. Application 031 review reports prepared/unapplied with no partial schema or duplicate credit groups.
+
+Floating-chat layout follow-up: increased expanded height within the viewport cap, kept the composer from shrinking, gave the message list an explicit shrinkable scroll region, collapsed optional suggestions behind a keyboard-accessible disclosure and bounded their expanded height. Auto-scroll now targets only the message list rather than scrolling ancestor/page containers. Frontend production build passed; no connected browser surface was available for visual verification. User should check messages, expanded suggestions, donation actions and composer at desktop/mobile/short viewport sizes. This does not implement the separate notification-delivery proposal.
+
+User-run checkpoint (2026-10-19): the first five offer/chat checks passed, then the suite stopped because `bloodmatch_test.user_presence` was absent. The `finally` block rolls back fixtures; this is a missing existing 028 prerequisite, not a failed 031 apply. Added an early table prerequisite check and `database/review_test_presence_migration.php`, a fixed-test-target review/apply helper for only the wholly absent 028 table and ledger entry. It requires a reviewed SHA and recoverable backup for writes, refuses existing/partial state, and does not include migration 029 or touch application data. Do not rerun 031. Resume suites after the user reports 028 present; GD/encrypted photo readiness remains a separate browser gate.
+
 ```powershell
 & $php tests/offer_chat_db.php
 if ($LASTEXITCODE -ne 0) { throw 'Offer/chat DB regression failed. Save the full output.' }

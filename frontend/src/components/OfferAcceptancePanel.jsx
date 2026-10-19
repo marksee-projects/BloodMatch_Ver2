@@ -1,25 +1,79 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
+import { useChat } from '../context/ChatContext'
 import { Button } from './ui/Button'
-import styles from './DonationContextCard.module.css'
-export default function OfferAcceptancePanel({ requestId }) {
+import { Badge } from './ui/Badge'
+import { emptyMatchFilters, filterMatches, matchChapterOptions } from '../services/matchFilters'
+import { donorSections } from '../services/donorSections'
+import styles from '../pages/MatchesPage.module.css'
+export default function OfferAcceptancePanel({ requestId, matches = [], onRefresh }) {
   const { user } = useAuth()
+  const { canChat } = useChat()
   const navigate = useNavigate()
-  const [busy, setBusy] = useState(false)
+  const [tab, setTab] = useState('offers')
+  const [filters, setFilters] = useState(emptyMatchFilters)
+  const [busy, setBusy] = useState(null)
+  const busyRef = useRef(false)
   const [error, setError] = useState('')
-  const { data, error: loadError, refetch } = useQuery({ queryKey: ['donation-offers', requestId, user?.id], queryFn: () => api.get(`/api/requests/${requestId}/offers`), refetchInterval: 5000, retry: false })
-  const accept = async offer => {
-    if (busy) return
-    setBusy(true); setError('')
-    try { const result = await api.post(`/api/donation-offers/${offer.match_id}/accept`, { expected_cycle: Number(offer.offer_cycle) }); navigate(`/chat?conversation=${result.conversation_id}&request=${requestId}`) }
-    catch (e) { setError(e.message); await refetch() } finally { setBusy(false) }
+  const [feedback, setFeedback] = useState('')
+  useEffect(() => { setTab('offers'); setFilters(emptyMatchFilters); setError(''); setFeedback('') }, [requestId])
+  const { data, error: loadError, isLoading, refetch } = useQuery({ queryKey: ['donation-offers', requestId, user?.id], queryFn: () => api.get(`/api/requests/${requestId}/offers`), refetchInterval: 5000, retry: false })
+  const groups = donorSections(matches, data?.offers || [])
+  const rows = filterMatches(groups[tab], filters)
+  const chapters = matchChapterOptions([...matches, ...groups.offers])
+  const chatLink = conversation => `/chat?conversation=${conversation}&request=${requestId}`
+  const selectTab = value => { setTab(value); setFilters(current => ({ ...current, status: 'all' })) }
+  const perform = async (row, action) => {
+    if (busyRef.current) return
+    busyRef.current = true; setBusy(row.match_id); setError(''); setFeedback('')
+    try {
+      if (action === 'accept') {
+        const result = await api.post(`/api/donation-offers/${row.match_id}/accept`, { expected_cycle: Number(row.offer_cycle) })
+        navigate(chatLink(result.conversation_id))
+      } else {
+        const result = await api.post('/api/chat/requests', { recipient_id: Number(row.profile_user_id) })
+        if (result.request?.status === 'accepted' && result.request.conversation_id) navigate(chatLink(result.request.conversation_id))
+        else setFeedback('Message request pending. The donor must accept before you can chat. This is not a donation offer.')
+      }
+    } catch (e) { setError(e.message) }
+    finally { await Promise.allSettled([refetch(), onRefresh?.()]); busyRef.current = false; setBusy(null) }
   }
-  return <section className={styles.card} aria-label="Donor offers"><h2>Donor offers</h2><p>Accept an offer to coordinate privately. Acceptance reserves no units and does not confirm donation.</p>
-    {(error || loadError) && <p role="alert">{error || loadError.message}</p>}
-    {data?.offers.length === 0 && <p>No donor offers yet.</p>}
-    {data?.offers.map(offer => <div className={styles.offer} key={offer.match_id}><strong>{offer.donor_name}</strong>{offer.conversation_id ? <Button size="sm" variant="secondary" to={`/chat?conversation=${offer.conversation_id}&request=${requestId}`}>Open request chat</Button> : <Button size="sm" disabled={busy || !data.can_accept || offer.status !== 'RESPONDED'} onClick={() => accept(offer)}>Accept &amp; chat</Button>}</div>)}
+  return <section className={styles.matchesSurface} aria-labelledby="donors-heading">
+    <div className={styles.sectionHeading}><h2 id="donors-heading">Donors</h2><p>Offers are from donors who volunteered. Suggestions are compatible donors who have not offered.</p></div>
+    <div className={styles.donorTabs} role="tablist" aria-label="Donor lists">
+      {['offers','suggestions'].map(value => <button key={value} id={`donor-tab-${value}`} type="button" role="tab" aria-selected={tab === value} aria-controls="donor-list-panel" tabIndex={tab === value ? 0 : -1}
+        onClick={() => selectTab(value)} onKeyDown={e => { if (['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) { e.preventDefault(); const next = e.key === 'Home' ? 'offers' : e.key === 'End' ? 'suggestions' : tab === 'offers' ? 'suggestions' : 'offers'; selectTab(next); document.getElementById(`donor-tab-${next}`)?.focus() } }}>
+        {value === 'offers' ? 'Donor offers' : 'Suggested donors'} <span>{groups[value].length}</span>
+      </button>)}
+    </div>
+    <div id="donor-list-panel" role="tabpanel" aria-labelledby={`donor-tab-${tab}`} tabIndex={0}>
+      <p className={styles.donorExplanation}>{tab === 'offers' ? 'Accept & chat accepts an actual offer and opens private coordination. Acceptance reserves no units and confirms no donation.' : 'Chapter and approximate distance determine matching order. Messaging requires the donor’s consent and does not create a donation offer.'}</p>
+      {(error || loadError) && <p role="alert">{error || loadError.message}</p>}
+      {feedback && <p role="status">{feedback}</p>}
+      <div className={styles.matchFilters} role="search" aria-label="Filter donors">
+        <div className={styles.filterField}><label htmlFor="donor-search">Search donors</label><input id="donor-search" type="search" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Search by donor name" /></div>
+        <div className={styles.filterField}><label htmlFor="donor-status">Response status</label><select id="donor-status" value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}><option value="all">All statuses</option>{tab === 'offers' ? <><option value="RESPONDED">Offered</option><option value="COMPLETED">Completed</option><option value="CLOSED">Inactive</option></> : <option value="awaiting">Not offered</option>}</select></div>
+        <div className={styles.filterField}><label htmlFor="donor-chapter">Chapter</label><select id="donor-chapter" value={filters.chapter} onChange={e => setFilters(f => ({ ...f, chapter: e.target.value }))}><option value="all">All chapters</option>{chapters.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}</select></div>
+        <Button variant="secondary" onClick={() => setFilters(emptyMatchFilters)}>Reset</Button>
+      </div>
+      <p className={styles.filterCount} role="status">Showing {rows.length} of {groups[tab].length} {tab === 'offers' ? 'donor offers' : 'suggested donors'}</p>
+      {isLoading && <p role="status">Loading donor offers…</p>}
+      {!isLoading && !rows.length && <div className={styles.emptyState}><h3>{groups[tab].length ? 'No donors match your filters' : tab === 'offers' ? 'No donor offers yet' : 'No suggested donors right now'}</h3><p>{groups[tab].length ? 'Adjust your search or reset the filters.' : tab === 'offers' ? 'Donors will appear here after selecting Offer to donate.' : 'Suggestions update when compatible donors are eligible and available.'}</p></div>}
+      <div className={styles.donorCards}>{rows.map(row => <article key={row.match_id} className={styles.donorCard}>
+        <div className={styles.donorIdentity}><h3>{row.display_name || row.donor_name}</h3><p>{row.chapter_name || 'Chapter not assigned'}</p></div>
+        <Badge variant={row.status === 'COMPLETED' ? 'success' : tab === 'offers' ? 'brand' : 'neutral'}>{row.status === 'COMPLETED' ? 'Completed' : tab === 'suggestions' ? 'Suggested' : row.context_id ? row.status === 'CLOSED' ? 'Accepted · inactive' : 'Accepted' : row.status === 'RESPONDED' ? 'Offered' : 'Inactive'}</Badge>
+        <div className={styles.donorMetrics}><span>Preference: {row.availability || 'Not provided'}</span><span>{row.approximate_distance_km != null ? `About ${row.approximate_distance_km} km` : 'Distance not available'}</span></div>
+        <div className={styles.donorCardActions}>
+          {row.profile_user_id && <Button to={`/profile/${row.profile_user_id}`} variant="secondary" size="sm">View profile</Button>}
+          {tab === 'offers' ? row.conversation_id ? <Button size="sm" variant="secondary" to={chatLink(row.conversation_id)}>Open chat</Button> : row.status === 'RESPONDED' ? <Button size="sm" disabled={!canChat || busy !== null || !data?.can_accept || !row.offer_cycle} onClick={() => perform(row,'accept')}>Accept &amp; chat</Button> : <span className={styles.donorExplanation}>No active offer to accept</span>
+            : row.chat?.conversation_id ? <Button size="sm" variant="secondary" to={chatLink(row.chat.conversation_id)}>Open chat</Button>
+              : row.chat?.status === 'pending' ? row.chat.incoming ? <Button size="sm" variant="secondary" to="/chat">Review message request</Button> : <Button size="sm" variant="secondary" disabled>Message request pending</Button>
+                : <><Button size="sm" variant="secondary" disabled={!canChat || busy !== null || !row.profile_user_id || !row.chat?.can_request} onClick={() => perform(row,'message')}>Request to message</Button>{['declined','cancelled'].includes(row.chat?.status) && <small>{row.chat.status === 'declined' ? 'Message request declined.' : 'Message request cancelled.'}{row.chat.retry_at ? ' Try again after the existing one-day waiting period.' : ''}</small>}</>}
+        </div>
+      </article>)}</div>
+    </div>
   </section>
 }

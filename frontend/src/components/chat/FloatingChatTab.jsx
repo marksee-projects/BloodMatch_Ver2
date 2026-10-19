@@ -39,13 +39,15 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
   const [loadError, setLoadError] = useState(null)
 
   const messagesEndRef = useRef(null)
+  const messageListRef = useRef(null)
   const lastIdRef = useRef(0)
   const pollInFlight = useRef(false)
   const readThroughRef = useRef(0)
   const inputRef = useRef(null)
 
   const scrollToBottom = useCallback((smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({ behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' })
+    const list = messageListRef.current
+    list?.scrollTo({ top: list.scrollHeight, behavior: smooth && !window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'smooth' : 'auto' })
   }, [])
 
   const markAsRead = useCallback(async () => {
@@ -317,7 +319,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
       {!isMinimized && (
         <div className={styles.bodyArea}>
           <DonationContextCard conversationId={conversationId} />
-          <div className={styles.messageList}>
+          <div className={styles.messageList} ref={messageListRef}>
             {loading ? (
               <div className={styles.emptyNotice}>Loading conversation…</div>
             ) : loadError ? (
@@ -356,10 +358,10 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
 
           {/* Suggested Chats (Quick Replies) for Matched Users */}
           {!loading && !messages.some(m => Number(m.sender_id) === Number(user?.id)) && suggestedChats && suggestedChats.length > 0 && (
-            <div className={styles.suggestedContainer} role="region" aria-label="Suggested messages">
-              <div className={styles.suggestedHeader}>
+            <details className={styles.suggestedContainer}>
+              <summary className={styles.suggestedHeader}>
                 <span>Suggested messages</span>
-              </div>
+              </summary>
               <div className={styles.suggestedList}>
                 {suggestedChats.map((text, idx) => (
                   <button
@@ -379,7 +381,7 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
                   </button>
                 ))}
               </div>
-            </div>
+            </details>
           )}
 
           <form className={styles.inputForm} onSubmit={handleSend}>

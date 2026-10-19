@@ -6,6 +6,10 @@ require dirname(__DIR__).'/backend/src/autoload.php';require dirname(__DIR__).'/
 use BloodMatch\Services\{OfferChatService as Offers,DonationCompletionService as Completion,DonationCorrectionService as Corrections,DonationProofService as Proof,ChatPolicy,ChatConsentService,AuthService};
 use BloodMatch\Repositories\{UserRepository,MatchRepository,DonationWorkflowRepository};
 $p=operationalTarget('test');Offers::requireReady();$repo=new UserRepository();$nonce=bin2hex(random_bytes(8));$checks=0;
+// Fail before fixtures rather than crashing inside chat policy's online-status lookup.
+if (!$p->query("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='user_presence'")->fetchColumn()) {
+    fwrite(STDERR,"Missing prerequisite: user_presence (028_user_presence.sql). Review database/review_test_presence_migration.php before retrying; migration 031 must not be rerun.\n");exit(1);
+}
 function ocDb(bool $ok,string $label):void {global $checks;if(!$ok)throw new RuntimeException('FAIL '.$label);$checks++;echo "PASS $label\n";}
 function ocFail(callable $fn,int $status,string $label):void {global $p;$p->exec('SAVEPOINT offer_expected_error');try{$fn();}catch(RuntimeException $e){$p->exec('ROLLBACK TO SAVEPOINT offer_expected_error');$p->exec('RELEASE SAVEPOINT offer_expected_error');ocDb((int)$e->getCode()===$status,$label);return;}throw new RuntimeException('FAIL '.$label);}
 function ocUser(string $tag):array {global $p,$repo,$nonce;$s=$p->prepare("INSERT INTO users(email,first_name,last_name,role,verification_status,account_status,date_of_birth,blood_type,blood_type_source,blood_type_verified,donor_enrolled_at,donor_availability,email_verified_at) VALUES(?,'Offer Test',?,'member','verified','active','1990-01-01','O+','self_reported',0,UTC_TIMESTAMP(),'available',UTC_TIMESTAMP())");$s->execute(["offer-$nonce-$tag@example.test",$tag]);return $repo->findById((int)$p->lastInsertId());}
@@ -15,6 +19,20 @@ $p->beginTransaction();
 try {
     $owner=ocUser('requester');$donor=ocUser('donor');$other=ocUser('other');$outsider=ocUser('outsider');$adminId=$p->query("SELECT id FROM users WHERE role='admin' AND email='markseejr@gmail.com' AND account_status='active'")->fetchColumn();if(!$adminId)throw new RuntimeException('Canonical test admin required.');$admin=$repo->findById((int)$adminId);
     $contexts=[];
+    // Suggested-donor messaging must not act as a donation offer, at any urgency.
+    foreach(['routine','urgent','emergency'] as $urgency) {
+        $suggestedRequest=ocRequest($owner,$urgency);
+        $p->prepare("INSERT INTO matches(request_id,donor_id,status,offer_cycle) VALUES(?,?,'NOTIFIED',0)")->execute([$suggestedRequest,$outsider['id']]);
+        $suggestedMatch=(int)$p->lastInsertId();
+        $messageRequest=ChatConsentService::request($owner,(int)$outsider['id']);
+        if($messageRequest['status']==='pending')ChatConsentService::decide($outsider,(int)$messageRequest['id'],'accept');
+        $safe=(new \BloodMatch\Services\MatchService())->privacySafeMatches($suggestedRequest,null,$owner);
+        ocDb($safe[0]['status']==='NOTIFIED'&&$safe[0]['chat']['conversation_id']!==null,"$urgency message acceptance grants chat only, not an offer");
+        $private=(new \BloodMatch\Services\MatchService())->privacySafeMatches($suggestedRequest,null,$admin);
+        ocDb($private[0]['chat']===null,"$urgency other viewer receives no owner's pair consent metadata");
+        $s=$p->prepare('SELECT COUNT(*) FROM donation_chat_contexts WHERE match_id=?');$s->execute([$suggestedMatch]);ocDb((int)$s->fetchColumn()===0,"$urgency messaging creates no accepted donation context");
+        $s=$p->prepare('SELECT COUNT(*) FROM donation_reports WHERE match_id=?');$s->execute([$suggestedMatch]);ocDb((int)$s->fetchColumn()===0&&!DonationWorkflowRepository::hasHold((int)$outsider['id'])&&MatchRepository::countCompleted($suggestedRequest)===0,"$urgency messaging creates no report, hold or donated units");
+    }
     $responseRequest=ocRequest($owner);$responseService=new \BloodMatch\Services\MatchResponseService();
     $offered=$responseService->respond($donor,$responseRequest,'offer_chat_test');
     ocDb($offered['chat_request']===null,'Actual donor offer does not send a second message request');

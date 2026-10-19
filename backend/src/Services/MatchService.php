@@ -292,11 +292,16 @@ final class MatchService
     {
         $sql = 'SELECT m.id AS match_id, m.donor_id, m.generation, m.status, m.distance_km, m.rank_score,
                     br.requester_id, br.status AS request_status, u.full_name, u.chapter_id, c.name AS chapter_name,
-                    u.verification_status, u.donor_availability
+                    u.verification_status, u.account_status, u.role AS donor_role, u.donor_availability,
+                    cr.status AS chat_status, cr.sender_id AS chat_sender_id, cr.created_at AS chat_created_at,
+                    cr.updated_at AS chat_updated_at, cr.conversation_id AS chat_conversation_id,
+                    EXISTS(SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id=cr.conversation_id AND cp.user_id=br.requester_id) AS chat_owner_participant,
+                    EXISTS(SELECT 1 FROM conversation_participants cp WHERE cp.conversation_id=cr.conversation_id AND cp.user_id=m.donor_id) AS chat_donor_participant
              FROM matches m
              JOIN blood_requests br ON br.id = m.request_id
              JOIN users u ON u.id = m.donor_id
              LEFT JOIN chapters c ON c.id = u.chapter_id
+             LEFT JOIN chat_requests cr ON cr.user_low=LEAST(br.requester_id,m.donor_id) AND cr.user_high=GREATEST(br.requester_id,m.donor_id)
              WHERE m.request_id = ? AND m.status <> ?';
         $params = [$requestId, 'CLOSED'];
         if ($onlyDonorId !== null) {
@@ -318,6 +323,15 @@ final class MatchService
                     && in_array((string) $row['status'], ['RESPONDED', 'COMPLETED'], true))
             );
 
+            $chat = null;
+            // Consent metadata is scoped to the actual request owner's own pair.
+            if ($viewer !== null && (int)$viewer['id'] === (int)$row['requester_id']) {
+                $peer=['id'=>$row['donor_id'],'role'=>$row['donor_role'],'account_status'=>$row['account_status'],'verification_status'=>$row['verification_status']];
+                $chat=ChatConsentService::pairPresentation($viewer,$peer,[
+                    'status'=>$row['chat_status'],'sender_id'=>$row['chat_sender_id'],'created_at'=>$row['chat_created_at'],
+                    'updated_at'=>$row['chat_updated_at'],'conversation_id'=>$row['chat_owner_participant'] && $row['chat_donor_participant'] ? $row['chat_conversation_id'] : null,
+                ]);
+            }
             return [
                 'match_id' => (int) $row['match_id'],
                 'donor_reference' => 'donor-' . (int) $row['donor_id'],
@@ -331,6 +345,7 @@ final class MatchService
                 'generation' => (int) $row['generation'],
                 'status' => (string) $row['status'],
                 'profile_user_id' => $canViewProfile ? (int) $row['donor_id'] : null,
+                'chat' => $chat,
             ];
         }, $stmt->fetchAll(PDO::FETCH_ASSOC));
     }

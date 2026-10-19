@@ -876,3 +876,8 @@ Phase 2 and 3A integration were reported passed by the user. Phase 3B1 rejection
 | tests/api_error_offline.mjs | 3 mocked API error checks | PASS 3 offline error checks | Yes |
 | docs/BLOODMATCH_FLOW_SAFETY_AUDIT.md | Current remediation/decision notice; original findings preserved | Remediation update | Yes |
 | docs/BLOODMATCH_SAFETY_FIX_PROGRESS.md | Phase plan, approvals, checks and pending queue/matrix proposals | BM-SAFETY-FIX-PROGRESS-2026-10-08 | Yes |
+# Requester donor offers/suggestions — 2026-10-19
+
+User authorized the counted two-tab donor section: Donor offers defaults to actual/accepted offers with Accept & chat/Open chat; Suggested donors retain existing ranked compatible matches and ordinary Request to message consent, with pending/declined/retry/Open chat states. Source implementation reuses existing offer acceptance and chat-request APIs; adds read-only owner-scoped pair-consent metadata, compact shared cards, filtering and live list refresh. Accepted inactive contexts remain in offers; donor rows move without appearing in both tabs. All urgencies use the same rules. No new migration, safety interval, notification channel, email or scheduler change.
+
+Lightweight checks passed: 11 grouping/filter/ranking cases, 10 consent-presentation cases, existing 19 offer/proof policy checks, changed PHP lint and frontend production build (existing bundle-size advisory). Actual SQL execution/browser layout remains user-run/unverified. Added 12 database assertions across Routine/Urgent/Emergency; rerun tests/offer_chat_db.php and tests/donation_completion_db.php per the handoff. No DB/PowerShell suite or migration was executed by the agent. Other notification/picker/action-copy/submission-feedback proposals remain pending.

@@ -16,7 +16,6 @@ import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { emptyMatchFilters, filterMatches, matchChapterOptions } from '../services/matchFilters'
 import styles from './MatchesPage.module.css'
 
 function formatDate(value) {
@@ -51,13 +50,13 @@ export default function MatchesPage() {
   const [occurredAt, setOccurredAt] = useState('')
   const [proofPhotos, setProofPhotos] = useState([])
   const [submittingReport, setSubmittingReport] = useState(false)
-  const [donorFilters, setDonorFilters] = useState(emptyMatchFilters)
 
   const { data: pageData, error: matchError, refetch: load } = useQuery({
     queryKey: ['request-matches', id, user?.id],
     staleTime: 0,
     queryFn: () => api.get(`/api/requests/${id}/matches`),
-    enabled: Boolean(id && user?.id)
+    enabled: Boolean(id && user?.id),
+    refetchInterval: query => query.state.data?.viewer_mode === 'requester' ? 5000 : false
   })
   const { data: myRequests = [], isLoading: requestsLoading, error: requestsError, refetch: reloadRequests } = useQuery({
     queryKey: ['my-requests', user?.id],
@@ -71,12 +70,9 @@ export default function MatchesPage() {
     setReportingMatchId(null)
     setOccurredAt('')
     setProofPhotos([])
-    setDonorFilters(emptyMatchFilters)
   }, [id])
 
   const matches = pageData?.matches || []
-  const visibleMatches = filterMatches(matches, donorFilters)
-  const chapterOptions = matchChapterOptions(matches)
   const request = pageData?.request
   const viewerMode = pageData?.viewer_mode
   const ownMatch = matches.find((match) => match.is_current_user)
@@ -268,73 +264,9 @@ export default function MatchesPage() {
           </div>
         </div>
         {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && <p className={styles.eligibilityNote}>{request.reason_text || eligibilityMessage(user)}{request.eligible_again_at && ` Eligible again: ${formatDate(request.eligible_again_at)}.`}</p>}
-        {isRequesterView && <OfferAcceptancePanel requestId={id} />}
       </section>
 
-      {isRequesterView && (
-        <section className={styles.matchesSurface} aria-labelledby="matches-heading">
-          <div className={styles.sectionHeading}><div><h2 id="matches-heading">Potential donors</h2><p>{matches.length} {matches.length === 1 ? 'donor match' : 'donor matches'}. Current offers and completed donations are shown alongside potential donors; chapter and approximate proximity determine matching order.</p></div></div>
-          <div className={styles.matchFilters} role="search" aria-label="Filter potential donors">
-            <div className={styles.filterField}>
-              <label htmlFor="matches-search">Search donors</label>
-              <input id="matches-search" type="search" placeholder="Search by donor name" value={donorFilters.search}
-                onChange={event => setDonorFilters(current => ({ ...current, search: event.target.value }))} />
-            </div>
-            <div className={styles.filterField}>
-              <label htmlFor="matches-status">Response status</label>
-              <select id="matches-status" value={donorFilters.status}
-                onChange={event => setDonorFilters(current => ({ ...current, status: event.target.value }))}>
-                <option value="all">All statuses</option>
-                <option value="RESPONDED">Responded</option>
-                <option value="awaiting">Awaiting response</option>
-                <option value="COMPLETED">Completed</option>
-              </select>
-            </div>
-            <div className={styles.filterField}>
-              <label htmlFor="matches-chapter">Chapter</label>
-              <select id="matches-chapter" value={donorFilters.chapter}
-                onChange={event => setDonorFilters(current => ({ ...current, chapter: event.target.value }))}>
-                <option value="all">All chapters</option>
-                {chapterOptions.map(chapter => <option key={chapter.value} value={chapter.value}>{chapter.label}</option>)}
-              </select>
-            </div>
-            <Button type="button" variant="secondary" onClick={() => setDonorFilters(emptyMatchFilters)}>Reset</Button>
-          </div>
-          <p className={styles.filterCount} role="status">Showing {visibleMatches.length} of {matches.length} donors</p>
-          {matches.length === 0 ? (
-            <div className={styles.emptyState}><h3>No donor matches yet</h3><p>This list updates when compatible members become eligible and available.</p></div>
-          ) : visibleMatches.length === 0 ? (
-            <div className={styles.emptyState}><h3>No donors match your filters</h3><p>Try another name, response status or chapter, or reset the filters.</p></div>
-          ) : (
-            <div className={styles.matchList}>
-              {visibleMatches.map((match, index) => (
-                <article key={match.match_id} className={styles.matchRow}>
-                  <div className={styles.rank}>{index + 1}</div>
-                  <div className={styles.donorIdentity}><h3>{match.display_name}</h3><p>{match.chapter_name || 'Chapter not assigned'}</p></div>
-                  <div className={styles.matchMetric}><span>Donor preference</span><strong>{match.availability || 'Not provided'}</strong></div>
-                  <div className={styles.matchMetric}><span>Distance</span><strong>{match.approximate_distance_km !== null ? `About ${match.approximate_distance_km} km` : 'Not available'}</strong></div>
-                  <Badge variant={match.status === 'COMPLETED' ? 'success' : match.status === 'RESPONDED' ? 'brand' : 'neutral'}>{match.status}</Badge>
-                  {match.profile_user_id && (
-                    <div style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
-                      <Button to={`/profile/${match.profile_user_id}`} variant="secondary" size="sm">View profile</Button>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => match.status === 'RESPONDED' ? document.querySelector('[aria-label="Donor offers"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : openChatWithUser(match.profile_user_id, { name: match.display_name })}
-                        disabled={!canChat}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                      >
-                        <ChatCircleDots size={16} weight="regular" /> {match.status === 'RESPONDED' ? 'Review offer' : 'Request message'}
-                      </Button>
-                    </div>
-                  )}
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      {isRequesterView && <OfferAcceptancePanel key={`${user?.id}:${id}`} requestId={id} matches={matches} onRefresh={load} />}
 
       {confirmation && (
         <div className={styles.modalBackdrop} role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !actionLoading) setConfirmation(null) }}>

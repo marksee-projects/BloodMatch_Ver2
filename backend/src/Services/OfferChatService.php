@@ -52,7 +52,7 @@ final class OfferChatService
         self::requireReady();$r=(new \BloodMatch\Repositories\BloodRequestRepository())->findById($requestId);
         if (!$r || (int)$r['requester_id']!==(int)$actor['id']) throw new RuntimeException('Request not found.',404);
         if (!ChatPolicy::isEligible($actor)) throw new RuntimeException('Active verified membership is required to review chat acceptance.',403);
-        $s=Database::pdo()->prepare("SELECT m.id AS match_id,m.offer_cycle,m.status,u.full_name AS donor_name,c.conversation_id,c.id AS context_id FROM matches m JOIN users u ON u.id=m.donor_id LEFT JOIN donation_chat_contexts c ON c.match_id=m.id AND c.offer_cycle=m.offer_cycle WHERE m.request_id=? AND (m.status IN ('RESPONDED','COMPLETED') OR c.id IS NOT NULL) ORDER BY m.id");$s->execute([$requestId]);
+        $s=Database::pdo()->prepare("SELECT m.id AS match_id,m.offer_cycle,m.status,u.full_name AS donor_name,CONCAT('donor-',m.donor_id) AS donor_reference,u.id AS profile_user_id,u.chapter_id,ch.name AS chapter_name,u.donor_availability AS availability,ROUND(m.distance_km,1) AS approximate_distance_km,c.conversation_id,c.id AS context_id FROM matches m JOIN users u ON u.id=m.donor_id LEFT JOIN chapters ch ON ch.id=u.chapter_id LEFT JOIN donation_chat_contexts c ON c.match_id=m.id AND c.offer_cycle=m.offer_cycle WHERE m.request_id=? AND (m.status IN ('RESPONDED','COMPLETED') OR c.id IS NOT NULL) ORDER BY m.id");$s->execute([$requestId]);
         return ['offers'=>$s->fetchAll(),'can_accept'=>$r['status']==='OPEN'&&!RequestService::hasDeadlinePassed($r)];
     }
     public static function ownOffer(array $actor,int $matchId): array {

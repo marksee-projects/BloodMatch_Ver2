@@ -23,6 +23,22 @@ final class ChatConsentService
         return $s->fetchColumn()!==false;
     }
 
+    /** Read-only presentation of existing pair consent; never grants new consent. */
+    public static function pairPresentation(array $actor, array $peer, array $row, ?int $now = null): array
+    {
+        $now ??= time();
+        if (!(new ChatPolicy())->canMessage($actor,$peer)) return ['status'=>'unavailable','can_request'=>false,'conversation_id'=>null];
+        $status=$row['status']??'none';
+        if (self::pendingExpired($row,$now)) $status='expired';
+        $conversation=$status==='accepted'&&!empty($row['conversation_id'])?(int)$row['conversation_id']:null;
+        if ($status==='accepted' && !$conversation) $status='unavailable';
+        $updated=strtotime(($row['updated_at']??'').' UTC');
+        $retry=$updated===false?null:$updated+86400;
+        return ['status'=>$status,'conversation_id'=>$conversation,'incoming'=>$status==='pending'&&(int)($row['sender_id']??0)!==(int)$actor['id'],
+            'can_request'=>in_array($status,['none','expired','declined','cancelled'],true)&&($status==='expired'||$status==='none'||($retry!==null&&$retry<=$now)),
+            'retry_at'=>in_array($status,['declined','cancelled'],true)&&$retry!==null&&$retry>$now?gmdate('Y-m-d H:i:s',$retry):null];
+    }
+
     public static function request(array $actor, int $recipientId): array
     {
         if ($recipientId<1 || $recipientId===(int)$actor['id']) throw new RuntimeException('Choose another verified member.',400);
