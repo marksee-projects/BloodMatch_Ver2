@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeft } from '@phosphor-icons/react'
-import ReportDisclosure from './ReportDisclosure'
 import { liveQueryOptions, invalidateDonationViews } from '../services/liveQueries'
 import { reportEventLabel, reportSnapshot, requesterResponseLabel } from '../services/reportPresentation'
 import { useLocation } from 'react-router-dom'
@@ -82,14 +81,13 @@ function ReportWorkspace({ admin = false, onChanged }) {
   return <section className={styles.inbox} aria-label={admin ? 'Donation review queue' : 'Donation reports'}>
     {!admin && <Button className={styles.back} variant="secondary" to={typeof route.state?.from === 'string' && /^\/(?!\/)/.test(route.state.from) && !route.state.from.startsWith('/donation-reports') ? route.state.from : '/'}><ArrowLeft size={18} aria-hidden="true" /> Back</Button>}
     <header className={styles.heading}>
-      <div className={styles.headingText}><Heading>Donation reports</Heading><p>{admin ? 'Review reports needing attention or find completed donations.' : 'Track your donation progress and history.'}</p></div>
-      <span className={styles.update}>{listQuery.isFetching && reports ? 'Updating...' : 'Updates automatically'}</span>
+      <div className={styles.headingText}><Heading>Donation reports</Heading></div>
     </header>
-    {admin && <><nav className={styles.filters} aria-label="Donation reports"><Button variant={scope === 'queue' ? 'primary' : 'secondary'} onClick={() => { setScope('queue'); setPage(1) }}>Needs attention</Button><Button variant={scope === 'history' ? 'primary' : 'secondary'} onClick={() => { setScope('history'); setPage(1) }}>Completed donations</Button></nav><p className={styles.update}>{scope === 'queue' ? 'Completed donations leave this queue unless a hold or correction still needs review.' : 'Completed donation records, including mutually acknowledged donations.'}</p></>}
+    {admin && <><nav className={styles.filters} aria-label="Donation reports"><Button variant={scope === 'queue' ? 'primary' : 'secondary'} onClick={() => { setScope('queue'); setPage(1) }}>Needs attention</Button><Button variant={scope === 'history' ? 'primary' : 'secondary'} onClick={() => { setScope('history'); setPage(1) }}>Completed donations</Button></nav></>}
     {admin && scope === 'history' && <form className={styles.search} onSubmit={e => { e.preventDefault(); setPage(1); setFilter(search.trim()) }}><label htmlFor="report-history-search">Find a completed donation</label><input id="report-history-search" value={search} maxLength={100} onChange={e => setSearch(e.target.value)} placeholder="Donor, requester, or facility" /><Button type="submit" variant="secondary">Search</Button></form>}
     {error && <div className="alert alert-error" role="alert"><p>{error}{reports && ' Showing the last loaded reports.'}</p><Button variant="secondary" onClick={() => listQuery.refetch()}>Retry</Button></div>}
     {listQuery.isPending && <p role="status">Loading reports...</p>}
-    {reports?.length === 0 && <div className={styles.empty}><h3>{admin && scope === 'queue' ? 'No reports need attention' : 'No donation reports found'}</h3><p>{admin ? 'Choose another view or search to find a donation report.' : 'Reports you submit or receive will appear here.'}</p></div>}
+    {reports?.length === 0 && <div className={styles.empty}><h3>{admin && scope === 'queue' ? 'No reports need attention' : 'No donation reports found'}</h3></div>}
     {ordered.map(report => {
       const donor = Number(report.donor_id) === Number(user.id)
       const requester = Number(report.requester_id) === Number(user.id)
@@ -98,31 +96,25 @@ function ReportWorkspace({ admin = false, onChanged }) {
       const hasHold = Number(report.has_report_hold) === 1
       const note = notes[report.id] || ''
       return <article className={`${styles.report} ${Number(report.id) === target ? styles.targeted : ''}`} key={report.id} id={`donation-report-${report.id}`}>
-        <header className={styles.reportHeader}><div><span className={styles.eyebrow}>Donation report</span><h3>{report.donor_name} <span className={styles.arrow} aria-label="to">→</span> {report.requester_name}</h3></div><strong className={`${styles.status} ${report.status === 'CONFIRMED' ? styles.completed : ''}`}>{donationStatus(report)}</strong></header>
+        <header className={styles.reportHeader}><div><span className={styles.eyebrow}>Donation report - {report.request_status.toLowerCase()} request</span><h3>{report.donor_name} <span className={styles.arrow} aria-label="to">→</span> {report.requester_name}</h3></div><strong className={`${styles.status} ${report.status === 'CONFIRMED' ? styles.completed : ''}`}>{donationStatus(report)}</strong></header>
         <dl className={styles.details}>
           <div><dt>Facility</dt><dd>{report.facility_name}</dd></div>
           <div><dt>Donation occurred</dt><dd>{when(report.occurred_at)}</dd></div>
           <div><dt>Report submitted</dt><dd>{when(report.reported_at)}</dd></div>
-        </dl>
-        <ReportDisclosure label="View supporting details" hideLabel="Hide supporting details">
-        <dl className={styles.details}>
+
           <div><dt>Requester response</dt><dd>{report.requester_response ? requesterResponseLabel(report.requester_response) : unresolved ? 'Awaiting response' : 'No acknowledgment recorded'}{report.acknowledged_at && ` · ${when(report.acknowledged_at)}`}</dd></div>
           <div><dt>Admin review</dt><dd>{report.reviewed_at ? when(report.reviewed_at) : 'Not reviewed'}</dd></div>
           <div><dt>Completion recorded</dt><dd>{report.confirmed_at ? when(report.confirmed_at) : 'Not completed'}</dd></div>
-          <div><dt>Request status</dt><dd className={styles.requestStatus}>{report.request_status.toLowerCase()}</dd></div>
 
         </dl>
         {(report.report_note || report.rejection_reason || report.review_evidence || report.hold_release_basis) && <div className={styles.privateNotes}>
-          <h4>Private supporting details</h4>
           {report.report_note && <p><strong>Donor reference</strong><span>{report.report_note}</span></p>}
           {report.rejection_reason && <p><strong>Rejection reason</strong><span>{report.rejection_reason}</span></p>}
           {report.review_evidence && <p><strong>Review basis</strong><span>{report.review_evidence}</span></p>}
           {report.hold_release_basis && <p><strong>Hold-release basis</strong><span>{report.hold_release_basis}</span></p>}
         </div>}
-        </ReportDisclosure>
-        {unresolved && <p className={styles.holdNote}><strong>Next step</strong><br />{report.workflow_state === 'clarification' ? 'An admin requested clarification. Review the supporting details and respond below.' : requester && !report.requester_response ? 'Review the donation date and confirm whether you received the donation.' : canReview ? 'Review the responses and supporting information. Record your basis before making a decision.' : 'Waiting for acknowledgment or admin review. The donor hold remains until the report is resolved.'}</p>}
-        {(unresolved || hasHold) && <p className={styles.holdNote}><strong>Open for {Math.max(0, Number(report.age_hours))} hours.</strong> {hasHold && 'A report-specific donor hold remains active.'}</p>}
-        {Number(report.pending_correction_count) > 0 && <p className={styles.holdNote}><strong>Completed-record correction awaiting staff</strong> · Requested {when(report.oldest_correction_at)}. Credit, fulfillment and restrictions remain unchanged.</p>}
+        {(unresolved || hasHold) && <p className={styles.holdNote}>{hasHold ? 'Donor hold active' : 'Pending'} · {Math.max(0, Number(report.age_hours))} hours</p>}
+        {Number(report.pending_correction_count) > 0 && <p className={styles.holdNote}>Correction awaiting review · {when(report.oldest_correction_at)}</p>}
         {(unresolved || (canReview && report.status === 'REJECTED')) && <div className={styles.responseField}><label htmlFor={`report-note-${report.id}`}>{canReview ? 'Decision basis or clarification (required)' : 'Private response or supporting reference (optional)'}</label><textarea id={`report-note-${report.id}`} maxLength={500} rows={3} value={note} onChange={e => setNotes(current => ({ ...current, [report.id]: e.target.value }))} /></div>}
         {requester && unresolved && !report.requester_response && report.workflow_state !== 'clarification' && <div className={styles.actions}>
           <Button disabled={busy} onClick={() => act(report, 'acknowledge', { response: 'received', note })}>Donation received</Button>
@@ -139,11 +131,15 @@ function ReportWorkspace({ admin = false, onChanged }) {
           {report.status === 'REJECTED' && hasHold && <><label className={styles.release}><input type="checkbox" checked={!!releaseChecks[report.id]} onChange={e => setReleaseChecks(current => ({ ...current, [report.id]: e.target.checked }))} />My documented basis establishes that no donation occurred.</label><Button variant="secondary" disabled={busy || !note.trim() || !releaseChecks[report.id]} onClick={() => act(report, 'release-hold', { basis: note, no_donation_occurred: true })}>Release only this report’s hold</Button></>}
         </div>}
         {admin && (donor || requester) && <p>You cannot administratively review your own donation or request.</p>}
-        <DonationProofPanel key={`${report.id}:${report.content_version}`} report={report} participant={donor || requester} canReview={canReview} onChanged={load} />
-        <footer className={styles.reportFooter}><span>Visible only to authorized participants and staff</span><Button variant="secondary" disabled={busy} aria-expanded={Boolean(events[report.id])} aria-controls={`report-history-${report.id}`} onClick={() => events[report.id] ? setEvents(current => { const next = { ...current }; delete next[report.id]; return next }) : history(report)}>{events[report.id] ? 'Hide report history' : 'View report history'}</Button></footer>
+        <DonationProofPanel key={`${report.id}:${report.content_version}`} report={report} participant={donor || requester} canReview={canReview} onChanged={load} historyAction={<Button variant="secondary" disabled={busy} aria-expanded={Boolean(events[report.id])} aria-controls={`report-history-${report.id}`} onClick={() => events[report.id] ? setEvents(current => { const next = { ...current }; delete next[report.id]; return next }) : history(report)}>{events[report.id] ? 'Hide history' : 'History'}</Button>} />
         {events[report.id] && <ol id={`report-history-${report.id}`} className={styles.history}>{events[report.id].map(event => {
           const snapshot = reportSnapshot(event.snapshot_json)
-          return <li key={event.id}><strong>{reportEventLabel(event.event_type)}</strong><p className={styles.update}>{when(event.created_at)} - {event.actor_name || (event.actor_reference ? 'Former member' : 'System')}</p>{event.basis && <p>{event.basis}</p>}<ReportDisclosure label="View event details" hideLabel="Hide event details"><dl className={styles.details}><div><dt>Donation date</dt><dd>{snapshot.occurred_at ? when(snapshot.occurred_at) : 'Not recorded'}</dd></div><div><dt>Supporting reference</dt><dd>{snapshot.report_note || 'None recorded'}</dd></div><div><dt>Requester response</dt><dd>{requesterResponseLabel(snapshot.requester_response)}</dd></div></dl></ReportDisclosure></li>
+          return <li key={event.id}>
+            <div className={styles.eventHeading}><strong>{reportEventLabel(event.event_type)}</strong><span>{when(event.created_at)}</span></div>
+            <p className={styles.update}>{event.actor_name || (event.actor_reference ? 'Former member' : 'System')}{event.event_type === 'requester_responded' && snapshot.requester_response ? ' - ' + requesterResponseLabel(snapshot.requester_response) : ''}</p>
+            {snapshot.report_note && <p>{snapshot.report_note}</p>}
+            {event.basis && <p>{event.basis}</p>}
+          </li>
         })}</ol>}
 
       </article>

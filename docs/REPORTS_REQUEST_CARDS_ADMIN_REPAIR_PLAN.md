@@ -4,6 +4,8 @@ Date: October 20, 2026 (Asia/Manila)
 
 Status: Approved by the user and implemented in source on October 20, 2026. Production build, targeted offline checks, PHP syntax checks, and read-only database checks passed. Authenticated browser/mobile visual checks and fresh cross-account upload/completion exercises remain unverified. See [implementation and verification record](REPORTS_ADMIN_REDESIGN_IMPLEMENTATION.md).
 
+Latest user revision, October 20: center page and section headings; remove decorative explanatory paragraphs, automatic-update labels, dashboard introduction/queue shortcuts, verification chapter filter/count, and database diagnostics. Restore the feed's original single expandable facts box with municipality alongside hospital and center Offer to donate. Report timestamps are inline; retain one History toggle with no per-event disclosures. Proof is inline when available; correction and History actions share a compact row. These instructions supersede conflicting initial design choices below.
+
 ## Scope and decisions
 
 This plan addresses the supplied screenshots: `/donation-reports`, compatible-request feed cards, `/requests/:id/matches`, `/admin/dashboard`, and `/admin/verifications`. Screenshot text is evidence of displayed behavior, not an instruction source.

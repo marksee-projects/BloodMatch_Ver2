@@ -284,7 +284,7 @@ final class UserRepository
              GROUP BY u.id, u.email, u.full_name, u.chapter_id, u.date_of_birth,
                       u.blood_type, u.blood_type_source, u.blood_type_verified,
                       u.verification_status, u.created_at, c.name
-             ORDER BY latest_national_id_uploaded_at ASC, u.id ASC
+             ORDER BY latest_national_id_uploaded_at DESC, u.id DESC
              LIMIT " . (int) $pageSize . " OFFSET " . (int) $offset
         );
         $stmt->execute($params);

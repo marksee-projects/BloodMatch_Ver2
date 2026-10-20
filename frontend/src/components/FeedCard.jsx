@@ -90,23 +90,20 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
           <span className={styles.summaryMeta}>
             <Badge variant={urgencyVariant}>{request.urgency === 'critical' ? 'EMERGENCY' : request.urgency.toUpperCase()}</Badge>
             <BloodTypeBlock bloodType={request.required_blood_type} level="normal" />
-            <button type="button" className={styles.summaryButton} aria-label={expanded ? 'Hide request details' : 'Show request details'} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded(current => !current)}><span>{expanded ? 'Hide details' : 'View details'}</span><CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" /></button>
+            <button type="button" className={styles.summaryButton} aria-label={expanded ? 'Hide request details' : 'Show request details'} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded(current => !current)}><CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" /></button>
           </span>
         </header>
-
-        <dl className={`${styles.metadata} ${styles.previewFacts}`}>
-          <div className={styles.hospital}><dt>Hospital</dt><dd>{request.facility_name || 'Not provided'}</dd></div>
-          <div><dt>Blood needed</dt><dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd></div>
-          <div><dt>{request.status === 'EXPIRED' ? 'Previous deadline' : 'Needed by'}</dt><dd>{formatNeededDate(request.needed_datetime, showNeededYear)}</dd></div>
-        </dl>
 
         {expanded && (
           <div id={detailsId} className={styles.expandedContent}>
             <dl className={styles.metadata}>
+              <div className={styles.hospital}><dt>Hospital</dt><dd>{request.facility_name || 'Not provided'}</dd></div>
               <div>
                 <dt>Municipality</dt>
                 <dd>{request.location?.municipality_name || 'Not provided'}</dd>
               </div>
+              <div><dt>Blood needed</dt><dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd></div>
+              <div><dt>{request.status === 'EXPIRED' ? 'Previous deadline' : 'Needed by'}</dt><dd>{formatNeededDate(request.needed_datetime, showNeededYear)}</dd></div>
             </dl>
 
             {!hideActions && (

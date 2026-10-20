@@ -14,7 +14,6 @@ export default function UsersView() {
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ q: '', role_group: 'member', verification_status: '', account_status: '', donor_window: '', chapter_id: '' })
   const [page, setPage] = useState(1)
-  const [source, setSource] = useState(null)
   const [total, setTotal] = useState(0)
   const [version, setVersion] = useState(0)
   const [error, setError] = useActionNoticeState(null, 'error')
@@ -36,7 +35,7 @@ export default function UsersView() {
     setError(null)
     const params = new URLSearchParams({ ...filters, page: String(page), page_size: '25' })
     api.get(`/api/admin/users?${params}`).then(data => {
-      if (active) { setRows(data.users || []); setTotal(data.total || 0); setSource(data.source) }
+      if (active) { setRows(data.users || []); setTotal(data.total || 0) }
     }).catch(err => { if (active) setError(err.message) })
     return () => { active = false }
   }, [filters, page, version, user?.id])
@@ -59,15 +58,14 @@ export default function UsersView() {
     <section className={`card ${styles.managementCard}`} aria-label="User accounts">
     <form className={styles.filters} onSubmit={event => event.preventDefault()}>
       <div className="field"><label htmlFor="admin-user-search">Name or email</label><input id="admin-user-search" type="search" value={search} onChange={event => setSearch(event.target.value)} /></div>
-      <div className="field"><label htmlFor="admin-user-group">Accounts</label><select id="admin-user-group" value={filters.role_group} onChange={choose('role_group')}><option value="member">Members</option><option value="staff">Administrator — Administrator</option></select></div>
+      <div className="field"><label htmlFor="admin-user-group">Accounts</label><select id="admin-user-group" value={filters.role_group} onChange={choose('role_group')}><option value="member">Members</option><option value="staff">Administrator</option></select></div>
       <div className="field"><label htmlFor="admin-user-verification">Verification status</label><select id="admin-user-verification" value={filters.verification_status} onChange={choose('verification_status')}><option value="">All verification statuses</option>{['pending','verified','rejected'].map(status => <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>)}</select></div>
       <div className="field"><label htmlFor="admin-user-status">Account status</label><select id="admin-user-status" value={filters.account_status} onChange={choose('account_status')}><option value="">All statuses</option><option value="active">Active</option><option value="deactivated">Deactivated</option></select></div>
       <div className="field"><label htmlFor="admin-donor-window">Donation status</label><select id="admin-donor-window" value={filters.donor_window} onChange={choose('donor_window')}><option value="">All donation statuses</option><option value="standby">Standby</option><option value="cooldown">Cooldown</option></select></div>
       <div className="field"><label htmlFor="admin-user-chapter">Chapter</label><select id="admin-user-chapter" value={filters.chapter_id} onChange={choose('chapter_id')}><option value="">All chapters</option>{chapters.map(chapter => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}</select></div>
     </form>
     {!rows ? <LoadingSpinner text="Loading users…" /> : <>
-      <p role="status">{total} accounts{source && <small> ? {source.database_name}:{source.port}</small>}</p>
-      {rows.length === 0 ? <p>No accounts match your filters.</p> : <div className="table-container"><table>
+      {rows.length === 0 ? <p>No accounts match your filters.</p> : <div className="table-container"><table className={styles.accountsTable}>
         <thead><tr><th>Name</th><th>Verification status</th><th>Access role</th><th>Chapter</th><th>Account status</th><th>Actions</th></tr></thead>
         <tbody>{rows.map(target => <tr key={target.id}>
         <td><strong>{target.full_name}</strong><div className={styles.email}>{target.email}</div></td>

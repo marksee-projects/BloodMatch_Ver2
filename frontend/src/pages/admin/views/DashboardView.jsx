@@ -20,7 +20,7 @@ export default function DashboardView() {
     ['Cancelled', overview.cancelled_requests, overview.cancellation_rate_percent],
   ]
   return <div className={'container ' + styles.page}>
-    <header className={styles.heading}><div><h1>System overview</h1><p>Requests, donors, and work awaiting review.</p></div><span className={styles.update} aria-live="polite">{query.isFetching ? 'Updating...' : 'Updates automatically'}</span></header>
+    <h1 className="sr-only">Dashboard</h1>
     {query.error && <div role="alert" className="alert alert-error">Updates unavailable. Showing the last loaded metrics. <Button variant="secondary" onClick={() => query.refetch()}>Retry</Button></div>}
     <section className={styles.metrics} aria-label="System totals">
       <Metric label="Total users" value={overview.total_users} detail={overview.total_members + ' members / ' + overview.total_staff + ' staff'} />
@@ -28,12 +28,11 @@ export default function DashboardView() {
       <Metric label="Open requests" value={overview.active_open_requests} detail={overview.open_units_needed + ' units needed'} />
       <Metric label="Fulfillment rate" value={overview.resolved_requests ? overview.fulfillment_rate_percent + '%' : '—'} detail={overview.resolved_requests ? overview.fulfilled_requests + ' of ' + overview.resolved_requests + ' resolved requests' : 'No resolved requests yet'} />
     </section>
-    <nav className={styles.queues} aria-label="Review queues"><Link to="/admin/verifications">Account verifications <strong>{overview.pending_verifications}</strong></Link><Link to="/admin/confirmations">Pending donation reports <strong>{overview.pending_donation_reports}</strong></Link></nav>
     <div className={styles.columns}>
-      <section className={styles.card}><h2>Request outcomes</h2><p className={styles.muted}>Percentages include fulfilled, expired, and cancelled requests.</p>{!overview.resolved_requests && <p>No resolved requests yet.</p>}<div className={styles.rates}>{rates.map(([label, count, rate]) => <div key={label}><div className={styles.rateLabel}><span>{label}</span><strong>{rate}% <span className={styles.muted}>({count})</span></strong></div><progress aria-label={label + ' requests'} max="100" value={rate} /></div>)}</div></section>
-      <section className={styles.card}><h2>Donor availability</h2><p className={styles.muted}>{pool.total_enrolled} active, membership-verified enrolled donors</p><dl className={styles.pool}>{['available', 'standby', 'cooldown', 'unavailable'].map(key => <div key={key}><dt>{key.charAt(0).toUpperCase() + key.slice(1)}</dt><dd>{pool[key]}</dd></div>)}</dl><p className={styles.muted}>Membership verification does not medically confirm blood type or donation eligibility.</p></section>
+      <section className={styles.card}><h2>Request outcomes</h2>{!overview.resolved_requests && <p>No resolved requests yet.</p>}<div className={styles.rates}>{rates.map(([label, count, rate]) => <div key={label}><div className={styles.rateLabel}><span>{label}</span><strong>{rate}% <span className={styles.muted}>({count})</span></strong></div><progress aria-label={label + ' requests'} max="100" value={rate} /></div>)}</div></section>
+      <section className={styles.card}><h2>Donor availability</h2><dl className={styles.pool}>{['available', 'standby', 'cooldown', 'unavailable'].map(key => <div key={key}><dt>{key.charAt(0).toUpperCase() + key.slice(1)}</dt><dd>{pool[key]}</dd></div>)}</dl></section>
     </div>
-    <section className={styles.card}><div className={styles.heading}><h2>Recent system activity</h2><Link to="/admin/audit-logs">View audit logs</Link></div>{!logs.length ? <p className={styles.muted}>No recent activity recorded.</p> : <div className="table-container"><table><thead><tr><th>Time (UTC)</th><th>Action</th><th>Actor</th><th>Record</th></tr></thead><tbody>{logs.map(log => <tr key={log.id}><td>{log.created_at}</td><td>{log.action}</td><td>{log.actor_name || 'System / former member'}</td><td>{log.target_type || '—'}</td></tr>)}</tbody></table></div>}</section>
+    <section className={styles.card}><div className={styles.activityHeader}><h2>Recent system activity</h2><Link to="/admin/audit-logs">View audit logs</Link></div>{!logs.length ? <p className={styles.muted}>No recent activity recorded.</p> : <div className="table-container"><table><thead><tr><th>Time (UTC)</th><th>Action</th><th>Actor</th><th>Record</th></tr></thead><tbody>{logs.map(log => <tr key={log.id}><td>{log.created_at}</td><td>{log.action}</td><td>{log.actor_name || 'System / former member'}</td><td>{log.target_type || '—'}</td></tr>)}</tbody></table></div>}</section>
   </div>
 }
 function Metric({ label, value, detail }) { return <div className={styles.card}><span className={styles.muted}>{label}</span><strong className={styles.value}>{value}</strong><span className={styles.muted}>{detail}</span></div> }

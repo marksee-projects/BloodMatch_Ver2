@@ -1,26 +1,24 @@
 .page { display: grid; gap: var(--space-6); padding-block: var(--space-6); }
-.heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
-.heading h1, .card h2 { margin: 0; }
-.heading h1 { font-size: var(--text-h1); }
-.heading p, .muted, .update { color: var(--color-text-secondary); font-size: var(--text-sm); line-height: 1.6; }
-.heading p { margin: var(--space-2) 0 0; }
 .metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: var(--space-4); }
 .card { min-width: 0; padding: var(--space-5); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-sm); }
 .metrics .card { display: grid; gap: var(--space-2); align-content: start; }
-.card h2 { font-size: var(--text-h2); }
+.card h2 { margin: 0; text-align: center; font-size: var(--text-h2); }
 .value { font-size: var(--text-hero); font-variant-numeric: tabular-nums; line-height: 1.2; }
-.columns { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-4); }
-.queues { display: flex; flex-wrap: wrap; gap: var(--space-4); }
-.queues a { display: flex; align-items: center; gap: var(--space-4); min-height: 44px; padding: var(--space-3) var(--space-4); border-radius: var(--radius-control); background: var(--color-surface); border: 1px solid var(--color-border-hairline); color: var(--color-text); text-decoration: none; }
+.columns { align-items: start; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-4); }
 .rates { display: grid; gap: var(--space-5); margin-top: var(--space-5); }
 .rateLabel { display: flex; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
 .rates progress { display: block; width: 100%; height: var(--space-2); border: 0; border-radius: var(--radius-pill); overflow: hidden; background: var(--color-surface-sunken); accent-color: var(--color-brand-navy); }
 .rates progress::-webkit-progress-bar { background: var(--color-surface-sunken); }
 .rates progress::-webkit-progress-value { background: var(--color-brand-navy); }
 .rates progress::-moz-progress-bar { background: var(--color-brand-navy); }
-.pool { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3); }
+.pool { margin: var(--space-5) 0 0; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: var(--space-3); }
 .pool div { padding: var(--space-4); background: var(--color-surface-sunken); border-radius: var(--radius-control); }
 .pool dt { font-size: var(--text-sm); color: var(--color-text-secondary); }
 .pool dd { margin: var(--space-2) 0 0; font-size: var(--text-h2); font-weight: 700; font-variant-numeric: tabular-nums; }
 @media(max-width:1000px) { .metrics { grid-template-columns: repeat(2,minmax(0,1fr)); } .columns { grid-template-columns: 1fr; } }
-@media(max-width:480px) { .metrics { grid-template-columns: 1fr; } .queues { flex-direction: column; } .card { padding: var(--space-4); } }
+@media(max-width:480px) { .metrics { grid-template-columns: 1fr; } .card { padding: var(--space-4); } }
+
+.activityHeader { position: relative; display: grid; justify-items: center; gap: var(--space-3); margin-bottom: var(--space-4); }
+.activityHeader a { justify-self: end; min-height: 44px; display: flex; align-items: center; }
+
+.muted { color: var(--color-text-secondary); font-size: var(--text-sm); line-height: 1.6; }

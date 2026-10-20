@@ -35,7 +35,6 @@ final class UserAdminController
             min(100, max(1, Request::int('page_size') ?? 25))
         );
 
-        $users['source']=\BloodMatch\Config\Database::pdo()->query('SELECT DATABASE() AS database_name,@@port AS port')->fetch();
         Response::success($users);
     }
 

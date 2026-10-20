@@ -83,6 +83,7 @@ try {
   index = 0
   let html = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Fixture, { Component: Users })))
   assert(html.includes('User management') && html.includes('Name or email'))
+  assert(!html.includes('bloodmatch:3306') && !html.includes('database_name'))
   const selfCard = html.slice(html.indexOf('Current admin'), html.indexOf('Other member'))
   assert.equal((selfCard.match(/disabled=""/g) || []).length, 2)
   assert(!html.includes('Change role') && html.includes('Change chapter') && html.includes('Deactivate') && html.includes('Previous') && html.includes('Next'))
@@ -97,6 +98,7 @@ try {
   assert(analytics.includes('/api/analytics/export?') && analytics.includes('Export aggregate CSV'))
   mode='verification'
   html=renderToStaticMarkup(React.createElement(MemoryRouter,{initialEntries:['/admin/verifications?user=89']},React.createElement(Fixture,{Component:Verifications})))
+  assert(!html.includes('Show requests from') && !html.includes('accounts awaiting review'))
   assert(html.includes('Parental consent') && html.includes('Blood donor card'))
   assert(html.includes('Inspect parental consent') && html.includes('Inspect donor card') && !html.includes('target="_blank"'))
   assert(html.includes('id="staff-accept-donor-card"') && !html.includes('id="staff-accept-donor-card" checked=""'))

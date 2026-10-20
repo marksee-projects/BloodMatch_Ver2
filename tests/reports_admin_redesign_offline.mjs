@@ -59,7 +59,8 @@ let html = renderToStaticMarkup(React.createElement(Dashboard))
 assert(html.includes('10%') && html.includes('80%') && html.includes('2 of 20 resolved requests'))
 assert(html.includes('12 units needed') && html.includes('Unavailable'))
 assert(!html.includes('0% Verified') && !html.includes('Verified Donors:'))
-assert(html.includes('/admin/verifications') && html.includes('/admin/confirmations'))
+assert(!html.includes('System overview') && !html.includes('Updates automatically') && !html.includes('/admin/verifications') && !html.includes('/admin/confirmations'))
+assert(!html.includes('Percentages include') && !html.includes('Membership verification does not'))
 
 const originalState = React.useState
 let active = false, index = 0, states = [], tree, current, props = {}
@@ -75,15 +76,20 @@ const render = () => renderToStaticMarkup(React.createElement(Render))
 const walk = (node, predicate) => Array.isArray(node) ? node.map(n => walk(n, predicate)).find(Boolean) : !node || typeof node !== 'object' ? null : predicate(node) ? node : walk(node.props?.children, predicate)
 const control = text => walk(tree, n => n.props?.children === text)
 try {
-  current = await component('src/components/ReportDisclosure.jsx')
-  props = { label: 'View event details', hideLabel: 'Hide event details', children: React.createElement('p', null, 'Private event evidence') }
-  html = render(); assert(html.includes('aria-expanded="false"') && !html.includes('Private event evidence'))
-  walk(tree, n => n.props?.['aria-expanded'] === false).props.onClick()
-  html = render(); assert(html.includes('aria-expanded="true"') && html.includes('Private event evidence') && html.includes('Hide event details'))
-
   current = await component('src/components/DonationReportInbox.jsx', 'ReportWorkspace'); props = { admin: true }; states = []
   html = render(); assert(html.includes('Needs attention') && html.includes('Completed donations'))
   assert(!html.includes('Donation report #') && !html.includes('Report version') && !html.includes('>Refresh<'))
+  assert(!html.includes('View supporting details') && !html.includes('View event details') && !html.includes('View proof and corrections'))
+  assert(html.includes('Requester response') && html.includes('Admin review') && html.includes('Completion recorded'))
+  states[7] = { 2: [
+    {id:1,event_type:'submitted',created_at:'2026-10-19 01:00:00',actor_name:'Synthetic donor',snapshot_json:'{}'},
+    {id:2,event_type:'requester_responded',created_at:'2026-10-19 02:00:00',actor_name:'Synthetic requester',snapshot_json:'{"requester_response":"received"}'},
+    {id:3,event_type:'mutually_acknowledged',created_at:'2026-10-19 02:00:00',actor_name:'Synthetic requester',snapshot_json:'{}'},
+  ] }
+  html = render()
+  assert(html.includes('Report submitted') && html.includes('Requester responded') && html.includes('Donation mutually acknowledged'))
+  assert(html.includes('Donation received') && !html.includes('View event details'))
+  assert(!html.includes('Updates automatically') && !html.includes('Track your donation'))
   control('Completed donations').props.onClick()
   html = render(); assert(html.includes('Find a completed donation') && html.includes('Page 1 of 2'))
   assert.equal(fixture.queryKeys.at(-1)[3], 'history')
@@ -94,9 +100,8 @@ try {
   html = render(); assert(html.includes('href="/"') && html.includes('Back') && !html.includes('Needs attention'))
 
   current = await component('src/components/DonationProofPanel.jsx'); props = { report: fixture.reports[0], participant: true, canReview: false }; states = []
-  render(); walk(tree, n => n.props?.['aria-expanded'] === false).props.onClick(); await new Promise(resolve => setImmediate(resolve))
-  html = render(); assert(html.includes('Private supporting photos') && html.includes('Request correction') && !html.includes('<textarea'))
+  html = render(); assert(html.includes('Request correction') && !html.includes('<textarea') && !html.includes('View proof and corrections'))
   control('Request correction').props.onClick(); html = render()
   assert(html.includes('<textarea') && html.includes('Submit correction request') && html.includes('does not automatically reverse'))
 } finally { React.useState = originalState }
-console.log('PASS dashboard contract/rendering, report scopes/pagination, ID presentation, disclosure, correction-form and notification-link checks; synthetic transport only.')
+console.log('PASS dashboard contract/rendering, report scopes/pagination, ID presentation, inline history, correction-form and notification-link checks; synthetic transport only.')

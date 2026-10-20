@@ -33,8 +33,6 @@ export default function VerificationsView() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { user } = useAuth()
   const client = useQueryClient()
-  const [chapters, setChapters] = useState([])
-  const [chapterId, setChapterId] = useState('')
   const [page, setPage] = useState(1)
   const [decision, setDecision] = useState('verified')
   const [acceptDonorCard, setAcceptDonorCard] = useState(false)
@@ -50,9 +48,8 @@ export default function VerificationsView() {
     if (decision === 'rejected') rejectionReasonRef.current?.focus()
   }, [decision])
 
-  const queueQuery = useQuery({ ...liveQueryOptions, queryKey: ['admin-verifications', user?.id, chapterId, page], enabled: user?.role === 'admin', queryFn: () => {
+  const queueQuery = useQuery({ ...liveQueryOptions, queryKey: ['admin-verifications', user?.id, page], enabled: user?.role === 'admin', queryFn: () => {
     const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) })
-    if (chapterId) params.set('chapter_id', chapterId)
     return api.get('/api/admin/verifications?' + params)
   } })
   const queue = queueQuery.data
@@ -63,12 +60,6 @@ export default function VerificationsView() {
   const detail = requestedUserId ? detailQuery.data?.verification : null
   const loadingDetail = /^\d+$/.test(requestedUserId || '') && detailQuery.isPending
   useEffect(() => { if (queue && page > Math.max(1, Math.ceil(queue.total / PAGE_SIZE))) setPage(Math.max(1, Math.ceil(queue.total / PAGE_SIZE))) }, [queue, page])
-
-  useEffect(() => {
-    api.get('/api/chapters')
-      .then((data) => setChapters(data?.chapters || []))
-      .catch(() => setChapters([]))
-  }, [])
 
   useEffect(() => {
     setPreviewDocument(null); setDecision('verified'); setAcceptDonorCard(false); setReason(''); setError(null)
@@ -155,28 +146,7 @@ export default function VerificationsView() {
 
           {error && <div className="alert alert-error" role="alert">{error}</div>}
 
-          <div className={styles.queueToolbar}>
-            <div>
-              <h2 id="verification-queue-heading">Pending National ID reviews</h2>
-              <p>{queue?.total ?? '\u2014'} account{queue?.total === 1 ? '' : 's'} awaiting review</p>
-            </div>
-            <div className={`field ${styles.chapterFilter}`}>
-              <label htmlFor="verification-chapter">Show requests from</label>
-              <select
-                id="verification-chapter"
-                value={chapterId}
-                onChange={(event) => {
-                  setChapterId(event.target.value)
-                  setPage(1)
-                }}
-              >
-                <option value="">All chapters</option>
-                {chapters.map((chapter) => (
-                  <option key={chapter.id} value={chapter.id}>{chapter.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          <header className={styles.queueToolbar}><h2 id="verification-queue-heading">Pending National ID reviews</h2></header>
 
           {loading ? (
             <div className={styles.loadingState}>
@@ -186,7 +156,7 @@ export default function VerificationsView() {
             <div className="empty-state">
               <ShieldCheck size={32} aria-hidden="true" />
               <h3>No pending National IDs</h3>
-              <p>{chapterId ? 'No members in this chapter are waiting for verification.' : 'No members are waiting for verification.'}</p>
+
             </div>
           ) : (
             <div className="table-container">

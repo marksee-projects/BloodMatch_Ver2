@@ -2,6 +2,18 @@
 
 October 20, 2026 — approved plan implemented in source.
 
+## Latest cleanup revision
+
+The user's screenshot feedback supersedes the initial rollout choices listed below. Headings are centered; dashboard introduction, explanatory paragraphs, queue shortcuts, update labels, verification chapter filter/count, and User Management database diagnostics are removed. Dashboard outcome/availability cards size to their contents rather than stretching equally. User Management filters use three columns at wide widths, two at medium widths, and one at narrow widths; the account table scrolls when needed.
+
+Feed cards again use one expandable box containing hospital, municipality, units, and deadline. Offer to donate is centered. Donation report dates and review/completion facts are visible inline. History has one toggle; submission, requester response, and acknowledgment show their timestamps directly without per-event buttons. The proof/correction disclosure and generic ReportDisclosure component are removed. Available photos are inline; Request correction and History share a compact action row. The chat link is labelled Open report.
+
+A fresh read-only investigation at approximately 7:03 PM Philippine time found the latest National ID upload at October 19, 9:56:24 PM and its recorded approval at 9:56:45 PM by the admin account. No later stored upload or pending account without an ID was found in `bloodmatch:3306`. Both remaining pending rows are older resubmissions from October 6. The pending queue now sorts newest first. No account status or document was changed.
+
+The User Management diagnostic came from `UserAdminController::index()` adding database/port metadata and `UsersView` rendering it after the account count. Both the API diagnostic field and its presentation were removed. Counts remain available internally for pagination.
+
+Cleanup regression checks passed for report metadata/history/actions, absence of unwanted dashboard copy, compact feed expansion, verification/management controls, and donation/offer safeguards. Changed PHP files pass syntax checks, and a read-only repository check confirms newest-first queue ordering. Browser inventory is still empty; screenshots/mobile geometry remain unverified. The earlier file table describes the initial rollout; `ReportDisclosure.jsx` is now removed, and the additional changed files are `UserAdminController.php`, `UsersView.jsx`, `UsersView.module.css`, and `VerificationsView.module.css`.
+
 ## Result
 
 - Donation reports have a left-aligned heading, safe in-app Back link, automatic refresh, compact primary facts, a next-step explanation for unresolved reports, and button disclosures for secondary evidence/history. The normal Refresh button is removed; Retry remains available for failed reads.

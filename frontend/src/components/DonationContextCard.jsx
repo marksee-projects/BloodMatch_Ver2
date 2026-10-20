@@ -87,13 +87,12 @@ function ContextWorkspace({ conversationId }) {
     <Button type="button" variant="secondary" aria-expanded={detailsOpen} aria-controls={id + '-details'} onClick={() => setDetailsOpen(!detailsOpen)}>{detailsOpen ? 'Hide donation details' : 'View donation details'}</Button>
     {detailsOpen && <div id={id + '-details'} className={styles.body}>
       <p>{context.quantity_units} unit(s) requested · {context.request_status.toLowerCase()}</p>
-      {report && !context.report_in_context && <p>This donation report belongs to another offer cycle for this request. Open the canonical report below; actions here will not change that report.</p>}
-      {report && !report.offer_context_id && <p>This report was submitted outside a recorded accepted-chat context. It remains linked to this request and donor match.</p>}
+      {report && !context.report_in_context && <p>Previous offer - open the report to manage this donation.</p>}
       <div className={styles.actions}>
         {(!report || (report.status === 'PENDING' && context.report_in_context)) && <Button variant="secondary" disabled={busy} onClick={() => signal('did_not_happen')}>Donation didn’t happen</Button>}
         <Button variant="secondary" disabled={busy || !context.active} onClick={() => signal('still_arranging')}>Still arranging</Button>
       </div>
-      {report && <div className={styles.actions}><Button variant="secondary" to={`/donation-reports?report=${report.id}`} state={{ from: route.pathname + route.search }} onClick={() => setModalOpen(false)}>{report.status === 'CONFIRMED' ? 'View report or request correction' : 'View report, proof and history'}</Button></div>}
+      {report && <div className={styles.actions}><Button variant="secondary" to={`/donation-reports?report=${report.id}`} state={{ from: route.pathname + route.search }} onClick={() => setModalOpen(false)}>Open report</Button></div>}
     </div>}
     </div>
     </ConfirmationDialog>

@@ -30,3 +30,6 @@
 .proofContent button { justify-self: start; }
 .proofContent textarea:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 @media(max-width:480px) { .reminder { align-items: stretch; flex-direction: column; } .proofContent { padding: var(--space-4); } }
+
+.reportActions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--color-border-hairline); }
+@media(max-width:480px) { .reportActions > button { flex: 1; } }
