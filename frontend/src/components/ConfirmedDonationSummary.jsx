@@ -1,3 +1,6 @@
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../context/AuthContext'
+import { liveQueryOptions } from '../services/liveQueries'
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { api } from '../services/apiClient'
@@ -13,19 +16,13 @@ export default function ConfirmedDonationSummary({ version = 0 }) {
   const [to, setTo] = useState(() => new Date().toISOString().slice(0,10))
   const [chapter, setChapter] = useState('')
   const [chapters, setChapters] = useState([])
-  const [data, setData] = useState(null)
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const { user } = useAuth()
   const params = new URLSearchParams({date_from:from,date_to:to,...(chapter ? {chapter_id:chapter} : {})}).toString()
   useEffect(() => { let active=true; api.get('/api/chapters').then(result => {if(active) setChapters(result.chapters || [])}).catch(()=>{}); return ()=>{active=false} }, [])
-  useEffect(() => {
-    let active=true; setLoading(true); setError(null); setData(null)
-    if (!from || !to || from > to) { setLoading(false); setError('Choose a valid confirmation date range.'); return () => {active=false} }
-    api.get(`/api/analytics/confirmations?${params}`).then(result=>{if(active) setData(result)})
-      .catch(err=>{if(active) setError(err.message || 'Could not load confirmed-donation summary.')})
-      .finally(()=>{if(active) setLoading(false)})
-    return ()=>{active=false}
-  }, [params,version])
+  const query = useQuery({ ...liveQueryOptions, queryKey: ['confirmed-donation-summary', user?.id, params, version], enabled: Boolean(user?.id && from && to && from <= to), queryFn: () => api.get('/api/analytics/confirmations?' + params) })
+  const data = query.data
+  const error = !from || !to || from > to ? 'Choose a valid confirmation date range.' : query.error?.message
+  const loading = query.isPending && !error
   const ready = !loading && !error && data && data.date_from === from && data.date_to === to && String(data.chapter_id ?? '') === chapter
   const scopeLabel = data?.chapter_id == null ? 'All chapters' : chapters.find(row=>String(row.id)===String(data.chapter_id))?.name || `Chapter ${data.chapter_id}`
   const dailyTable = ready && (data.daily_confirmations.length === 0 ? <p className={styles.empty}>No confirmed donation reports in this period.</p> : <div className={`table-container ${styles.table}`}><table><thead><tr><th>Confirmation date (UTC)</th><th>Confirmed reports</th></tr></thead><tbody>{data.daily_confirmations.map(row=><tr key={row.confirmation_date_utc}><td><time dateTime={row.confirmation_date_utc}>{formatDate(row.confirmation_date_utc)}</time></td><td>{row.confirmed_reports}</td></tr>)}</tbody></table></div>)
@@ -48,7 +45,7 @@ export default function ConfirmedDonationSummary({ version = 0 }) {
         </div>
       </div>
       {loading && <p role="status">Loading confirmed-donation summary…</p>}
-      {error && <p className="alert alert-error" role="alert">{error}</p>}
+      {error && <div className="alert alert-error" role="alert">{error} <button className="btn btn-secondary" onClick={() => query.refetch()}>Retry</button></div>}
       {dailyTable}
     </section>
     {typeof document === 'undefined' ? printReport : printReport && createPortal(printReport,document.body)}

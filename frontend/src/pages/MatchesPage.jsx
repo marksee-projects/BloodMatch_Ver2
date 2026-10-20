@@ -39,7 +39,7 @@ export default function MatchesPage() {
   const location = useLocation()
   const openCreateRequest = useRequestCreation()
   const { user, refresh } = useAuth()
-  const { openChatWithUser, canChat } = useChat()
+  const { openChatWithUser, canChat, openTabs } = useChat()
   const [verifyDialogOpen, setVerifyDialogOpen] = useState(false)
   const [errorAlert, setErrorAlert] = useActionNoticeState(null, 'error')
   const [message, setMessage] = useActionNoticeState(null, 'success')
@@ -178,7 +178,7 @@ export default function MatchesPage() {
   const urgencyVariant = request.urgency === 'emergency' ? 'emergency' : request.urgency === 'urgent' ? 'urgent' : 'neutral'
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} data-request-workspace="true" data-chat-count={openTabs.length}>
       {isRequesterView ? (
         <header className={styles.matchesHeader}>
           <h1 className={styles.matchesTitle}>Matches</h1>
@@ -249,7 +249,7 @@ export default function MatchesPage() {
                   disabled={!canChat || request.requester_verification_status !== 'verified'}
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  <ChatCircleDots size={16} weight="regular" /> {hasActiveResponse ? 'View offer and chat status' : 'Request message'}
+                  <ChatCircleDots size={16} weight="regular" /> {hasActiveResponse ? 'View offer status' : 'Request message'}
                 </Button>
               </>
             )}

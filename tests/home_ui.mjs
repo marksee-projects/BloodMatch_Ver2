@@ -90,14 +90,15 @@ console.error = (message, ...args) => {
 try {
   const collapsed = renderCard(request)
   for (const text of ['Rafael Garcia', 'Verified member', 'Mt. Samat Chapter member', 'Posted 2 hours ago', 'EMERGENCY', 'AB+']) assert(collapsed.includes(text), text)
-  assert(!collapsed.includes('Mariveles'), 'Hospital and municipality are absent from the collapsed header')
+  assert(collapsed.includes(request.facility_name) && collapsed.includes('Blood needed') && collapsed.includes('Needed by'), 'Essential donation facts remain visible when collapsed')
+  assert(!collapsed.includes('<dt>Municipality</dt>') && !collapsed.includes('Request message'), 'Secondary location remains in details and unwanted messaging is absent')
   const summary = findElement(cardTree, element => element.type === 'button' && element.props['aria-controls'])
   summary.props.onClick()
   assert(expanded, 'Actual disclosure callback expands the card')
   const details = renderCard(request)
   assert(details.includes('class="hospital"') && details.includes('class="metadata"'), 'Hospital and grouped facts are rendered')
-  const facts = details.match(/<dl class="metadata">([\s\S]*?)<\/dl>/)[1]
-  assert.deepEqual([...facts.matchAll(/<dt>(.*?)<\/dt>/g)].map(match => match[1]), ['Hospital', 'Municipality', 'Blood needed', 'Needed by'], 'All four facts are inside the same gray details box')
+  const facts = [...details.matchAll(/<dl class="metadata[^\"]*">([\s\S]*?)<\/dl>/g)].map(match => match[1]).join('')
+  assert.deepEqual([...facts.matchAll(/<dt>(.*?)<\/dt>/g)].map(match => match[1]), ['Hospital', 'Blood needed', 'Needed by', 'Municipality'], 'Essential facts and secondary details are grouped without duplication')
   assert.equal(details.split(request.facility_name).length - 1, 1, 'Long hospital name occurs once')
   assert(details.match(/<button(?![^>]*disabled)[^>]*>Offer to donate<\/button>/), 'Eligible Offer to donate is enabled')
   assert(!details.includes('>View request</a>'), 'Expanded Home card omits the redundant View request action')

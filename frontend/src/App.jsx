@@ -162,9 +162,18 @@ function AppShell() {
           seen.add(notice.id)
           if (notice.related_type === 'blood_request') {
             for (const key of [['my-requests',user.id],['my-responses',user.id],['request-matches'],['home-feed'],['donation-offers']]) queryClient.invalidateQueries({ queryKey: key })
+            queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
           }
           if (notice.related_type === 'donation_report') {
             queryClient.invalidateQueries({ queryKey: ['donation-chat-contexts'] })
+            queryClient.invalidateQueries({ queryKey: ['donation-reports'] })
+            queryClient.invalidateQueries({ queryKey: ['confirmed-donation-summary'] })
+            queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
+          }
+          if (notice.related_type === 'verification' || notice.type === 'verification.requested') {
+            queryClient.invalidateQueries({ queryKey: ['admin-verifications'] })
+            queryClient.invalidateQueries({ queryKey: ['admin-verification-detail'] })
+            queryClient.invalidateQueries({ queryKey: ['admin-dashboard'] })
           }
           if (initial) continue
           const kind = liveNotificationKind(notice, { baseline, now, viewing: inCurrentView(notice) })

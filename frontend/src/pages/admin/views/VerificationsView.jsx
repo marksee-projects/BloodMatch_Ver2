@@ -1,5 +1,8 @@
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../../../context/AuthContext'
+import { liveQueryOptions } from '../../../services/liveQueries'
 import { useActionNoticeState } from '../../../context/NotificationContext'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeft, ArrowRight, CheckCircle, FileText, ShieldCheck } from '@phosphor-icons/react'
 import { useSearchParams } from 'react-router-dom'
 import { api } from '../../../services/apiClient'
@@ -28,10 +31,9 @@ function formatMimeType(value) {
 
 export default function VerificationsView() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [queue, setQueue] = useState(null)
+  const { user } = useAuth()
+  const client = useQueryClient()
   const [chapters, setChapters] = useState([])
-  const [detail, setDetail] = useState(null)
-  const [loadingDetail, setLoadingDetail] = useState(false)
   const [chapterId, setChapterId] = useState('')
   const [page, setPage] = useState(1)
   const [decision, setDecision] = useState('verified')
@@ -39,7 +41,6 @@ export default function VerificationsView() {
   const [reason, setReason] = useState('')
   const [message, setMessage] = useActionNoticeState(null, 'success')
   const [error, setError] = useActionNoticeState(null, 'error')
-  const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [previewDocument, setPreviewDocument] = useState(null)
   const submittingRef = useRef(false)
@@ -49,23 +50,19 @@ export default function VerificationsView() {
     if (decision === 'rejected') rejectionReasonRef.current?.focus()
   }, [decision])
 
-  const loadQueue = useCallback(async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) })
-      if (chapterId) params.set('chapter_id', chapterId)
-      setQueue(await api.get(`/api/admin/verifications?${params.toString()}`))
-    } catch (err) {
-      setError(err.message || 'Could not load account verification requests.')
-    } finally {
-      setLoading(false)
-    }
-  }, [chapterId, page])
-
-  useEffect(() => {
-    loadQueue()
-  }, [loadQueue])
+  const queueQuery = useQuery({ ...liveQueryOptions, queryKey: ['admin-verifications', user?.id, chapterId, page], enabled: user?.role === 'admin', queryFn: () => {
+    const params = new URLSearchParams({ page: String(page), page_size: String(PAGE_SIZE) })
+    if (chapterId) params.set('chapter_id', chapterId)
+    return api.get('/api/admin/verifications?' + params)
+  } })
+  const queue = queueQuery.data
+  const loading = queueQuery.isPending
+  const loadQueue = () => client.invalidateQueries({ queryKey: ['admin-verifications', user?.id] })
+  const requestedUserId = searchParams.get('user')
+  const detailQuery = useQuery({ ...liveQueryOptions, queryKey: ['admin-verification-detail', user?.id, requestedUserId], enabled: user?.role === 'admin' && /^\d+$/.test(requestedUserId || ''), queryFn: () => api.get('/api/admin/verifications/' + requestedUserId) })
+  const detail = requestedUserId ? detailQuery.data?.verification : null
+  const loadingDetail = /^\d+$/.test(requestedUserId || '') && detailQuery.isPending
+  useEffect(() => { if (queue && page > Math.max(1, Math.ceil(queue.total / PAGE_SIZE))) setPage(Math.max(1, Math.ceil(queue.total / PAGE_SIZE))) }, [queue, page])
 
   useEffect(() => {
     api.get('/api/chapters')
@@ -73,37 +70,9 @@ export default function VerificationsView() {
       .catch(() => setChapters([]))
   }, [])
 
-  const openDetail = useCallback(async (userId) => {
-    setLoadingDetail(true)
-    setError(null)
-    setMessage(null)
-    try {
-      const data = await api.get(`/api/admin/verifications/${userId}`)
-      setDetail(data.verification)
-      setDecision('verified')
-      setAcceptDonorCard(false)
-      setReason('')
-    } catch (err) {
-      setDetail(null)
-      setError(err.message || 'Could not load this verification request.')
-      setSearchParams({}, { replace: true })
-    } finally {
-      setLoadingDetail(false)
-    }
-  }, [setSearchParams])
-
-  const requestedUserId = searchParams.get('user')
-  useEffect(() => { setPreviewDocument(null) }, [requestedUserId])
   useEffect(() => {
-    if (!requestedUserId) {
-      setDetail(null)
-      return
-    }
-
-    if (String(detail?.user?.id || '') !== requestedUserId && !loadingDetail) {
-      openDetail(requestedUserId)
-    }
-  }, [requestedUserId, detail?.user?.id, loadingDetail, openDetail])
+    setPreviewDocument(null); setDecision('verified'); setAcceptDonorCard(false); setReason(''); setError(null)
+  }, [requestedUserId])
 
   const showDetail = (userId) => {
     setMessage(null)
@@ -147,8 +116,11 @@ export default function VerificationsView() {
       setAcceptDonorCard(false)
       setSearchParams({}, { replace: true })
       await loadQueue()
+      client.invalidateQueries({ queryKey: ['admin-dashboard'] })
+      client.invalidateQueries({ queryKey: ['admin-verification-detail'] })
     } catch (err) {
       setError(err.message || 'Could not save the verification decision.')
+      detailQuery.refetch()
     } finally {
       submittingRef.current = false
       setSubmitting(false)
@@ -167,7 +139,7 @@ export default function VerificationsView() {
   const canAcceptDonorCard = Boolean(detail?.user?.blood_type) && supplementalDocuments.some(document => document.doc_type === 'donor_card')
   const decisionDisabled = submitting || loadingDetail || detail?.user?.verification_status !== 'pending'
 
-  if (loadingDetail && !detail) {
+  if (loadingDetail && !detail && !detailQuery.error) {
     return (
       <div className={`card text-center ${styles.loadingCard}`}>
         <LoadingSpinner text="Loading verification request…" />
@@ -177,6 +149,7 @@ export default function VerificationsView() {
 
   return (
     <div className={`container ${styles.page}`}>
+      {(queueQuery.error || detailQuery.error) && <div className="alert alert-error" role="alert"><p>{(detailQuery.error || queueQuery.error).message}</p><button type="button" className="btn btn-secondary" onClick={() => { queueQuery.refetch(); if (requestedUserId) detailQuery.refetch() }}>Retry</button></div>}
       {!detail ? (
         <section className={`card ${styles.queueCard}`} aria-labelledby="verification-queue-heading">
 
@@ -185,7 +158,7 @@ export default function VerificationsView() {
           <div className={styles.queueToolbar}>
             <div>
               <h2 id="verification-queue-heading">Pending National ID reviews</h2>
-              <p>{queue?.total || 0} account{queue?.total === 1 ? '' : 's'} awaiting review</p>
+              <p>{queue?.total ?? '\u2014'} account{queue?.total === 1 ? '' : 's'} awaiting review</p>
             </div>
             <div className={`field ${styles.chapterFilter}`}>
               <label htmlFor="verification-chapter">Show requests from</label>
@@ -209,7 +182,7 @@ export default function VerificationsView() {
             <div className={styles.loadingState}>
               <LoadingSpinner text="Loading verification requests…" />
             </div>
-          ) : !queue || queue.queue.length === 0 ? (
+          ) : !queue ? <p>Verification queue unavailable. Retry to load current submissions.</p> : queue.queue.length === 0 ? (
             <div className="empty-state">
               <ShieldCheck size={32} aria-hidden="true" />
               <h3>No pending National IDs</h3>
@@ -273,6 +246,7 @@ export default function VerificationsView() {
             </button>
           </header>
 
+          {detail.user.verification_status !== 'pending' && <p role="status" className="alert">This account is currently {detail.user.verification_status}. This notification may refer to an earlier submission.</p>}
           <dl className={styles.memberSummary}>
             <div>
               <dt>Chapter</dt>

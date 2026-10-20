@@ -1,41 +1,67 @@
-import { useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { api } from '../services/apiClient'
 import { useNotify } from '../context/NotificationContext'
 import { Button } from './ui/Button'
 import DonationProofInput from './DonationProofInput'
 import DocumentPreview from './DocumentPreview'
 import styles from './DonationContextCard.module.css'
+
 export default function DonationProofPanel({ report, participant, canReview, onChanged }) {
   const notify = useNotify()
+  const panelId = useId()
   const [open, setOpen] = useState(false)
+  const [correctionOpen, setCorrectionOpen] = useState(false)
+  const reasonRef = useRef(null)
+  const pending = useRef(false)
   const [evidence, setEvidence] = useState([])
   const [corrections, setCorrections] = useState([])
   const [photos, setPhotos] = useState([])
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState(null)
+  useEffect(() => { if (correctionOpen) reasonRef.current?.focus() }, [correctionOpen])
   const load = async () => {
+    setLoading(true)
     try {
-      const [proof, cases] = await Promise.all([api.get(`/api/donation-completion/${report.id}/proof`), api.get(`/api/donation-completion/${report.id}/correction-requests`)])
+      const [proof, cases] = await Promise.all([api.get('/api/donation-completion/' + report.id + '/proof'), api.get('/api/donation-completion/' + report.id + '/correction-requests')])
       setEvidence(proof.evidence || []); setCorrections(cases.corrections || []); setError('')
-    } catch (e) { setError(e.message) }
+    } catch (e) { setError(e.message) } finally { setLoading(false) }
   }
   const run = async task => {
-    if (busy) return
-    setBusy(true); setError('')
-    try { await task(); setPhotos([]); setReason(''); await load(); await onChanged?.(); notify({ severity: 'success', message: 'Private report information updated.' }) }
-    catch (e) { setError(e.message) } finally { setBusy(false) }
+    if (pending.current) return
+    pending.current = true; setBusy(true); setError('')
+    try { await task(); setPhotos([]); setReason(''); setCorrectionOpen(false); await load(); await onChanged?.(); notify({ severity: 'success', message: 'Private report information updated.' }) }
+    catch (e) { setError(e.message) } finally { pending.current = false; setBusy(false) }
   }
-  return <section><Button variant="secondary" aria-expanded={open} onClick={() => { if (!open) load(); setOpen(!open) }}>{open ? 'Hide proof and correction requests' : 'Proof and correction requests'}</Button>
-    {open && <div className={styles.card}>
-      {error && <p role="alert">{error}</p>}
-      <h4>Private supporting photos</h4><p>Photos support review and never automatically confirm a donation.</p>
-      {evidence.length === 0 && <p>No proof photos uploaded.</p>}
-      <div className={styles.actions}>{evidence.map(file => <Button key={file.id} variant="secondary" onClick={() => setPreview({ ...file, id: Number(file.id), doc_type: 'donation_proof' })}>View photo · version {file.content_version}{file.retired_version ? ' · previous' : ''}</Button>)}</div>
-      {participant && report.status === 'PENDING' && <><DonationProofInput files={photos} onChange={setPhotos} disabled={busy} /><p>A new photo set preserves older evidence and creates a new version. Existing disputes remain in review; the original review clock continues.</p><Button disabled={busy || !photos.length} onClick={() => run(() => { const form = new FormData();form.set('expected_version', report.content_version);photos.forEach(f => form.append('proofs[]', f));return api.postForm(`/api/donation-completion/${report.id}/proof`, form) })}>Submit proof photos</Button></>}
-      {corrections.map(c => <div key={c.id}><h4>{c.resolved_at ? 'Staff response recorded' : 'Correction request awaiting staff'}</h4><p>{c.reason}</p>{c.resolution && <p>{c.resolution}</p>}{canReview && !c.resolved_at && <Button disabled={busy || !reason.trim()} onClick={() => run(() => api.post(`/api/donation-completion/${report.id}/correction-response`, { expected_version: Number(report.content_version), correction_id: Number(c.id), basis: reason }))}>Record staff response without reversing donation</Button>}</div>)}
-      {((participant && report.status === 'CONFIRMED') || (canReview && corrections.some(c => !c.resolved_at))) && <div className="field"><label htmlFor={`correction-${report.id}`}>{canReview ? 'Staff response basis' : 'Reason for requesting correction'}</label><textarea className="chat-control" id={`correction-${report.id}`} maxLength={500} rows={3} value={reason} onChange={e => setReason(e.target.value)} /><p>This request does not automatically reverse credit, fulfillment or restrictions.</p>{participant && <Button disabled={busy || !reason.trim()} onClick={() => run(() => api.post(`/api/donation-completion/${report.id}/correction-request`, { expected_version: Number(report.content_version), reason }))}>Request correction</Button>}</div>}
+  const canRequestCorrection = participant && report.status === 'CONFIRMED'
+  const canRespond = canReview && corrections.some(c => !c.resolved_at)
+  return <section className={styles.proofSection}>
+    <Button type="button" variant="secondary" aria-expanded={open} aria-controls={panelId} onClick={() => { if (!open) load(); setOpen(!open) }}>{open ? 'Hide proof and corrections' : 'View proof and corrections'}</Button>
+    {open && <div id={panelId} className={styles.proofContent} aria-busy={busy || loading}>
+      {error && <div role="alert"><p>{error}</p><Button type="button" variant="secondary" disabled={busy || loading} onClick={load}>Retry</Button></div>}
+      <section className={styles.proofGroup} aria-label="Supporting photos">
+        <h4>Private supporting photos</h4><p>Photos support review. They do not confirm a donation.</p>
+        {loading ? <p role="status">Loading proof and corrections...</p> : !evidence.length && <p>No proof photos uploaded.</p>}
+        <div className={styles.actions}>{evidence.map((file, index) => <Button key={file.id} type="button" variant="secondary" onClick={() => setPreview({ ...file, id: Number(file.id), doc_type: 'donation_proof' })}>View photo {index + 1}{file.retired_version ? ' - Previous submission' : ''}</Button>)}</div>
+        {participant && report.status === 'PENDING' && <>
+          <DonationProofInput files={photos} onChange={setPhotos} disabled={busy} />
+          <p>New photos preserve earlier evidence and require a new acknowledgment. The original review clock continues.</p>
+          <Button type="button" disabled={busy || !photos.length} onClick={() => run(() => { const form = new FormData(); form.set('expected_version', report.content_version); photos.forEach(f => form.append('proofs[]', f)); return api.postForm('/api/donation-completion/' + report.id + '/proof', form) })}>Submit proof photos</Button>
+        </>}
+      </section>
+      {corrections.length > 0 && <section className={styles.proofGroup} aria-label="Correction history"><h4>Correction requests</h4>{corrections.map(c => <article key={c.id} className={styles.proofGroup}>
+        <strong>{c.resolved_at ? 'Staff response recorded' : 'Awaiting staff response'}</strong><p>{c.reason}</p>{c.resolution && <p>{c.resolution}</p>}
+        {canReview && !c.resolved_at && <Button type="button" disabled={busy || !reason.trim()} onClick={() => run(() => api.post('/api/donation-completion/' + report.id + '/correction-response', { expected_version: Number(report.content_version), correction_id: Number(c.id), basis: reason }))}>Record staff response</Button>}
+      </article>)}</section>}
+      {canRequestCorrection && <Button type="button" variant="secondary" aria-expanded={correctionOpen} aria-controls={panelId + '-correction'} disabled={busy} onClick={() => setCorrectionOpen(!correctionOpen)}>{correctionOpen ? 'Cancel correction' : 'Request correction'}</Button>}
+      {((canRequestCorrection && correctionOpen) || canRespond) && <div id={panelId + '-correction'} className={styles.proofGroup}>
+        <label htmlFor={panelId + '-reason'}>{canRespond ? 'Staff response basis' : 'Reason for requesting correction'}</label>
+        <textarea ref={reasonRef} id={panelId + '-reason'} disabled={busy} maxLength={500} rows={3} value={reason} onChange={e => setReason(e.target.value)} aria-describedby={panelId + '-notice'} />
+        <p id={panelId + '-notice'}>A correction request does not automatically reverse donation credit, fulfillment, or restrictions.</p>
+        {canRequestCorrection && <Button type="button" isLoading={busy} disabled={busy || !reason.trim()} onClick={() => run(() => api.post('/api/donation-completion/' + report.id + '/correction-request', { expected_version: Number(report.content_version), reason }))}>Submit correction request</Button>}
+      </div>}
     </div>}
     {preview && <DocumentPreview document={preview} onClose={() => setPreview(null)} />}
   </section>

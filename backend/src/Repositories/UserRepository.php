@@ -237,17 +237,21 @@ final class UserRepository
         return ['total'=>$total,'users'=>$rows];
     }
 
+    public static function reviewReadyWhere(string $alias = 'u'): array
+    {
+        // Both the dashboard badge and queue must count reviewable submissions.
+        if (!in_array($alias, ['u', 'users'], true)) throw new \InvalidArgumentException('Invalid user alias.');
+        return [
+            "$alias.role = 'member'",
+            "$alias.verification_status = 'pending'",
+            "$alias.account_status = 'active'",
+            "EXISTS (SELECT 1 FROM member_documents required_id WHERE required_id.user_id = $alias.id AND required_id.doc_type = 'national_id')",
+        ];
+    }
+
     public function pendingVerificationMembers(array $filters, int $page, int $pageSize): array
     {
-        $where = [
-            "u.role = 'member'",
-            "u.verification_status = 'pending'",
-            "u.account_status = 'active'",
-            "EXISTS (
-                SELECT 1 FROM member_documents required_id
-                WHERE required_id.user_id = u.id AND required_id.doc_type = 'national_id'
-            )",
-        ];
+        $where = self::reviewReadyWhere();
         $params = [];
 
         if (!empty($filters['chapter_id']) && preg_match('/^\d+$/', (string) $filters['chapter_id'])) {

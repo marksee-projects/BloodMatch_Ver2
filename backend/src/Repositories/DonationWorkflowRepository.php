@@ -46,14 +46,29 @@ final class DonationWorkflowRepository
         return $eventId;
     }
 
-    public static function listFor(array $actor,bool $adminQueue=false): array
+    public static function listFor(array $actor,bool $adminQueue=false,?array $history=null): array
     {
         self::requireReady();
-        if ($adminQueue && $actor['role']!=='admin') throw new RuntimeException('Forbidden.',403);
+        if (($adminQueue || $history!==null) && $actor['role']!=='admin') throw new RuntimeException('Forbidden.',403);
         $admin=$adminQueue;
         $where=$admin ? "(dr.status='PENDING' OR EXISTS (SELECT 1 FROM donation_report_holds h WHERE h.report_id=dr.id AND h.released_at IS NULL))"
             : '(dr.donor_id=? OR br.requester_id=?)';
         if ($admin && \BloodMatch\Services\OfferChatService::ready()) $where='('.$where." OR EXISTS(SELECT 1 FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL))";
+        $params=$admin?[]:[$actor['id'],$actor['id']];
+        if ($history!==null) {
+            $where="dr.status='CONFIRMED'";
+            $params=[];
+            if (($history['q']??'')!=='') {
+                $where.=' AND (donor.full_name LIKE ? OR requester.full_name LIKE ? OR br.facility_name LIKE ?)';
+                $term='%'.mb_substr((string)$history['q'],0,100).'%';
+                $params=[$term,$term,$term];
+            }
+        }
+        $ordering='dr.reported_at ASC';
+        if ($history!==null) {
+            $offset=((int)$history['page']-1)*(int)$history['page_size'];
+            $ordering='dr.confirmed_at DESC, dr.id DESC LIMIT '.(int)$history['page_size'].' OFFSET '.$offset;
+        }
         $correctionColumns=\BloodMatch\Services\OfferChatService::ready()?"(SELECT COUNT(*) FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL) AS pending_correction_count,(SELECT MIN(created_at) FROM donation_correction_requests cr WHERE cr.report_id=dr.id AND cr.resolved_at IS NULL) AS oldest_correction_at,":"0 AS pending_correction_count,NULL AS oldest_correction_at,";
         $s=Database::pdo()->prepare(DonationStorageRepository::sql("SELECT dr.*,$correctionColumns m.request_id,br.requester_id,br.status AS request_status,br.facility_name,
             donor.full_name AS donor_name,requester.full_name AS requester_name,
@@ -62,8 +77,14 @@ final class DonationWorkflowRepository
             EXISTS (SELECT 1 FROM donation_report_holds h WHERE h.report_id=dr.id AND h.released_at IS NULL) AS has_report_hold
             FROM donation_reports dr JOIN matches m ON m.id=dr.match_id JOIN blood_requests br ON br.id=m.request_id
             JOIN users donor ON donor.id=dr.donor_id JOIN users requester ON requester.id=br.requester_id
-            WHERE $where ORDER BY dr.reported_at ASC"));
-        $s->execute($admin?[]:[$actor['id'],$actor['id']]);
-        return $s->fetchAll();
+            WHERE $where ORDER BY $ordering"));
+        $s->execute($params);
+        $reports=$s->fetchAll();
+        if ($history===null) return $reports;
+        $count=Database::pdo()->prepare(DonationStorageRepository::sql("SELECT COUNT(*) FROM donation_reports dr
+            JOIN matches m ON m.id=dr.match_id JOIN blood_requests br ON br.id=m.request_id
+            JOIN users donor ON donor.id=dr.donor_id JOIN users requester ON requester.id=br.requester_id WHERE $where"));
+        $count->execute($params);
+        return ['reports'=>$reports,'total'=>(int)$count->fetchColumn(),'page'=>(int)$history['page'],'page_size'=>(int)$history['page_size']];
     }
 }

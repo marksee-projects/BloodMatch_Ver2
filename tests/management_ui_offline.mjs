@@ -9,6 +9,10 @@ const React = require('react')
 const { renderToStaticMarkup } = require('react-dom/server')
 const { MemoryRouter } = require('react-router-dom')
 const root = fileURLToPath(new URL('../frontend/', import.meta.url))
+const offlineQueries = {
+  useQuery: ({queryKey}) => ({data: queryKey[0] === 'donation-reports' ? {reports:[{id:3,donor_id:1,requester_id:2,donor_name:'Self donor',requester_name:'Requester',status:'PENDING',request_status:'OPEN',content_version:1,facility_name:'Fixture',reported_at:'2026-10-10 00:00:00',age_hours:1}]} : queryKey[0] === 'admin-verification-detail' ? {verification:verificationFixture} : queryKey[0] === 'admin-verifications' ? {queue:[],total:0} : queryKey[0] === 'confirmed-donation-summary' ? {date_from:'2037-01-02',date_to:'2037-01-03',chapter_id:null,total_confirmed_reports:2,daily_confirmations:[{confirmation_date_utc:'2037-01-02',confirmed_reports:2}],users:[{full_name:'PRIVATE CONFIRMATION',email:'private-confirmation@example.test'}]} : undefined, isPending:false, refetch:async()=>{}}),
+  useQueryClient: () => ({invalidateQueries:async()=>{}}),
+}
 async function page(entry, offlineApi = {get: () => {throw Error('Network forbidden')}, post: () => {throw Error('Network forbidden')}}) {
   const result = await build({ absWorkingDir: root, entryPoints: [entry], bundle: true, write: false, platform: 'node', format: 'cjs', packages: 'external', jsx: 'automatic',
     plugins: [{ name: 'offline-management', setup(builder) {
@@ -27,7 +31,7 @@ async function page(entry, offlineApi = {get: () => {throw Error('Network forbid
     }}] })
   const module = { exports: {} }
   const icons = new Proxy({}, { get: () => () => React.createElement('svg') })
-  new Function('require', 'module', 'exports', 'offlineApi', result.outputFiles[0].text)(id => id === '@phosphor-icons/react' ? icons : require(id), module, module.exports, offlineApi)
+  new Function('require', 'module', 'exports', 'offlineApi', result.outputFiles[0].text)(id => id === '@phosphor-icons/react' ? icons : id === '@tanstack/react-query' ? offlineQueries : require(id), module, module.exports, offlineApi)
   return module.exports.default
 }
 const Users = await page('./src/pages/admin/views/UsersView.jsx')
@@ -61,7 +65,7 @@ React.useState = initial => {
   const position = index++
   const state = original(initial)
   if (mode === 'verification') {
-    const value = verificationStates.has(position) ? verificationStates.get(position) : position === 2 ? verificationFixture : state[0]
+    const value = verificationStates.has(position) ? verificationStates.get(position) : state[0]
     return [value, next => verificationStates.set(position, typeof next === 'function' ? next(value) : next)]
   }
   if (mode === 'users' && position === 0) return [[self, other], state[1]]
@@ -85,8 +89,8 @@ try {
   mode = 'confirmations'; index = 0
   html = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Fixture, { Component: Confirmations, admin: true })))
   assert(html.includes('Donation confirmations') && !html.includes('Chapter Queue'))
-  assert(html.includes('You cannot review your own report.'))
-  assert.equal((html.slice(html.indexOf('Self donor')).match(/disabled=""/g) || []).length, 2)
+  assert(html.includes('You cannot administratively review your own donation or request.'))
+  assert(!html.includes('Confirm with documented basis') && !html.includes('Reject report'))
   const app = readFileSync(`${root}/src/App.jsx`, 'utf8')
   assert(app.includes('path="users" element={<UsersView />}') && app.includes('path="confirmations" element={<ConfirmationsView />}'))
   const analytics = readFileSync(`${root}/src/pages/admin/views/AnalyticsView.jsx`, 'utf8')

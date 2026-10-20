@@ -10,6 +10,7 @@ export function notificationDisplayText(notification, field) {
   if (!['blood_request', 'donation_report'].includes(notification?.related_type)) return text
   // Presentation only for legacy rows: keep stored IDs, links and read state intact.
   return text.replace(/\b(blood request|request)\s+#\d+\b/gi, '$1')
+    .replace(/\b(donation report|donation)\s+#\d+\b/gi, '$1')
     .replace(/(compatible donation opportunity)\s+\(#\d+\)/gi, '$1')
 }
 

@@ -186,7 +186,7 @@ final class AnalyticsRepository
         $expirationRate = $resolvedCount > 0 ? round(($expiredCount / $resolvedCount) * 100, 1) : 0.0;
 
         // 3. System-wide pending queues
-        $pvWhere = ['role = \'member\'', 'verification_status = \'pending\'', 'account_status = \'active\''];
+        $pvWhere = UserRepository::reviewReadyWhere('users');
         $pvParams = [];
         if ($filterChapterId !== null) {
             $pvWhere[] = 'chapter_id = ?';

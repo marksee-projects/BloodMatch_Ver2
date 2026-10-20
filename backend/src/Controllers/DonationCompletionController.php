@@ -25,8 +25,14 @@ final class DonationCompletionController
     {
         $actor=AuthMiddleware::requireActiveUser('donation.completion.list');
         $adminQueue=Request::str('scope')==='queue';
-        if ($actor['role']==='admin' || $adminQueue) $actor=AuthMiddleware::requireRoles(['admin'],'donation.completion.list');
-        $this->respond(function() use($actor,$adminQueue) {
+        $adminHistory=Request::str('scope')==='history';
+        if ($actor['role']==='admin' || $adminQueue || $adminHistory) $actor=AuthMiddleware::requireRoles(['admin'],'donation.completion.list');
+        $this->respond(function() use($actor,$adminQueue,$adminHistory) {
+            if ($adminHistory) return DonationWorkflowRepository::listFor($actor,false,[
+                'page'=>max(1,Request::int('page')??1),
+                'page_size'=>min(100,max(1,Request::int('page_size')??20)),
+                'q'=>Request::str('q')??'',
+            ]);
             return ['reports'=>DonationWorkflowRepository::listFor($actor,$adminQueue),'date_rules_approved'=>DonationCompletionPolicy::DATE_RULES_APPROVED];
         });
     }

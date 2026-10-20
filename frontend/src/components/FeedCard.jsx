@@ -1,4 +1,3 @@
-import { useChat } from '../context/ChatContext'
 import React, { useId, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -8,7 +7,6 @@ import { Button } from './ui/Button'
 import { Badge } from './ui/Badge'
 import { BloodTypeBlock } from './ui/BloodTypeBlock'
 import ConfirmationDialog from './ConfirmationDialog'
-import { useAuth } from '../context/AuthContext'
 import { api } from '../services/apiClient'
 import styles from './FeedCard.module.css'
 import { useNotify } from '../context/NotificationContext'
@@ -33,10 +31,8 @@ function formatPostedTime(value) {
 
 export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, children }) {
   const notify = useNotify()
-  const { canChat, openChatWithUser } = useChat()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [confirmingResponse, setConfirmingResponse] = useState(false)
-  const { user } = useAuth()
   const navigate = useNavigate()
   const responseBusyRef = useRef(false)
   const detailsId = useId()
@@ -94,28 +90,22 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
           <span className={styles.summaryMeta}>
             <Badge variant={urgencyVariant}>{request.urgency === 'critical' ? 'EMERGENCY' : request.urgency.toUpperCase()}</Badge>
             <BloodTypeBlock bloodType={request.required_blood_type} level="normal" />
-            <button type="button" className={styles.summaryButton} aria-label={expanded ? 'Hide request details' : 'Show request details'} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded(current => !current)}><CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" /></button>
+            <button type="button" className={styles.summaryButton} aria-label={expanded ? 'Hide request details' : 'Show request details'} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded(current => !current)}><span>{expanded ? 'Hide details' : 'View details'}</span><CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" /></button>
           </span>
         </header>
+
+        <dl className={`${styles.metadata} ${styles.previewFacts}`}>
+          <div className={styles.hospital}><dt>Hospital</dt><dd>{request.facility_name || 'Not provided'}</dd></div>
+          <div><dt>Blood needed</dt><dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd></div>
+          <div><dt>{request.status === 'EXPIRED' ? 'Previous deadline' : 'Needed by'}</dt><dd>{formatNeededDate(request.needed_datetime, showNeededYear)}</dd></div>
+        </dl>
 
         {expanded && (
           <div id={detailsId} className={styles.expandedContent}>
             <dl className={styles.metadata}>
-              <div className={styles.hospital}>
-                <dt>Hospital</dt>
-                <dd>{request.facility_name || 'Not provided'}</dd>
-              </div>
               <div>
                 <dt>Municipality</dt>
                 <dd>{request.location?.municipality_name || 'Not provided'}</dd>
-              </div>
-              <div>
-                <dt>Blood needed</dt>
-                <dd>{request.quantity_units} {request.quantity_units === 1 ? 'unit' : 'units'}</dd>
-              </div>
-              <div>
-                <dt>{request.status === 'EXPIRED' ? 'Previous deadline' : 'Needed by'}</dt>
-                <dd>{formatNeededDate(request.needed_datetime, showNeededYear)}</dd>
               </div>
             </dl>
 
@@ -132,7 +122,6 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                     }}>
                     Offer to donate
                   </Button>}
-                  <Button className={styles.messageAction} variant="secondary" disabled={!canChat || Number(request.requester_id) === Number(user?.id)} onClick={() => openChatWithUser(request.requester_id)}>Request message</Button>
                 </footer>
                 {isNotEnrolled ? (
                   <div className={styles.enrollPrompt} role="region" aria-label="Donor enrollment required">

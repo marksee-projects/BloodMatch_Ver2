@@ -1,209 +1,39 @@
-import { useActionNoticeState } from '../../../context/NotificationContext'
-import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowRight, CheckCircle, Clock, PauseCircle, ShieldCheck } from '@phosphor-icons/react'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../../../context/AuthContext'
 import { api } from '../../../services/apiClient'
+import { liveQueryOptions } from '../../../services/liveQueries'
+import { parseAdminDashboard } from '../../../services/adminDashboard'
 import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
+import { Button } from '../../../components/ui/Button'
+import styles from './DashboardView.module.css'
 
 export default function DashboardView() {
-  const [data, setData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useActionNoticeState(null, 'error')
-
-  const fetchDashboard = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await api.get('/api/admin/dashboard')
-      setData(res)
-    } catch (err) {
-      setError(err.message || 'Failed to load system admin dashboard.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchDashboard()
-  }, [])
-
-  if (loading) {
-    return (
-      <div className="container" style={{ padding: 'var(--space-8) 0' }}>
-        <div className="card text-center" style={{ padding: 'var(--space-8)' }}>
-          <LoadingSpinner text="Loading dashboard…" />
-        </div>
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="container" style={{ padding: 'var(--space-8) 0' }}>
-        <div className="alert alert-error" role="alert">{error}</div>
-      </div>
-    )
-  }
-
-  const overview = data?.overview || {}
-  const donorPool = data?.donor_pool || {}
-  const recentLogs = data?.recent_system_activity || []
-
-  return (
-    <div className="container" style={{ padding: 'var(--space-6) 0' }}>
-      {/* Primary KPI Grid */}
-      <section className="grid-4" style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="metric-card">
-          <span className="metric-label">Total Users</span>
-          <span className="metric-value">{overview.total_users || 0}</span>
-          <span className="metric-sub">{overview.total_members || 0} members · {overview.total_staff || 0} staff</span>
-        </div>
-
-        <div className="metric-card">
-          <span className="metric-label">Enrolled Donors</span>
-          <span className="metric-value">{overview.enrolled_donors || 0}</span>
-          <span className="metric-sub">{overview.available_donors || 0} currently available</span>
-        </div>
-
-        <div className="metric-card">
-          <span className="metric-label">Active OPEN Requests</span>
-          <span className="metric-value">{overview.open_requests || 0}</span>
-          <span className="metric-sub">{overview.total_units_needed || 0} units needed</span>
-        </div>
-
-        <div className="metric-card">
-          <span className="metric-label">Fulfillment Rate</span>
-          <span className="metric-value">{overview.fulfillment_rate !== undefined ? `${overview.fulfillment_rate}%` : '0%'}</span>
-          <span className="metric-sub">Resolved requests</span>
-        </div>
-      </section>
-
-      {/* Lifecycle Rates & Donor Pool Grid */}
-      <div className="grid-2" style={{ marginBottom: 'var(--space-6)' }}>
-        {/* Request Lifecycle Resolution Rates */}
-        <section className="card">
-          <div className="card-header">
-            <h3>Request Lifecycle Rates</h3>
-            <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>Resolved Denominator</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <CheckCircle size={16} weight="regular" aria-hidden="true" style={{ color: 'var(--color-accent)' }} />
-                  <strong>Fulfilled:</strong>
-                </span>
-                <span>{overview.fulfillment_rate !== undefined ? `${overview.fulfillment_rate}%` : '0%'} ({overview.fulfilled_requests || 0})</span>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(overview.fulfillment_rate || 0, 100)}%`, height: '100%', background: 'var(--color-accent)' }} />
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <Clock size={16} weight="regular" aria-hidden="true" style={{ color: 'var(--color-text-muted)' }} />
-                  <span>Expired:</span>
-                </span>
-                <span>{overview.expiry_rate !== undefined ? `${overview.expiry_rate}%` : '0%'} ({overview.expired_requests || 0})</span>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(overview.expiry_rate || 0, 100)}%`, height: '100%', background: 'var(--color-text-muted)' }} />
-              </div>
-            </div>
-
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 'var(--space-2)', fontSize: 'var(--text-sm)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                  <PauseCircle size={16} weight="regular" aria-hidden="true" style={{ color: 'var(--color-text-subtle)' }} />
-                  <span>Cancelled:</span>
-                </span>
-                <span>{overview.cancellation_rate !== undefined ? `${overview.cancellation_rate}%` : '0%'} ({overview.cancelled_requests || 0})</span>
-              </div>
-              <div style={{ width: '100%', height: '8px', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-pill)', overflow: 'hidden' }}>
-                <div style={{ width: `${Math.min(overview.cancellation_rate || 0, 100)}%`, height: '100%', background: 'var(--color-border)' }} />
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Global Donor Pool Availability Status */}
-        <section className="card">
-          <div className="card-header">
-            <h3>Global Donor Pool Status</h3>
-            <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>{donorPool.total_enrolled || 0} Total Enrolled</span>
-          </div>
-
-          <div className="grid-3 text-center" style={{ gap: 'var(--space-3)' }}>
-            <div style={{ padding: 'var(--space-4)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-              <span className="badge badge-open" style={{ marginBottom: 'var(--space-2)' }}>Available</span>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{donorPool.available || 0}</div>
-            </div>
-
-            <div style={{ padding: 'var(--space-4)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-              <span className="badge badge-standby" style={{ marginBottom: 'var(--space-2)' }}>Standby</span>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{donorPool.standby || 0}</div>
-            </div>
-
-            <div style={{ padding: 'var(--space-4)', background: 'var(--color-surface-sunken)', borderRadius: 'var(--radius-md)' }}>
-              <span className="badge badge-cooldown" style={{ marginBottom: 'var(--space-2)' }}>Cooldown</span>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{donorPool.cooldown || 0}</div>
-            </div>
-          </div>
-
-          <div style={{ marginTop: 'var(--space-5)', padding: 'var(--space-3)', border: '1px solid var(--color-border-subtle)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-              <ShieldCheck size={20} weight="regular" aria-hidden="true" style={{ color: 'var(--color-accent)' }} />
-              <div>
-                <strong style={{ fontSize: 'var(--text-sm)' }}>Verified Donors:</strong>
-                <span className="muted" style={{ fontSize: 'var(--text-xs)', marginLeft: 'var(--space-2)' }}>{donorPool.verified_donors || 0}</span>
-              </div>
-            </div>
-            <span className="badge" style={{ fontSize: 'var(--text-xs)' }}>
-              {donorPool.total_enrolled ? `${Math.round(((donorPool.verified_donors || 0) / donorPool.total_enrolled) * 100)}%` : '0%'} Verified
-            </span>
-          </div>
-        </section>
-      </div>
-
-      {/* Recent System Activity Log Snapshot */}
-      <section className="card">
-        <div className="card-header">
-          <h3>Recent System Activity</h3>
-          <Link to="/admin/audit-logs" style={{ fontSize: 'var(--text-xs)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-1)' }}>
-            View Global Audit Trail <ArrowRight size={14} weight="regular" aria-hidden="true" />
-          </Link>
-        </div>
-
-        {recentLogs.length === 0 ? (
-          <p className="muted" style={{ fontSize: 'var(--text-sm)', padding: 'var(--space-4)' }}>No recent system activity recorded.</p>
-        ) : (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Timestamp (UTC)</th>
-                  <th>Action Event</th>
-                  <th>Actor</th>
-                  <th>Target Type & ID</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentLogs.map((log) => (
-                  <tr key={log.id}>
-                    <td style={{ fontSize: 'var(--text-xs)' }}><code>{log.created_at}</code></td>
-                    <td style={{ fontSize: 'var(--text-sm)' }}><strong>{log.action}</strong></td>
-                    <td style={{ fontSize: 'var(--text-sm)' }}>{log.actor_name || (log.actor_id ? `User #${log.actor_id}` : 'System / Unauth')}</td>
-                    <td style={{ fontSize: 'var(--text-sm)' }}>{log.target_type ? `${log.target_type} #${log.target_id}` : '–'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+  const { user } = useAuth()
+  const query = useQuery({ ...liveQueryOptions, queryKey: ['admin-dashboard', user?.id], enabled: user?.role === 'admin', queryFn: async () => parseAdminDashboard(await api.get('/api/admin/dashboard')) })
+  if (query.isPending) return <LoadingSpinner text="Loading dashboard..." />
+  if (!query.data) return <div className="alert alert-error" role="alert"><p>{query.error?.message || 'Dashboard unavailable.'}</p><Button variant="secondary" onClick={() => query.refetch()}>Retry</Button></div>
+  const { overview, donor_pool: pool, recent_system_activity: logs = [] } = query.data
+  const rates = [
+    ['Fulfilled', overview.fulfilled_requests, overview.fulfillment_rate_percent],
+    ['Expired', overview.expired_requests, overview.expiration_rate_percent],
+    ['Cancelled', overview.cancelled_requests, overview.cancellation_rate_percent],
+  ]
+  return <div className={'container ' + styles.page}>
+    <header className={styles.heading}><div><h1>System overview</h1><p>Requests, donors, and work awaiting review.</p></div><span className={styles.update} aria-live="polite">{query.isFetching ? 'Updating...' : 'Updates automatically'}</span></header>
+    {query.error && <div role="alert" className="alert alert-error">Updates unavailable. Showing the last loaded metrics. <Button variant="secondary" onClick={() => query.refetch()}>Retry</Button></div>}
+    <section className={styles.metrics} aria-label="System totals">
+      <Metric label="Total users" value={overview.total_users} detail={overview.total_members + ' members / ' + overview.total_staff + ' staff'} />
+      <Metric label="Enrolled donors" value={overview.enrolled_donors} detail={overview.available_donors + ' currently available'} />
+      <Metric label="Open requests" value={overview.active_open_requests} detail={overview.open_units_needed + ' units needed'} />
+      <Metric label="Fulfillment rate" value={overview.resolved_requests ? overview.fulfillment_rate_percent + '%' : '—'} detail={overview.resolved_requests ? overview.fulfilled_requests + ' of ' + overview.resolved_requests + ' resolved requests' : 'No resolved requests yet'} />
+    </section>
+    <nav className={styles.queues} aria-label="Review queues"><Link to="/admin/verifications">Account verifications <strong>{overview.pending_verifications}</strong></Link><Link to="/admin/confirmations">Pending donation reports <strong>{overview.pending_donation_reports}</strong></Link></nav>
+    <div className={styles.columns}>
+      <section className={styles.card}><h2>Request outcomes</h2><p className={styles.muted}>Percentages include fulfilled, expired, and cancelled requests.</p>{!overview.resolved_requests && <p>No resolved requests yet.</p>}<div className={styles.rates}>{rates.map(([label, count, rate]) => <div key={label}><div className={styles.rateLabel}><span>{label}</span><strong>{rate}% <span className={styles.muted}>({count})</span></strong></div><progress aria-label={label + ' requests'} max="100" value={rate} /></div>)}</div></section>
+      <section className={styles.card}><h2>Donor availability</h2><p className={styles.muted}>{pool.total_enrolled} active, membership-verified enrolled donors</p><dl className={styles.pool}>{['available', 'standby', 'cooldown', 'unavailable'].map(key => <div key={key}><dt>{key.charAt(0).toUpperCase() + key.slice(1)}</dt><dd>{pool[key]}</dd></div>)}</dl><p className={styles.muted}>Membership verification does not medically confirm blood type or donation eligibility.</p></section>
     </div>
-  )
+    <section className={styles.card}><div className={styles.heading}><h2>Recent system activity</h2><Link to="/admin/audit-logs">View audit logs</Link></div>{!logs.length ? <p className={styles.muted}>No recent activity recorded.</p> : <div className="table-container"><table><thead><tr><th>Time (UTC)</th><th>Action</th><th>Actor</th><th>Record</th></tr></thead><tbody>{logs.map(log => <tr key={log.id}><td>{log.created_at}</td><td>{log.action}</td><td>{log.actor_name || 'System / former member'}</td><td>{log.target_type || '—'}</td></tr>)}</tbody></table></div>}</section>
+  </div>
 }
+function Metric({ label, value, detail }) { return <div className={styles.card}><span className={styles.muted}>{label}</span><strong className={styles.value}>{value}</strong><span className={styles.muted}>{detail}</span></div> }

@@ -93,6 +93,10 @@ final class DocumentController
                 ]);
                 $verificationStatus=$current['verification_status'];$resubmitted=false;
                 if ($docType==='national_id' && $current['role']==='member') {
+                    if ($verificationStatus==='unverified') {
+                        (new \BloodMatch\Repositories\VerificationRepository())->setVerificationStatus((int)$current['id'], 'pending');
+                        $verificationStatus='pending';
+                    }
                     if ($verificationStatus==='rejected') {
                         (new VerificationService())->resubmit($current);$verificationStatus='pending';$resubmitted=true;
                     }
