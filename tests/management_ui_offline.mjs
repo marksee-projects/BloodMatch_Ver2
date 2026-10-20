@@ -84,6 +84,11 @@ try {
   let html = renderToStaticMarkup(React.createElement(MemoryRouter, {}, React.createElement(Fixture, { Component: Users })))
   assert(html.includes('User management') && html.includes('Name or email'))
   assert(!html.includes('bloodmatch:3306') && !html.includes('database_name'))
+  assert(!html.includes('admin-user-group'), 'Accounts filter is removed')
+  const searchCard = html.match(/<section[^>]*aria-label="Search and filters"[^>]*>([\s\S]*?)<\/section>/)?.[1]
+  const accountCard = html.match(/<section[^>]*aria-label="User accounts"[^>]*>([\s\S]*?)<\/section>/)?.[1]
+  assert(searchCard?.includes('admin-user-search') && !searchCard.includes('<table'), 'Search and filters have their own card')
+  assert(accountCard?.includes('<table') && !accountCard.includes('admin-user-search'), 'User table is in a separate card')
   const selfCard = html.slice(html.indexOf('Current admin'), html.indexOf('Other member'))
   assert.equal((selfCard.match(/disabled=""/g) || []).length, 2)
   assert(!html.includes('Change role') && html.includes('Change chapter') && html.includes('Deactivate') && html.includes('Previous') && html.includes('Next'))

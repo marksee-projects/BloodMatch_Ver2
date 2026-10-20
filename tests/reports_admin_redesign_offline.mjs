@@ -28,6 +28,16 @@ assert.equal(requesterResponseLabel('received'), 'Donation received')
 const notice = { related_type: 'donation_report', related_id: 85, title: 'Donation report #85 completed' }
 assert.equal(notificationDisplayText(notice, 'title'), 'Donation report completed')
 assert.equal(notificationDeepLink(notice, 'member'), '/donation-reports?report=85')
+const verificationNotice = {type:'verification.requested', related_type:'verification', related_id:144, title:'New account verification request', body:'Old name uploaded a National ID and is ready for review.', related_verification_name:'Current name', related_verification_status:'verified', related_verification_account_status:'active'}
+assert.equal(notificationDisplayText(verificationNotice, 'title'), 'Account already verified')
+assert.equal(notificationDisplayText(verificationNotice, 'body'), 'Current name is already verified.')
+assert.equal(notificationDeepLink(verificationNotice, 'admin'), '/admin/verifications?user=144')
+assert.equal(notificationDeepLink(verificationNotice, 'member'), null)
+assert.equal(notificationDisplayText({...verificationNotice, related_verification_status:'pending'}, 'body'), 'Current name uploaded a National ID and is awaiting review.')
+assert.equal(notificationDisplayText({...verificationNotice, related_verification_status:'rejected'}, 'title'), 'Verification reviewed')
+assert.equal(notificationDisplayText({...verificationNotice, related_verification_status:'pending',related_verification_account_status:'deactivated'}, 'title'), 'Verification request inactive')
+assert.equal(notificationDisplayText({...verificationNotice, related_verification_status:null}, 'title'), 'Verification request unavailable')
+assert.equal(notificationDisplayText({type:'verification.requested',title:'Legacy title'}, 'title'), 'Legacy title')
 
 const fixture = { role: 'admin', queryKeys: [], queryFns: [], calls: [], reports: [{ id: 2, donor_id: 8, requester_id: 9, donor_name: 'Synthetic donor', requester_name: 'Synthetic requester', facility_name: 'Synthetic facility', status: 'CONFIRMED', request_status: 'FULFILLED', completion_basis: 'mutual', occurred_at: '2026-10-19 00:00:00', reported_at: '2026-10-19 01:00:00', content_version: 1 }], error: null }
 const offlineApi = { get: async path => { fixture.calls.push(path); return path.endsWith('/proof') ? { evidence: [] } : { corrections: [] } }, post: () => { throw new Error('No submissions in this test') } }

@@ -24,7 +24,6 @@ final class UserAdminController
         $users = (new UserRepository())->listAll(
             [
                 'role' => \BloodMatch\Utils\Request::str('role'),
-                'role_group' => Request::str('role_group'),
                 'donor_window' => Request::str('donor_window'),
                 'verification_status' => \BloodMatch\Utils\Request::str('verification_status'),
                 'account_status' => \BloodMatch\Utils\Request::str('account_status'),

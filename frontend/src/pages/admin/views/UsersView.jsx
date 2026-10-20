@@ -12,7 +12,7 @@ export default function UsersView() {
   const [rows, setRows] = useState(null)
   const [chapters, setChapters] = useState([])
   const [search, setSearch] = useState('')
-  const [filters, setFilters] = useState({ q: '', role_group: 'member', verification_status: '', account_status: '', donor_window: '', chapter_id: '' })
+  const [filters, setFilters] = useState({ q: '', verification_status: '', account_status: '', donor_window: '', chapter_id: '' })
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [version, setVersion] = useState(0)
@@ -39,7 +39,7 @@ export default function UsersView() {
     }).catch(err => { if (active) setError(err.message) })
     return () => { active = false }
   }, [filters, page, version, user?.id])
-  const choose = field => event => { setFilters(current => ({ ...current, [field]: event.target.value, ...(field === 'role_group' ? { verification_status: '' } : {}) })); setPage(1) }
+  const choose = field => event => { setFilters(current => ({ ...current, [field]: event.target.value })); setPage(1) }
   const save = async () => {
     if (!edit || busyRef.current || String(edit.target.id) === String(user?.id)) return
     busyRef.current = true; setBusy(true); setError(null)
@@ -51,24 +51,25 @@ export default function UsersView() {
     } catch (err) { setError(err.message); setVersion(value => value + 1) }
     finally { busyRef.current = false; setBusy(false) }
   }
-  return <div className="container">
+  return <div className={`container ${styles.page}`}>
     <h1 className="sr-only">User management</h1>
 
     {error && !edit && <div className="alert alert-error" role="alert">{error}<Button variant="secondary" onClick={() => { setError(null); setVersion(value => value + 1) }}>Retry</Button></div>}
-    <section className={`card ${styles.managementCard}`} aria-label="User accounts">
+    <section className={`card ${styles.filterCard}`} aria-label="Search and filters">
     <form className={styles.filters} onSubmit={event => event.preventDefault()}>
-      <div className="field"><label htmlFor="admin-user-search">Name or email</label><input id="admin-user-search" type="search" value={search} onChange={event => setSearch(event.target.value)} /></div>
-      <div className="field"><label htmlFor="admin-user-group">Accounts</label><select id="admin-user-group" value={filters.role_group} onChange={choose('role_group')}><option value="member">Members</option><option value="staff">Administrator</option></select></div>
-      <div className="field"><label htmlFor="admin-user-verification">Verification status</label><select id="admin-user-verification" value={filters.verification_status} onChange={choose('verification_status')}><option value="">All verification statuses</option>{['pending','verified','rejected'].map(status => <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>)}</select></div>
+      <div className={`field ${styles.searchField}`}><label htmlFor="admin-user-search">Name or email</label><input id="admin-user-search" type="search" value={search} onChange={event => setSearch(event.target.value)} /></div>
+      <div className="field"><label htmlFor="admin-user-verification">Verification status</label><select id="admin-user-verification" value={filters.verification_status} onChange={choose('verification_status')}><option value="">All statuses</option>{['pending','verified','rejected'].map(status => <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>)}</select></div>
       <div className="field"><label htmlFor="admin-user-status">Account status</label><select id="admin-user-status" value={filters.account_status} onChange={choose('account_status')}><option value="">All statuses</option><option value="active">Active</option><option value="deactivated">Deactivated</option></select></div>
-      <div className="field"><label htmlFor="admin-donor-window">Donation status</label><select id="admin-donor-window" value={filters.donor_window} onChange={choose('donor_window')}><option value="">All donation statuses</option><option value="standby">Standby</option><option value="cooldown">Cooldown</option></select></div>
+      <div className="field"><label htmlFor="admin-donor-window">Donation status</label><select id="admin-donor-window" value={filters.donor_window} onChange={choose('donor_window')}><option value="">All statuses</option><option value="standby">Standby</option><option value="cooldown">Cooldown</option></select></div>
       <div className="field"><label htmlFor="admin-user-chapter">Chapter</label><select id="admin-user-chapter" value={filters.chapter_id} onChange={choose('chapter_id')}><option value="">All chapters</option>{chapters.map(chapter => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}</select></div>
     </form>
+    </section>
+    <section className={`card ${styles.managementCard}`} aria-label="User accounts">
     {!rows ? <LoadingSpinner text="Loading users…" /> : <>
       {rows.length === 0 ? <p>No accounts match your filters.</p> : <div className="table-container"><table className={styles.accountsTable}>
         <thead><tr><th>Name</th><th>Verification status</th><th>Access role</th><th>Chapter</th><th>Account status</th><th>Actions</th></tr></thead>
         <tbody>{rows.map(target => <tr key={target.id}>
-        <td><strong>{target.full_name}</strong><div className={styles.email}>{target.email}</div></td>
+        <td><strong className={styles.name} title={target.full_name}>{target.full_name}</strong><div className={styles.email} title={target.email}>{target.email}</div></td>
         <td>{target.verification_status ? target.verification_status.charAt(0).toUpperCase() + target.verification_status.slice(1) : 'Not provided'}</td>
         <td>{target.role === 'admin' ? 'Admin/Officer' : 'Member'}</td><td>{chapters.find(chapter => String(chapter.id) === String(target.chapter_id))?.name || 'Not assigned'}</td><td>{target.account_status}{target.donor_window?.blocked && <div>{target.donor_window.which} until {new Date(target.donor_window.eligible_again_at_utc.replace(' ', 'T') + 'Z').toLocaleString()}</div>}</td>
         <td><div className={styles.actions}>{['chapter',target.account_status === 'active' ? 'deactivate' : 'reactivate'].map(action => <Button key={action} variant="secondary" size="sm" disabled={busy || String(target.id) === String(user?.id)}

@@ -41,6 +41,11 @@ final class NotificationsController
                 'related_id' => $n['related_id'] !== null ? (int) $n['related_id'] : null,
                 'related_request_status' => $n['related_request_status'] ?? null,
                 'related_request_urgency' => $n['related_request_urgency'] ?? null,
+                ...($actor['role'] === 'admin' && $n['type'] === 'verification.requested' ? [
+                    'related_verification_status' => $n['related_verification_status'] ?? null,
+                    'related_verification_account_status' => $n['related_verification_account_status'] ?? null,
+                    'related_verification_name' => $n['related_verification_name'] ?? null,
+                ] : []),
                 'related_conversation_id' => $n['type']==='offer.accepted' && $n['related_type']==='blood_request'
                     ? \BloodMatch\Services\OfferChatService::notificationConversation($actor,(int)$n['related_id']) : null,
                 'emailed_at' => $n['emailed_at'],

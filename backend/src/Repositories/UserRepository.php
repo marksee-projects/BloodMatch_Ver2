@@ -188,11 +188,6 @@ final class UserRepository
         $params = [];
 
         static $allowed = ['role', 'verification_status', 'account_status'];
-        if (($filters['role_group'] ?? '') === 'member') {
-            $where[] = "role = 'member'";
-        } elseif (($filters['role_group'] ?? '') === 'staff') {
-            $where[] = "role = 'admin'";
-        }
         foreach ($allowed as $col) {
             if (!empty($filters[$col]) && is_string($filters[$col])) {
                 $where[] = "$col = ?";

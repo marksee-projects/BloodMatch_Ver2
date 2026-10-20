@@ -7,6 +7,15 @@
 /** Resolve the in-app destination for a notification, if it is actionable. */
 export function notificationDisplayText(notification, field) {
   const text = String(notification?.[field] || '')
+  if (notification?.type === 'verification.requested' && Object.hasOwn(notification, 'related_verification_status')) {
+    const status = notification.related_verification_status
+    const name = notification.related_verification_name || 'This account'
+    if (status === 'verified') return field === 'title' ? 'Account already verified' : `${name} is already verified.`
+    if (status === 'rejected') return field === 'title' ? 'Verification reviewed' : `${name}'s verification was rejected.`
+    if (!status) return field === 'title' ? 'Verification request unavailable' : 'This account is no longer available.'
+    if (notification.related_verification_account_status === 'deactivated') return field === 'title' ? 'Verification request inactive' : `${name} is deactivated.`
+    if (status === 'pending' && field === 'body') return `${name} uploaded a National ID and is awaiting review.`
+  }
   if (!['blood_request', 'donation_report'].includes(notification?.related_type)) return text
   // Presentation only for legacy rows: keep stored IDs, links and read state intact.
   return text.replace(/\b(blood request|request)\s+#\d+\b/gi, '$1')

@@ -2,9 +2,17 @@
 
 October 20, 2026 — approved plan implemented in source.
 
+## Dashboard and notification follow-up
+
+The outcome and donor-availability cards now have equal heights on desktop. Search and the remaining User Management filters share one desktop row, with wrapping at smaller breakpoints. Name/email values are kept on one line each. The audit-log link is a shared button aligned with its header; donation-report view buttons are grouped inside a report panel.
+
+The screenshot alert for James Russel Russ links to the account currently named Requestor Russ. Its October 19, 9:56:24 PM upload was approved at 9:56:45 PM. The notification previously retained its original ready-for-review text indefinitely. Notification reads now join current verification/name/account state and expose these fields only for admin verification-request notifications. Shared presentation shows Account already verified (or rejected/inactive/unavailable state), while keeping the stored event text, timestamp, read state, and authorized deep link unchanged. This addresses the misleading alert without returning an approved account to the pending queue.
+
+Production build, management/report/notification regression checks, PHP syntax checks, and a read-only check of the notification repository passed. Browser visual verification remains unavailable. A compact chapter-demand summary is recommended for dashboard scanning; no additional map was introduced by this follow-up.
+
 ## Latest cleanup revision
 
-The user's screenshot feedback supersedes the initial rollout choices listed below. Headings are centered; dashboard introduction, explanatory paragraphs, queue shortcuts, update labels, verification chapter filter/count, and User Management database diagnostics are removed. Dashboard outcome/availability cards size to their contents rather than stretching equally. User Management filters use three columns at wide widths, two at medium widths, and one at narrow widths; the account table scrolls when needed.
+The user's screenshot feedback supersedes the initial rollout choices listed below. Headings are centered; dashboard introduction, explanatory paragraphs, queue shortcuts, update labels, verification chapter filter/count, and User Management database diagnostics are removed. The latest dashboard revision stretches the outcome/availability cards to equal heights, distributing the outcome rows through the available space. User Management search and filters now occupy a separate card above the table. Search spans the top row; the four remaining filters use four columns at wide widths, two at medium widths, and one at narrow widths. The Accounts dropdown and obsolete role_group request/filter code are removed. A read-only schema check found no account, accounts, or role_group columns; existing role and account_status columns remain required. The unfiltered listing returns all 22 accounts, with member/admin permissions preserved. Management rendering tests, PHP syntax checks, the production build, and read-only listing checks passed; the account table scrolls when needed.
 
 Feed cards again use one expandable box containing hospital, municipality, units, and deadline. Offer to donate is centered. Donation report dates and review/completion facts are visible inline. History has one toggle; submission, requester response, and acknowledgment show their timestamps directly without per-event buttons. The proof/correction disclosure and generic ReportDisclosure component are removed. Available photos are inline; Request correction and History share a compact action row. The chat link is labelled Open report.
 

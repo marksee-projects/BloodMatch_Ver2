@@ -90,9 +90,13 @@ final class NotificationRepository
         $total = (int) $countStmt->fetchColumn();
 
         $stmt = Database::pdo()->prepare(
-            "SELECT n.id, n.type, n.title, n.body, n.related_type, n.related_id, n.emailed_at, n.read_at, n.created_at, br.status as related_request_status, br.urgency as related_request_urgency
+            "SELECT n.id, n.type, n.title, n.body, n.related_type, n.related_id, n.emailed_at, n.read_at, n.created_at, br.status as related_request_status, br.urgency as related_request_urgency,
+                    verification_user.verification_status AS related_verification_status,
+                    verification_user.account_status AS related_verification_account_status,
+                    verification_user.full_name AS related_verification_name
              FROM notifications n
              LEFT JOIN blood_requests br ON n.related_type = 'blood_request' AND n.related_id = br.id
+             LEFT JOIN users verification_user ON n.type = 'verification.requested' AND n.related_type = 'verification' AND n.related_id = verification_user.id
              $where
              ORDER BY n.created_at DESC, n.id DESC
              LIMIT " . (int) $pageSize . " OFFSET $offset"

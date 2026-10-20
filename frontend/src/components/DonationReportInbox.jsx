@@ -78,7 +78,7 @@ function ReportWorkspace({ admin = false, onChanged }) {
     if (target && reports?.some(report => Number(report.id) === target)) document.getElementById('donation-report-' + target)?.scrollIntoView({ block: 'start', behavior: 'instant' })
   }, [target, Boolean(reports?.some(report => Number(report.id) === target))])
   const Heading = admin ? 'h2' : 'h1'
-  return <section className={styles.inbox} aria-label={admin ? 'Donation review queue' : 'Donation reports'}>
+  return <section className={`${styles.inbox} ${admin ? styles.adminPanel : ''}`} aria-label={admin ? 'Donation review queue' : 'Donation reports'}>
     {!admin && <Button className={styles.back} variant="secondary" to={typeof route.state?.from === 'string' && /^\/(?!\/)/.test(route.state.from) && !route.state.from.startsWith('/donation-reports') ? route.state.from : '/'}><ArrowLeft size={18} aria-hidden="true" /> Back</Button>}
     <header className={styles.heading}>
       <div className={styles.headingText}><Heading>Donation reports</Heading></div>

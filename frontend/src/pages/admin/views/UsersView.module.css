@@ -1,15 +1,19 @@
-.filters { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); align-items: end; gap: var(--space-4); margin-bottom: var(--space-5); }
+.filters { display: grid; grid-template-columns: minmax(0,1.4fr) repeat(4,minmax(0,1fr)); align-items: end; gap: var(--space-4); margin: 0; }
 .filters > div { min-width: 0; margin: 0; }
 .filters input, .filters select { width: 100%; }
 .list { display: grid; gap: var(--space-4); margin-bottom: var(--space-5); }
 .list h2 { margin-top: 0; font-size: var(--text-h3); }
 .actions { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
-.managementCard { margin: 0; padding: var(--space-5); }
-.email { color: var(--color-text-muted); font-size: var(--text-sm); overflow-wrap: anywhere; }
+.page { display: grid; gap: var(--space-5); }
+.filterCard, .managementCard { margin: 0; padding: var(--space-5); min-width: 0; }
+.searchField { grid-column: auto; }
+.email { color: var(--color-text-muted); font-size: var(--text-sm); white-space: nowrap; }
 .pagination { display: flex; justify-content: center; align-items: center; gap: var(--space-3); padding-top: var(--space-4); margin-top: var(--space-4); border-top: 1px solid var(--color-border); }
 
 .accountsTable { min-width: 980px; table-layout: auto; }
-.accountsTable td:first-child { min-width: 200px; }
+.accountsTable td:first-child { min-width: 200px; white-space: nowrap; }
 .accountsTable td:last-child { min-width: 230px; }
-@media(max-width:1000px) { .filters { grid-template-columns: repeat(2,minmax(0,1fr)); } }
-@media(max-width:560px) { .filters { grid-template-columns: minmax(0,1fr); } .managementCard { padding: var(--space-4); } }
+@media(max-width:1100px) { .filters { grid-template-columns: repeat(2,minmax(0,1fr)); } .searchField { grid-column: 1 / -1; } }
+@media(max-width:560px) { .filters { grid-template-columns: minmax(0,1fr); } .filterCard, .managementCard { padding: var(--space-4); } }
+
+.name, .email { display: block; white-space: nowrap; }
