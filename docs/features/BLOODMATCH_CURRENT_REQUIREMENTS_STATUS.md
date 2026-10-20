@@ -106,7 +106,7 @@ These are implemented additions or approved changes, not newly invented scope. D
 | System settings editor | MISSING baseline feature | DB settings/validation exist; no authorized configuration-edit UI/API |
 | Sequential biological cascade | MISSING subfeature within PARTIAL FR-06 | Compatible substitutions are implemented; sequential tier execution is not |
 | Historical donor chapter/municipality-search objective | SUPERSEDED BY USER APPROVAL; replacement status in FR-07/14 | Replaced by privacy-safe chapter/post-urgency demand visualization. Keep existing donor search/ranking; no new donor-municipality feature is required under this objective |
-| Periodic demand refresh | ACTUAL MISSING automatic-freshness subfeature within FR-14 | Approved replacement filters pass offline; no periodic/push refresh exists. Do not mark the whole real-time demand requirement complete |
+| Periodic demand refresh | ACTUAL MISSING automatic-freshness subfeature within FR-14 | Approved replacement filters pass offline; no periodic/push refresh exists. [Automatic-refresh plan](../research/CHAPTER_DEMAND_AUTO_REFRESH_PLAN.md) proposes 30-second visible-view polling, recovery and freshness feedback; not implemented. Do not mark the whole real-time demand requirement complete |
 | Independent fallback reviewer/admin transfer | MISSING current recovery process | Designated sole admin cannot review own involved cases; no second-reviewer path |
 | Password reset | REMOVED | No reset route/UI; 034 removed password_resets. Not a currently broken reset feature |
 | Separate chapter-officer authority | MODIFIED/RETIRED | Consolidated into designated global Admin Officer; legacy URLs are aliases |
