@@ -356,7 +356,7 @@ export default function ProfilePage() {
 
       {profile.non_response_standby && (
         <div className={styles.alertBox} role="status">
-          <div><strong>Review your donor availability</strong><p>An unanswered opportunity reached 42 hours. Acknowledge standby to resume donor matching when your availability and safety windows allow.</p></div>
+          <div><strong>Review your donor availability</strong><p>An unanswered opportunity passed its response deadline. Acknowledge standby to resume donor matching when your availability and safety windows allow.</p></div>
           <Button variant="primary" disabled={enrolling} onClick={acknowledgeStandby}>Acknowledge standby</Button>
         </div>
       )}
