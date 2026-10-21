@@ -79,8 +79,8 @@ function ReportWorkspace({ admin = false, onChanged }) {
   }, [target, Boolean(reports?.some(report => Number(report.id) === target))])
   const Heading = admin ? 'h2' : 'h1'
   return <section className={`${styles.inbox} ${admin ? styles.adminPanel : ''}`} aria-label={admin ? 'Donation review queue' : 'Donation reports'}>
+    <header className={`${styles.heading} ${!admin ? styles.publicHeading : ''}`}>
     {!admin && <Button className={styles.back} variant="secondary" to={typeof route.state?.from === 'string' && /^\/(?!\/)/.test(route.state.from) && !route.state.from.startsWith('/donation-reports') ? route.state.from : '/'}><ArrowLeft size={18} aria-hidden="true" /> Back</Button>}
-    <header className={styles.heading}>
       <div className={styles.headingText}><Heading>Donation reports</Heading></div>
     </header>
     {admin && <><nav className={styles.filters} aria-label="Donation reports"><Button variant={scope === 'queue' ? 'primary' : 'secondary'} onClick={() => { setScope('queue'); setPage(1) }}>Needs attention</Button><Button variant={scope === 'history' ? 'primary' : 'secondary'} onClick={() => { setScope('history'); setPage(1) }}>Completed donations</Button></nav></>}

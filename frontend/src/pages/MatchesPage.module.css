@@ -73,7 +73,7 @@
 .matchMetric strong { font-size: var(--text-sm); text-transform: capitalize; }
 .emptyState { padding: var(--space-6); text-align: center; border-radius: var(--radius-control); background: var(--color-surface-sunken); }
 .emptyState h3 { margin-top: 0; }
-.emptyState p { margin-bottom: 0; color: var(--color-text-muted); }
+.emptyState p { text-align: center; margin-bottom: 0; color: var(--color-text-muted); }
 
 .modalBackdrop { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: var(--space-4); background: var(--color-backdrop); }
 .modalContent { width: min(520px, 100%); padding: var(--space-6); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-lg); }

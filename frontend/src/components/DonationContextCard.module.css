@@ -33,3 +33,5 @@
 
 .reportActions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: var(--space-3); padding-top: var(--space-4); border-top: 1px solid var(--color-border-hairline); }
 @media(max-width:480px) { .reportActions > button { flex: 1; } }
+
+.historyAction { margin-left: auto; }

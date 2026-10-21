@@ -47,6 +47,7 @@ export default function OfferAcceptancePanel({ requestId, matches = [], onRefres
     finally { await Promise.allSettled([refetch(), onRefresh?.()]); busyRef.current = false; setBusy(null) }
   }
   return <section ref={sectionRef} className={styles.matchesSurface} aria-labelledby="donors-heading">
+      <div className={styles.filterToolbar}><Button variant="secondary" onClick={() => setFilters(emptyMatchFilters)}>Reset filters</Button></div>
     <div className={styles.sectionHeading}><h2 id="donors-heading">Donors</h2><p>{tab === 'offers' ? 'These donors have offered to help with your request.' : "These donors match your request but have not offered to help."}</p></div>
     <div className={styles.donorTabs} role="tablist" aria-label="Donor lists">
       {['offers','suggestions'].map(value => <button key={value} id={`donor-tab-${value}`} type="button" role="tab" aria-selected={tab === value} aria-controls="donor-list-panel" tabIndex={tab === value ? 0 : -1}
@@ -57,7 +58,6 @@ export default function OfferAcceptancePanel({ requestId, matches = [], onRefres
     <div id="donor-list-panel" role="tabpanel" aria-labelledby={`donor-tab-${tab}`} tabIndex={0}>
       {(error || loadError) && <p role="alert">{error || loadError.message}</p>}
       {feedback && <p role="status">{feedback}</p>}
-      <div className={styles.filterToolbar}><Button variant="secondary" onClick={() => setFilters(emptyMatchFilters)}>Reset filters</Button></div>
       <div className={styles.matchFilters} role="search" aria-label="Filter donors">
         <div className={styles.filterField}><label htmlFor="donor-search">Search donors</label><input id="donor-search" type="search" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} placeholder="Search by donor name" /></div>
         <div className={styles.filterField}><label htmlFor="donor-status">Response status</label><select id="donor-status" value={filters.status} onChange={e => setFilters(f => ({ ...f, status: e.target.value }))}><option value="all">All statuses</option>{tab === 'offers' ? <><option value="RESPONDED">Offered</option><option value="COMPLETED">Completed</option><option value="CLOSED">Inactive</option></> : <option value="awaiting">Not offered</option>}</select></div>
