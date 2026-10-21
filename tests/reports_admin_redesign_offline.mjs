@@ -42,7 +42,8 @@ assert.equal(notificationDisplayText({type:'verification.requested',title:'Legac
 const fixture = { role: 'admin', queryKeys: [], queryFns: [], calls: [], reports: [{ id: 2, donor_id: 8, requester_id: 9, donor_name: 'Synthetic donor', requester_name: 'Synthetic requester', facility_name: 'Synthetic facility', status: 'CONFIRMED', request_status: 'FULFILLED', completion_basis: 'mutual', occurred_at: '2026-10-19 00:00:00', reported_at: '2026-10-19 01:00:00', content_version: 1 }], error: null }
 const offlineApi = { get: async path => { fixture.calls.push(path); return path.endsWith('/proof') ? { evidence: [] } : { corrections: [] } }, post: () => { throw new Error('No submissions in this test') } }
 const queries = {
-  useQuery: options => { fixture.queryKeys.push(options.queryKey); fixture.queryFns.push(options.queryFn); return { data: options.queryKey[0] === 'admin-dashboard' ? dashboard : { reports: fixture.reports, total: 21 }, isPending: false, isFetching: false, error: fixture.error, refetch: async () => {} } },
+  useQuery: options => { fixture.queryKeys.push(options.queryKey); fixture.queryFns.push(options.queryFn); if (options.queryKey[0] === 'admin-verifications') fixture.verificationOptions = options; return { data: options.queryKey[0] === 'admin-dashboard' ? dashboard : options.queryKey[0] === 'admin-verifications' ? fixture.queue : options.queryKey[0] === 'member-profile' ? fixture.memberProfile : options.queryKey[0] === 'my-requests' ? [] : { reports: fixture.reports, total: 21 }, isPending: false, isFetching: false, error: fixture.error, refetch: async () => { fixture.refetches = (fixture.refetches || 0) + 1 } } },
+  useMutation: () => ({ reset() {}, mutate() {} }),
   useQueryClient: () => ({ invalidateQueries: async () => {} }),
 }
 async function component(entry, exportName = 'default') {
@@ -53,14 +54,17 @@ async function component(entry, exportName = 'default') {
       return { path: [path, path + '.jsx', path + '.js'].find(existsSync), namespace: 'source' }
     })
     b.onLoad({ filter: /AuthContext\.jsx$/ }, () => ({ contents: 'export const useAuth=()=>({user:{id:3,role:fixture.role},refresh:async()=>{}})', loader: 'js' }))
-    b.onLoad({ filter: /NotificationContext\.jsx$/ }, () => ({ contents: 'export const useNotify=()=>()=>{}', loader: 'js' }))
+    b.onLoad({ filter: /NotificationContext\.jsx$/ }, () => ({ contents: 'export const useNotify=()=>()=>{}; export const useActionNoticeState=()=>[null,()=>{}]', loader: 'js' }))
+    b.onLoad({ filter: /ChatContext\.jsx$/ }, () => ({ contents: 'export const useChat=()=>({unreadCount:2,canChat:true,fetchUnreadCount:()=>{},openConversationTab:()=>{}})', loader: 'js' }))
     b.onLoad({ filter: /apiClient\.js$/ }, () => ({ contents: 'export const api=offlineApi', loader: 'js' }))
+    b.onLoad({ filter: /notificationReadState\.js$/ }, () => ({ contents: 'export const publishNotificationRead=count=>fixture.publishedCount=count', loader: 'js' }))
+    b.onLoad({ filter: /RequestCreationContext\.jsx$/ }, () => ({ contents: 'export const useRequestCreation=()=>()=>{}', loader: 'js' }))
     b.onLoad({ filter: /\.css$/ }, () => ({ contents: 'export default new Proxy({}, {get:(_,key)=>key})', loader: 'js' }))
     b.onLoad({ filter: /.*/, namespace: 'source' }, args => ({ contents: readFileSync(args.path, 'utf8').replace('function ReportWorkspace(', 'export function ReportWorkspace('), loader: extname(args.path) === '.jsx' ? 'jsx' : 'js' }))
   } }] })
   const mod = { exports: {} }
   const icons = new Proxy({}, { get: () => () => React.createElement('svg') })
-  const router = { useLocation: () => ({ pathname: '/donation-reports', search: '', state: null }), Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children), Outlet: () => React.createElement('div', null, 'Admin page content') }
+  const router = { useNavigate: () => () => {}, useParams: () => ({ id: '64' }), useLocation: () => ({ pathname: '/donation-reports', search: '', state: null }), useSearchParams: () => [new URLSearchParams(), () => {}], Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children), Outlet: () => React.createElement('div', null, 'Admin page content') }
   new Function('require', 'module', 'exports', 'fixture', 'offlineApi', result.outputFiles[0].text)(id => id === '@phosphor-icons/react' ? icons : id === '@tanstack/react-query' ? queries : id === 'react-router-dom' ? router : require(id), mod, mod.exports, fixture, offlineApi)
   return mod.exports[exportName]
 }
@@ -114,6 +118,56 @@ try {
   control('Request correction').props.onClick(); html = render()
   assert(html.includes('<textarea') && html.includes('Submit correction request') && html.includes('does not automatically reverse'))
 
+  current = await component('src/components/chat/MessengerFlyout.jsx'); props = {}; states = []
+  html = render(); assert(html.includes('class="badge">2</span>'))
+  const chatTrigger = () => walk(tree, n => n.type === 'button' && n.props.title === 'Chats')
+  chatTrigger().props.onClick(); html = render()
+  assert(html.includes('aria-label="Chats menu"') && !html.includes('class="badge">2</span>'), 'Opening the menu hides the header badge without marking messages read')
+  chatTrigger().props.onClick(); html = render()
+  assert(!html.includes('aria-label="Chats menu"') && html.includes('class="badge">2</span>'), 'Closing the menu still indicates unread conversations')
+
+  current = await component('src/components/NotificationFlyout.jsx'); props = { unread: 2, setUnread: count => { fixture.unread = count } }; states = []
+  render()
+  const callsBeforeBell = fixture.calls.length
+  walk(tree, n => n.type === 'button' && n.props.className === 'nav-control notif-bell').props.onClick(); html = render()
+  assert.equal(fixture.calls.length, callsBeforeBell, 'Opening the bell never marks unread notifications read')
+  assert(html.includes('>Unread</button>') && html.includes('Mark all as read'))
+  control('Unread').props.onClick(); states[2] = { notifications: [] }; html = render()
+  assert(html.includes('No unread notifications') && html.includes('Choose All'))
+  control('Unread').props.onClick(); html = render()
+  assert(html.includes('No unread notifications'), 'Clicking the already-selected filter does not blank the list')
+  const oldGet = offlineApi.get, oldPost = offlineApi.post
+  try {
+    offlineApi.post = async path => { fixture.calls.push(path); return { unread_count: 0 } }
+    offlineApi.get = async path => { fixture.calls.push(path); return { notifications: [] } }
+    await control('Mark all as read').props.onClick(); render()
+    assert(fixture.calls.includes('/api/notifications/read-all'))
+    assert(fixture.calls.at(-1).includes('read=unread'))
+    assert.equal(fixture.publishedCount, 0)
+  } finally { offlineApi.get = oldGet; offlineApi.post = oldPost }
+
+  fixture.memberProfile = { profile: { id: 64, full_name: 'Profile fixture', verification_status: 'verified', role_label: 'Member' }, requests: [
+    { id: 1, status: 'OPEN', facility_name: 'Open fixture facility', urgency: 'routine', required_blood_type: 'A+', needed_datetime: '2099-01-01 00:00:00' },
+    { id: 2, status: 'FULFILLED', facility_name: 'Completed fixture facility', urgency: 'routine', required_blood_type: 'A+' },
+    { id: 3, status: 'EXPIRED', facility_name: 'Expired fixture facility', urgency: 'routine', required_blood_type: 'A+' },
+    { id: 4, status: 'OPEN', facility_name: 'Overdue fixture facility', urgency: 'routine', required_blood_type: 'A+', needed_datetime: '2020-01-01 00:00:00' },
+  ] }
+  current = await component('src/pages/ProfilePage.jsx'); props = {}; states = []
+  html = render()
+  assert(html.includes('Open (1)') && html.includes('Completed (1)') && html.includes('Open fixture facility'))
+  assert(!html.includes('Expired fixture facility') && !html.includes('Overdue fixture facility') && !html.includes('>All (') && !html.includes('>Expired ('))
+  control('Completed (1)').props.onClick(); html = render()
+  assert(html.includes('Completed fixture facility') && !html.includes('Open fixture facility') && !html.includes('Fulfilled'))
+
+  fixture.role = 'admin'; fixture.queue = { total: 2, queue: [] }
+  current = await component('src/pages/admin/views/VerificationsView.jsx'); props = {}; states = []
+  html = render(); assert(html.includes('Pending National ID reviews</h2>') && !html.includes('>Refresh</button>') && !html.includes('Updates every 10 seconds.'))
+  assert.equal(fixture.verificationOptions.refetchInterval, 10000)
+  assert.equal(fixture.verificationOptions.refetchOnWindowFocus, 'always')
+  assert.equal(fixture.verificationOptions.enabled, true)
+  fixture.queue = { total: 3, queue: [{ id: 99, full_name: 'New ID submission', email: 'synthetic@example.test', chapter_name: 'Test chapter', national_id_count: 1, latest_national_id_uploaded_at: '2026-10-22 00:00:00' }] }
+  html = render(); assert(html.includes('New ID submission') && !html.includes('Pending National ID reviews (3)'), 'Refreshed submissions appear without a heading count or manual refresh control')
+
   // A desktop collapse preference must not remove mobile menu labels.
   const oldWindow = globalThis.window, oldStorage = globalThis.localStorage
   try {
@@ -141,4 +195,4 @@ try {
     if (oldStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = oldStorage
   }
 } finally { React.useState = originalState }
-console.log('PASS dashboard contract/rendering, report scopes/pagination, ID presentation, inline history, correction-form, notification links, and mobile/desktop admin menu checks; synthetic transport only.')
+console.log('PASS dashboard/report rendering, mobile/desktop admin menus, chat badge toggle and automatically updated verification queue with a minimal header; synthetic transport only.')

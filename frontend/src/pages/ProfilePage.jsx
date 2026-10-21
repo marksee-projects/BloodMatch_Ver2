@@ -139,15 +139,12 @@ export default function ProfilePage() {
     const deadline = Date.parse(raw.replace(' ', 'T') + (/Z$|[+-]\d{2}:?\d{2}$/.test(raw) ? '' : 'Z'))
     return request.status === 'OPEN' && Number.isFinite(deadline) && deadline < Date.now()
       ? { ...request, status: 'EXPIRED' } : request
-  })
+  }).filter(request => ['OPEN', 'FULFILLED'].includes(request.status))
   const reports = data?.reports || []
-  const [otherFilter, setOtherFilter] = useState('ALL')
+  const [otherFilter, setOtherFilter] = useState('OPEN')
   const otherOpenCount = otherRequests.filter(r => r.status === 'OPEN').length
   const otherFulfilledCount = otherRequests.filter(r => r.status === 'FULFILLED').length
-  const otherExpiredCount = otherRequests.filter(r => r.status === 'EXPIRED').length
-  const filteredOtherRequests = otherFilter === 'ALL'
-    ? otherRequests
-    : otherRequests.filter(r => r.status === otherFilter)
+  const filteredOtherRequests = otherRequests.filter(r => r.status === otherFilter)
   const filteredRequests = requestFilter === 'ALL' ? requestHistory : requestHistory.filter((request) => request.status === requestFilter)
 
   useEffect(() => setPictureFailed(false), [profile?.profile_picture_url])
@@ -343,15 +340,14 @@ export default function ProfilePage() {
                 {otherRequests.length > 0 && (
                   <div style={{ display: 'inline-flex', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
                     {[
-                      { id: 'ALL', label: `All (${otherRequests.length})` },
                       { id: 'OPEN', label: `Open (${otherOpenCount})` },
-                      { id: 'FULFILLED', label: `Fulfilled (${otherFulfilledCount})` },
-                      { id: 'EXPIRED', label: `Expired (${otherExpiredCount})` },
+                      { id: 'FULFILLED', label: `Completed (${otherFulfilledCount})` },
                     ].map(tab => (
                       <Button
                         key={tab.id}
                         size="sm"
                         variant={otherFilter === tab.id ? 'primary' : 'secondary'}
+                        aria-pressed={otherFilter === tab.id}
                         onClick={() => setOtherFilter(tab.id)}
                       >
                         {tab.label}
@@ -363,7 +359,7 @@ export default function ProfilePage() {
               {filteredOtherRequests.length === 0 ? (
                 <Card className={styles.compactCard}>
                   <p className={styles.emptyText}>
-                    {otherRequests.length === 0 ? 'No blood requests posted yet.' : `No ${otherFilter.toLowerCase()} blood requests.`}
+                    {otherFilter === 'OPEN' ? 'No open blood requests.' : 'No completed blood requests.'}
                   </p>
                 </Card>
               ) : (
@@ -383,7 +379,7 @@ export default function ProfilePage() {
                   >
                     <div className={styles.postCounts}>
                       <Badge variant={request.status === 'OPEN' ? 'brand' : request.status === 'FULFILLED' ? 'success' : 'neutral'}>
-                        {titleCase(request.status)}
+                        {request.status === 'FULFILLED' ? 'Completed' : titleCase(request.status)}
                       </Badge>
                     </div>
                   </FeedCard>

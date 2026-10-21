@@ -55,9 +55,11 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
   const rootRef = useRef(null)
   const mounted = useRef(false)
   const inFlight = useRef(false)
+  const openRef = useRef(open)
+  openRef.current = open
   useEffect(() => { mounted.current = true; return () => { mounted.current = false } }, [])
 
-  const loadConversations = useCallback(async () => {
+  const loadConversations = useCallback(async ({ acknowledge = false } = {}) => {
     if (inFlight.current || document.hidden) return
     inFlight.current = true
     setLoading(true)
@@ -67,6 +69,20 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
       if (!mounted.current) return
       if (Array.isArray(res?.conversations)) {
         setConversations(res.conversations)
+        if (acknowledge && openRef.current && !document.hidden) {
+          // Acknowledge only the message boundary shown in these previews.
+          // A message arriving after this response must remain unread.
+          const unread = res.conversations.filter(conv => conv.unread_count > 0 && Number(conv.last_message?.id) > 0)
+          const results = await Promise.allSettled(unread.map(conv =>
+            api.post(`/api/chat/conversations/${conv.id}/read`, { last_message_id: Number(conv.last_message.id) })
+          ))
+          const readIds = new Set(unread.filter((_, index) => results[index].status === 'fulfilled').map(conv => conv.id))
+          if (mounted.current) {
+            setConversations(current => current.map(conv => readIds.has(conv.id) ? { ...conv, unread_count: 0 } : conv))
+            if (results.some(result => result.status === 'rejected')) setError('Some chats could not be marked as read. Reopen the menu to retry.')
+          }
+          await fetchUnreadCount()
+        }
       }
     } catch (err) {
       if (mounted.current) setError(err.message || 'Could not load chats.')
@@ -74,11 +90,11 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
       inFlight.current = false
       if (mounted.current) setLoading(false)
     }
-  }, [])
+  }, [fetchUnreadCount])
 
   useEffect(() => {
     if (open && canChat) {
-      loadConversations()
+      loadConversations({ acknowledge: true })
       fetchUnreadCount()
       const timer = window.setInterval(() => { if (!document.hidden) { loadConversations(); fetchUnreadCount() } }, 10000)
       return () => window.clearInterval(timer)
@@ -135,7 +151,7 @@ export default function MessengerFlyout({ variant = 'desktop' }) {
         title="Chats"
       >
         <ChatCircleDots size={variant === 'mobile' ? 24 : 26} weight="regular" aria-hidden="true" />
-        {badgeText && <span className={styles.badge}>{badgeText}</span>}
+        {!open && badgeText && <span className={styles.badge}>{badgeText}</span>}
       </button>
 
       {open && (

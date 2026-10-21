@@ -1,0 +1,161 @@
+<?php
+/** Isolated demonstration only. Never updates the application database. */
+declare(strict_types=1);
+if (PHP_SAPI!=='cli') { http_response_code(404); exit; }
+require dirname(__DIR__).'/backend/src/autoload.php';
+use BloodMatch\Config\{Env,Database};
+use BloodMatch\Repositories\{UserRepository,BloodRequestRepository,DocumentRepository,DonationWorkflowRepository};
+use BloodMatch\Services\{MatchService,MatchResponseService,OfferChatService,DonationCompletionService,DonationCorrectionService,DonationFollowupService,ChatConsentService,ChatService,DocumentStorageService,VerificationService,DonorEligibilityService,AuthService,AuditLogger};
+const DEMO_BATCH='DEMO_20261022_7C91';
+const DEMO_DB='bloodmatch_demo_20261022_7c91';
+Env::load(dirname(__DIR__).'/.env');
+$dir=dirname(__DIR__).'/backend/storage/maintenance/'.DEMO_BATCH;
+if (!is_dir($dir)) mkdir($dir,0700,true);
+function qi(string $s):string{return '`'.str_replace('`','``',$s).'`';}
+function savePrivate(string $name,mixed $data):void {global $dir;file_put_contents($dir.'/'.$name,json_encode($data,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR),LOCK_EX);}
+function connectDemo(?string $db):PDO {
+ $pdo=new PDO('mysql:host=127.0.0.1;port=3306;'.($db?'dbname='.$db.';':'').'charset=utf8mb4',Env::get('DB_USER'),Env::get('DB_PASS'),[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC,PDO::ATTR_EMULATE_PREPARES=>false]);$pdo->exec("SET time_zone='+00:00'");return $pdo;
+}
+function snapshotDemo(PDO $p):array {
+ $out=['batch'=>DEMO_BATCH,'database'=>DEMO_DB,'tables'=>[],'triggers'=>$p->query('SHOW TRIGGERS')->fetchAll()];
+ foreach($p->query("SHOW FULL TABLES WHERE Table_type='BASE TABLE'")->fetchAll(PDO::FETCH_NUM) as [$t]) {
+  $cols=$p->query('SHOW FULL COLUMNS FROM '.qi($t))->fetchAll();
+  $names=array_column(array_filter($cols,fn($c)=>!str_contains($c['Extra'],'GENERATED')),'Field');
+  $out['tables'][$t]=['ddl'=>$p->query('SHOW CREATE TABLE '.qi($t))->fetch(PDO::FETCH_NUM)[1],'columns'=>$names,'rows'=>$p->query('SELECT '.implode(',',array_map('qi',$names)).' FROM '.qi($t).' ORDER BY '.implode(',',array_map('qi',$names)))->fetchAll(PDO::FETCH_NUM)];
+ }return $out;
+}
+function importDemo(PDO $p,array $s):void {
+ $p->exec('SET FOREIGN_KEY_CHECKS=0');
+ try {foreach($s['tables'] as $t=>$v) {
+  $p->exec($v['ddl']);
+  if ($v['rows']) {$q=$p->prepare('INSERT INTO '.qi($t).' ('.implode(',',array_map('qi',$v['columns'])).') VALUES ('.implode(',',array_fill(0,count($v['columns']),'?')).')');foreach($v['rows'] as $r)$q->execute($r);}
+ }
+ foreach($s['triggers'] as $t)$p->exec('CREATE TRIGGER '.qi($t['Trigger']).' '.$t['Timing'].' '.$t['Event'].' ON '.qi($t['Table']).' FOR EACH ROW '.$t['Statement']);
+ } finally {$p->exec('SET FOREIGN_KEY_CHECKS=1');}
+}
+$action=$argv[1]??'prepare';
+$server=connectDemo(null);
+if (Env::get('DB_HOST')!=='127.0.0.1' || Env::get('DB_NAME')!=='bloodmatch') throw new RuntimeException('Unexpected source configuration. Inspect again.');
+if(in_array($action,['cleanup','restore'],true)) {
+ if(($argv[2]??'')!==DEMO_BATCH)throw new RuntimeException('Supply the exact DEMO batch as confirmation.');
+ $snapshot=json_decode(file_get_contents($dir.'/prepared.json'),true,512,JSON_THROW_ON_ERROR);
+ if($snapshot['database']!==DEMO_DB||$snapshot['batch']!==DEMO_BATCH)throw new RuntimeException('Snapshot target mismatch.');
+ // This command removes ONLY this dedicated database, never users in bloodmatch.
+ $server->exec('DROP DATABASE IF EXISTS '.qi(DEMO_DB));
+ if($action==='restore') {$server->exec('CREATE DATABASE '.qi(DEMO_DB).' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');importDemo(connectDemo(DEMO_DB),$snapshot);}
+ echo $action.' completed for '.DEMO_DB." only. Dummy files and snapshots retained.\n";exit;
+}
+if ($action!=='prepare')throw new RuntimeException('Expected prepare, cleanup or restore.');
+$exists=$server->prepare('SELECT COUNT(*) FROM information_schema.SCHEMATA WHERE SCHEMA_NAME=?');$exists->execute([DEMO_DB]);
+$resume=(bool)$exists->fetchColumn();
+if($resume && is_file($dir.'/prepared.json')) {echo 'Already prepared: '.DEMO_DB.". No duplicate records created.\n";exit;}
+if($resume) {
+ if(!is_file($dir.'/baseline.json')||!is_file($dir.'/failure.json'))throw new RuntimeException('Unknown existing demo target.');
+ $prior=json_decode(file_get_contents($dir.'/baseline.json'),true,512,JSON_THROW_ON_ERROR);$current=snapshotDemo(connectDemo(DEMO_DB));
+ foreach($prior['tables'] as $t=>$v){$a=$v['rows'];$b=$current['tables'][$t]['rows'];sort($a);sort($b);if($a!==$b)throw new RuntimeException('Failed run left records in '.$t.'; inspect without automatic cleanup.');}
+}
+$source=connectDemo('bloodmatch');$source->exec("SET time_zone='+00:00'");
+$target=$source->query('SELECT DATABASE() db,@@port port,@@hostname host,VERSION() version')->fetch();
+if($target['db']!=='bloodmatch'||(int)$target['port']!==3306)throw new RuntimeException('Source mismatch.');
+// These four exact account labels are generated by tests/phase5.ps1.
+$allow=[69=>'p5rej346578869@test.local',85=>'p5other189351979@test.local',89=>'p5rejflow189351979@test.local',104=>'p5rejflow918167087@test.local'];
+$rows=[];
+foreach($allow as $id=>$email) {$q=$source->prepare('SELECT * FROM users WHERE id=? AND email=? AND role=\'member\'');$q->execute([$id,$email]);$u=$q->fetch();if(!$u)throw new RuntimeException('Example allowlist mismatch.');unset($u['full_name']);$rows[]=$u;}
+$admin=$source->query("SELECT * FROM users WHERE id=3 AND email='markseejr@gmail.com' AND role='admin'")->fetch();if(!$admin)throw new RuntimeException('Admin mismatch.');unset($admin['full_name']);$rows[]=$admin;
+savePrivate('source-account-backup.json',['target'=>$target,'accounts'=>$rows]);
+// Fingerprint all source tables before/after; no source DML is issued anywhere.
+$before=snapshotDemo($source);savePrivate('source-fingerprint.json',array_map(fn($t)=>['count'=>count($t['rows']),'sha256'=>hash('sha256',json_encode($t['rows']))],$before['tables']));
+$references=['chapters','bataan_locations','hospitals','system_settings','compatibility_pairs','schema_migrations'];
+$baseline=$before;$baseline['tables']['users']['rows']=array_map(fn($r)=>array_map(fn($c)=>$r[$c],$baseline['tables']['users']['columns']),$rows);
+foreach($baseline['tables'] as $t=>&$v)if($t!=='users'&&!in_array($t,$references,true))$v['rows']=[];unset($v);
+if(!$resume){$server->exec('CREATE DATABASE '.qi(DEMO_DB).' CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');$p=connectDemo(DEMO_DB);importDemo($p,$baseline);savePrivate('baseline.json',$baseline);}
+$_ENV['DB_NAME']=DEMO_DB;$_ENV['DB_PORT']='3306';$_ENV['MAIL_HOST']='';$_ENV['EMAIL_WORKER_ENABLED']='0';$_ENV['MEMBERSHIP_EMAIL_ENABLED']='0';$_ENV['SAFETY_AUTOMATION_ENABLED']='0';$_ENV['DONATION_FOLLOWUP_ENABLED']='0';
+$p=Database::pdo();if($p->query('SELECT DATABASE()')->fetchColumn()!==DEMO_DB)throw new RuntimeException('Isolation failed.');
+$keyConfig=$dir.'/document-key-location.json';
+if(!is_file($keyConfig)) {
+ $keyDir=sys_get_temp_dir().'/BloodMatch-'.DEMO_BATCH;$keyId=bin2hex(random_bytes(16));if(!is_dir($keyDir))mkdir($keyDir,0700,true);
+ file_put_contents($keyDir.'/'.$keyId.'.key',random_bytes(32),LOCK_EX);savePrivate('document-key-location.json',['directory'=>$keyDir,'id'=>$keyId]);
+}
+$keys=json_decode(file_get_contents($keyConfig),true,512,JSON_THROW_ON_ERROR);$_ENV['DOCUMENT_KEY_DIRECTORY']=$keys['directory'];$_ENV['DOCUMENT_ACTIVE_KEY_ID']=$keys['id'];$_ENV['DOCUMENT_ENCRYPTION_MODE']='strict';
+$p->exec("SET time_zone='+00:00'");$repo=new UserRepository();$now=AuthService::nowUtc();$ts=strtotime($now.' UTC');
+$manifest=['batch'=>DEMO_BATCH,'source'=>$target,'database'=>DEMO_DB,'prepared_at_utc'=>$now,'accounts'=>[],'requests'=>[],'cases'=>[],'files'=>[],'checks'=>[]];
+if(is_file($dir.'/failure.json')){$failed=json_decode(file_get_contents($dir.'/failure.json'),true);$manifest['prior_attempt_files']=$failed['files']??[];}
+$p->beginTransaction();
+try {
+ // Only copied test profiles are changed; passwords remain byte-for-byte intact.
+ $p->exec("UPDATE users SET blood_type='O+',blood_type_source='self_reported',blood_type_verified=0,date_of_birth='1990-01-01',donor_enrolled_at=UTC_TIMESTAMP(),donor_availability='available',latitude=14.6765,longitude=120.5361 WHERE id=85");
+ foreach($allow as $id=>$email)$manifest['accounts'][]=['id'=>$id,'email'=>$email,'label'=>[69=>'Rejected resubmission',85=>'Main requester',89=>'Pending live approval',104=>'Pending live rejection'][$id],'origin'=>'existing phase5 example; copied only'];
+ $manifest['accounts'][]=['id'=>3,'email'=>'markseejr@gmail.com','label'=>'Existing Admin; unchanged isolated copy','origin'=>'Admin credentials preserved'];
+ // Generate a clearly fake image without resembling an identity document.
+ $im=imagecreatetruecolor(1000,440);$bg=imagecolorallocate($im,255,244,200);imagefill($im,0,0,$bg);$ink=imagecolorallocate($im,150,0,0);
+ foreach(['DEMO ONLY - NOT VALID IDENTIFICATION',DEMO_BATCH,'SYNTHETIC DOCUMENT / PROOF','NO REAL PERSON / NO MEDICAL EVIDENCE'] as $i=>$line)imagestring($im,5,35,70+$i*75,$line,$ink);
+ $asset=$dir.'/DEMO_ONLY.png';imagepng($im,$asset);imagedestroy($im);$manifest['files'][]=$asset;
+ foreach([69,89,104] as $id){$tmp=$dir.'/upload-'.$id.'.png';copy($asset,$tmp);$stored=DocumentStorageService::store($tmp);$docId=(new DocumentRepository())->create($id,'national_id',$stored,$now);$manifest['files'][]=DocumentStorageService::pathFor($stored['stored_name']);$manifest['cases']['document-'.$id]=['document_id'=>$docId,'user_id'=>$id];}
+ // Recreate a rejection through the service so decision history is present.
+ $p->exec("UPDATE users SET verification_status='pending' WHERE id=69");
+ (new VerificationService())->decide($repo->findById(3),69,'rejected',DEMO_BATCH.' dummy image intentionally unsuitable; replace and resubmit live.',false);
+ $newUser=function(string $label,string $blood='O+',int $chapter=1,float $lat=14.68,float $lon=120.54)use($p,$repo,&$manifest,$dir):array {
+  $email=strtolower(DEMO_BATCH).'.'.$label.'@example.com';
+  $password=bin2hex(random_bytes(12)).'aA1!';
+  $s=$p->prepare("INSERT INTO users(email,password_hash,first_name,last_name,role,chapter_id,verification_status,account_status,date_of_birth,blood_type,blood_type_source,donor_enrolled_at,donor_availability,email_verified_at,latitude,longitude) VALUES(?,?,?,'DEMO','member',?,'verified','active','1990-01-01',?,'self_reported',UTC_TIMESTAMP(),'available',UTC_TIMESTAMP(),?,?)");
+  $s->execute([$email,password_hash($password,PASSWORD_BCRYPT),$label,$chapter,$blood,$lat,$lon]);$id=(int)$p->lastInsertId();
+  // Credentials stay in ignored local storage; never in deliverable manifests.
+  file_put_contents($dir.'/synthetic-credentials.jsonl',json_encode(['id'=>$id,'email'=>$email,'password'=>$password])."\n",FILE_APPEND|LOCK_EX);
+  $manifest['accounts'][]=['id'=>$id,'email'=>$email,'label'=>$label,'origin'=>'additional synthetic for independent scenario'];return $repo->findById($id);
+ };
+ $owner=$repo->findById(85);$near=$newUser('near','O+',2,14.677,120.537);$far=$newUser('far','O+',1,14.8,120.5336);
+ $unavailable=$newUser('unavailable');$p->prepare("UPDATE users SET donor_availability='unavailable' WHERE id=?")->execute([$unavailable['id']]);
+ $incompatible=$newUser('incompatible','AB+');$disposable=$newUser('disposable');
+ $h=$p->query('SELECT h.*,l.latitude,l.longitude FROM hospitals h JOIN bataan_locations l ON l.id=h.location_id WHERE h.id=1')->fetch();
+ $request=function(string $label,string $urgency='routine',int $chapter=1,string $status='OPEN',?int $deadline=null)use($p,$owner,$h,$ts,&$manifest):int {
+  $id=(new BloodRequestRepository())->create(['requester_id'=>$owner['id'],'request_chapter_id'=>$chapter,'required_blood_type'=>'O+','quantity_units'=>2,'facility_name'=>$h['name'],'hospital_id'=>$h['id'],'location_id'=>$h['location_id'],'latitude'=>$h['latitude'],'longitude'=>$h['longitude'],'urgency'=>$urgency,'needed_datetime'=>gmdate('Y-m-d H:i:s',$deadline??($ts+7*86400)),'review_status'=>'not_required']);
+  $p->prepare('UPDATE blood_requests SET description=?,status=?,expired_at=?,closure_reason=? WHERE id=?')->execute([DEMO_BATCH.' '.$label,$status,$status==='EXPIRED'?gmdate('Y-m-d H:i:s',$ts-3600):null,$label==='closed'?'need_met':null,$id]);
+  if($deadline!==null&&$deadline<$ts)$p->prepare('UPDATE blood_requests SET created_at=? WHERE id=?')->execute([gmdate('Y-m-d H:i:s',$deadline-86400),$id]);
+  $manifest['requests'][$label]=['id'=>$id,'status'=>$status,'urgency'=>$urgency,'chapter'=>$chapter,'screen'=>'/requests/'.$id.'/matches'];
+  AuditLogger::log((int)$owner['id'],'demo.request.fixture','blood_request',(string)$id,['batch'=>DEMO_BATCH,'label'=>$label]);return $id;
+ };
+ $main=$request('main-live');$request('editable','urgent',2);$request('cancel-live','emergency',3);$request('canceled','routine',1,'CANCELLED');$request('closed','urgent',2,'CANCELLED');$request('expired-renewable','routine',3,'EXPIRED',$ts-3600);$request('expiry-live','routine',3,'OPEN',$ts+3600);
+ $start=microtime(true);(new MatchService())->generateForRequest($main,true,DEMO_BATCH,(int)$owner['id']);$manifest['checks']['matching_elapsed_ms']=round((microtime(true)-$start)*1000,2);
+ $manifest['checks']['ranking']=$p->query('SELECT m.donor_id,m.distance_km,u.chapter_id FROM matches m JOIN users u ON u.id=m.donor_id WHERE m.request_id='.$main.' ORDER BY m.distance_km IS NULL,m.distance_km,CASE WHEN u.chapter_id=1 THEN 0 ELSE 1 END,m.donor_id')->fetchAll();
+ $response=new MatchResponseService();$completion=new DonationCompletionService();
+ $live=$request('response-withdrawal');$offered=$response->respond($near,$live,DEMO_BATCH);$manifest['cases']['withdrawal']=['match_id'=>$offered['match_id'],'donor_id'=>$near['id'],'request_id'=>$live];
+ $accept=$request('requester-accept-live');$offered=$response->respond($far,$accept,DEMO_BATCH);$manifest['cases']['accept-live']=['match_id'=>$offered['match_id'],'donor_id'=>$far['id'],'request_id'=>$accept];
+ foreach(['report-ready','mutual','uncertain','clarification','correction','hold-rejected','reminder24','escalation48','cooldown'] as $label) {
+  $donor=$newUser($label);$r=$request($label,'routine',($label==='mutual'?2:1));
+  $offered=$response->respond($donor,$r,DEMO_BATCH);$m=(int)$offered['match_id'];$ctx=OfferChatService::accept($owner,$m,1);
+  if((int)$p->query('SELECT COUNT(*) FROM donation_reports WHERE match_id='.$m)->fetchColumn()!==0)throw new RuntimeException('Acceptance awarded premature report/credit.');
+  $case=['donor_id'=>$donor['id'],'request_id'=>$r,'match_id'=>$m,'context_id'=>$ctx['context_id'],'conversation_id'=>$ctx['conversation_id']];
+  if($label!=='report-ready') {
+   // Historical fixtures: response precedes acceptance, occurrence, original claim.
+   $hours=match($label){'reminder24'=>25,'escalation48'=>49,'cooldown'=>10*24,default=>2};
+   $reported=gmdate('Y-m-d H:i:s',$ts-$hours*3600);$occurred=gmdate('Y-m-d H:i:s',$ts-($hours+1)*3600);$responded=gmdate('Y-m-d H:i:s',$ts-($hours+2)*3600);
+   $p->prepare('UPDATE matches SET created_at=?,responded_at=? WHERE id=?')->execute([$responded,$responded,$m]);
+   $p->prepare('UPDATE blood_requests SET created_at=? WHERE id=?')->execute([gmdate('Y-m-d H:i:s',$ts-($hours+3)*3600),$r]);
+   $p->prepare('UPDATE donation_chat_contexts SET responded_at=?,accepted_at=? WHERE id=?')->execute([$responded,gmdate('Y-m-d H:i:s',(int)($ts-($hours+1.5)*3600)),$ctx['context_id']]);
+   $id=(int)$completion->submit($donor,$m,str_replace(' ','T',$occurred).'Z',DEMO_BATCH.' synthetic donation '.$label)['id'];$case['report_id']=$id;
+   $p->prepare('UPDATE donation_reports SET reported_at=?,created_at=?,hold_started_at=? WHERE id=?')->execute([$reported,$reported,$reported,$id]);
+   $p->prepare("UPDATE donation_report_events SET created_at=?,snapshot_json=JSON_SET(snapshot_json,'$.reported_at',?) WHERE report_id=?")->execute([$reported,$reported,$id]);
+   if(in_array($label,['mutual','correction','cooldown'],true))$completion->acknowledge($owner,$id,1,'received',DEMO_BATCH.' synthetic mutual agreement');
+   if($label==='uncertain')$completion->acknowledge($owner,$id,1,'not_sure',DEMO_BATCH.' uncertain demonstration');
+   if($label==='clarification')$completion->review($repo->findById(3),$id,1,'clarify',DEMO_BATCH.' please clarify occurrence time');
+   if($label==='correction')$case['correction']=DonationCorrectionService::request($donor,$id,1,DEMO_BATCH.' historical note correction; keep credit unchanged');
+   if($label==='hold-rejected')$completion->review($repo->findById(3),$id,1,'reject',DEMO_BATCH.' insufficient evidence; hold deliberately retained');
+  }
+  $manifest['cases'][$label]=$case;
+ }
+ $pending=ChatConsentService::request($near,(int)$far['id']);$manifest['cases']['chat-pending']=$pending;
+ $ctx=$manifest['cases']['report-ready'];$chat=new ChatService();$chat->sendMessage($owner,(int)$ctx['conversation_id'],DEMO_BATCH.' Coordination example: meet at the named donation venue.');$chat->sendMessage($repo->findById($ctx['donor_id']),(int)$ctx['conversation_id'],DEMO_BATCH.' I will confirm the actual occurrence before reporting.');
+ $last=(int)$p->query('SELECT MAX(id) FROM messages WHERE conversation_id='.(int)$ctx['conversation_id'])->fetchColumn();$chat->markRead($owner,(int)$ctx['conversation_id'],$last);
+ $timers=[$manifest['cases']['reminder24']['report_id'],$manifest['cases']['escalation48']['report_id']];
+ $manifest['checks']['followup_first']=DonationFollowupService::process($now,10,$timers);$manifest['checks']['followup_repeat']=DonationFollowupService::process($now,10,$timers);
+ $manifest['checks']['nonresponse_retired']=\BloodMatch\Services\NonResponseStandbyService::processDue()===0;
+ $manifest['checks']['cooldown']=DonorEligibilityService::evaluateWindows($repo->findById($manifest['cases']['cooldown']['donor_id'])['last_verified_donation_at'],$now);
+ $manifest['checks']['report_hold']=DonationWorkflowRepository::hasHold($manifest['cases']['hold-rejected']['donor_id']);
+ $manifest['checks']['acceptance_credit_zero']=true;
+ $manifest['checks']['hospital']=['id'=>$h['id'],'name'=>$h['name'],'location_id'=>$h['location_id'],'latitude'=>$h['latitude'],'longitude'=>$h['longitude'],'precision'=>'seeded locality reference, not surveyed hospital entrance'];
+ $p->commit();
+}catch(Throwable $e){if($p->inTransaction())$p->rollBack();savePrivate('failure.json',['error'=>$e->getMessage(),'files'=>$manifest['files']]);throw $e;}
+$after=snapshotDemo($source);$manifest['checks']['source_unchanged']=hash('sha256',json_encode($before))===hash('sha256',json_encode($after));
+if(!$manifest['checks']['source_unchanged'])throw new RuntimeException('Source fingerprint changed; inspect concurrent application activity.');
+savePrivate('prepared.json',snapshotDemo($p));savePrivate('manifest.json',$manifest);
+echo json_encode($manifest,JSON_PRETTY_PRINT|JSON_THROW_ON_ERROR)."\n";

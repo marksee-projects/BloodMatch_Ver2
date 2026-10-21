@@ -59,7 +59,7 @@ final class MemberProfileController
         $targetRequests = (new BloodRequestRepository())->listByRequester($targetId);
         $publicRequests = array_map(
             static fn (array $row): array => RequestService::publicView($row, $target),
-            $targetRequests
+            array_values(array_filter($targetRequests, static fn (array $row): bool => in_array($row['status'], ['OPEN', 'FULFILLED'], true)))
         );
 
         $pair = [min((int) $viewer['id'], $targetId), max((int) $viewer['id'], $targetId)];

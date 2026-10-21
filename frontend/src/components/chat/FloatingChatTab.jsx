@@ -96,6 +96,20 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
     }
   }, [conversationId, markAsRead, scrollToBottom])
 
+  // Reopening a loaded tab must acknowledge its fetched messages, even when
+  // the next poll returns no new rows. Hidden/minimized tabs remain unread.
+  useEffect(() => {
+    if (isMinimized || loading) return undefined
+    const acknowledgeVisible = () => { markAsRead() }
+    acknowledgeVisible()
+    document.addEventListener('visibilitychange', acknowledgeVisible)
+    window.addEventListener('focus', acknowledgeVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', acknowledgeVisible)
+      window.removeEventListener('focus', acknowledgeVisible)
+    }
+  }, [isMinimized, loading, markAsRead])
+
   // Polling for new messages
   useEffect(() => {
     if (isMinimized || loading) return undefined
@@ -127,8 +141,8 @@ export default function FloatingChatTab({ tab, onClose, onToggleMinimize }) {
           })
           lastIdRef.current = res.messages[res.messages.length - 1].id
           scrollToBottom(true)
-          markAsRead()
         }
+        if (Array.isArray(res?.messages)) markAsRead()
       } catch {
         // Handled silently
       } finally {

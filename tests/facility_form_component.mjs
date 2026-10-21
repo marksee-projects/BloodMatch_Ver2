@@ -49,7 +49,7 @@ const icons = new Proxy({}, { get: () => () => null })
 const fixtureRequire = id => id === 'react' ? hooks : id === '@phosphor-icons/react' ? icons : require(id)
 new Function('require', 'module', 'exports', result.outputFiles[0].text)(fixtureRequire, module, module.exports)
 const Page = module.exports.default
-function render() { cursor = 0; return Page({ id: 45 }) }
+function render(props = { id: 45 }) { cursor = 0; return Page(props) }
 function elements(tree) {
   if (!tree || typeof tree !== 'object') return []
   if (Array.isArray(tree)) return tree.flatMap(elements)
@@ -117,4 +117,26 @@ assert.equal(writes.at(-1).payload.location_id, 20)
 const source = readFileSync(new URL('../frontend/src/pages/RequestFormPage.jsx', import.meta.url), 'utf8')
 assert.ok(source.includes('Other donation venue') && !source.includes('Meeting place / landmark'))
 assert.ok(!source.includes('This hospital has an incomplete directory address.'))
-console.log('Form component checks passed: two venue radios, selection state, no meeting-place textbox, optional barangay and stale-value clearing (mocked hooks/API; no browser).')
+// New-request navigation must not validate unseen future steps.
+slots.length = 0; effects.length = 0
+tree = render({}); for (const effect of effects.splice(0)) effect()
+await new Promise(resolve => setImmediate(resolve)); tree = render({})
+byId(tree, 'required_blood_type').props.onChange({ target: { value: 'O+' } }); tree = render({})
+const formElement = () => get(tree, el => el.type === 'form')
+await formElement().props.onSubmit({ preventDefault() {} }); tree = render({})
+assert.ok(elements(tree).some(el => el.props?.id === 'facility_name'), 'Enter on requirements advances only to facility step')
+byId(tree, 'facility_name').props.onChange(complete.name); tree = render({})
+let prevented = false
+const next = get(tree, el => el.type === 'button' && String(el.props.children).trim() === 'Next Step')
+next.props.onClick({ preventDefault() { prevented = true } }); tree = render({})
+assert.equal(prevented, true, 'Next cancels default click submission before entering the final step')
+assert.ok(elements(tree).some(el => el.props?.id === 'needed_date'))
+assert.ok(!elements(tree).some(el => el.props?.className === 'field-error'), 'New timing step starts without required-field errors')
+const publish = get(tree, el => el.type === 'button' && el.props.type === 'submit')
+assert.notEqual(next.key, publish.key, 'Next and Publish are separate keyed controls')
+const beforePublish = writes.length
+await formElement().props.onSubmit({ preventDefault() {} }); tree = render({})
+const fieldMessages = elements(tree).filter(el => el.props?.className === 'field-error').map(el => el.props.children).join(' ')
+assert.ok(fieldMessages.includes('Date needed is required.') && fieldMessages.includes('Time needed is required.'), 'Publish still validates missing date and time')
+assert.equal(writes.length, beforePublish, 'Invalid final submission performs no write')
+console.log('PASS facility form and create-step validation: clean timing-step entry, Enter navigation, separate Next/Publish controls and required final validation; mocked hooks/API, no browser.')

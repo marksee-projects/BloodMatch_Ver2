@@ -136,6 +136,10 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
   const onSubmit = async (e) => {
     e.preventDefault()
     if (savingRef.current) return
+    if (!editing && step < 3) {
+      nextStep()
+      return
+    }
     const validationErrors = { ...validateStep(1, false), ...validateStep(2, false), ...validateStep(3, false) }
     setStepErrors(validationErrors)
     if (Object.keys(validationErrors).length) {
@@ -225,7 +229,11 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
     return Object.keys(newErrors).length === 0
   }
 
-  const nextStep = () => { if (validateStep(step)) setStep((s) => Math.min(s + 1, 3)) }
+  const nextStep = (event) => {
+    // Cancel the click's default action before React replaces Next with Submit.
+    event?.preventDefault()
+    if (validateStep(step)) setStep((s) => Math.min(s + 1, 3))
+  }
   const prevStep = () => setStep((s) => Math.max(s - 1, 1))
 
   if (loadError) return <div role="alert" className="alert alert-error"><p>{loadError}</p><button type="button" className="btn btn-secondary" onClick={() => setLoadAttempt((value) => value + 1)}>Try again</button><button type="button" className="btn btn-ghost" onClick={onCancel}>Cancel</button></div>
@@ -471,11 +479,11 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
               )}
 
               {!editing && step < 3 ? (
-                <button type="button" className="btn" onClick={nextStep}>
+                <button key="next-step" type="button" className="btn" onClick={nextStep}>
                   Next Step
                 </button>
               ) : (
-                <button type="submit" className="btn" disabled={submitting || !hospitalsLoaded}>
+                <button key="publish-request" type="submit" className="btn" disabled={submitting || !hospitalsLoaded}>
                   {submitting ? 'Saving…' : (editing ? 'Save changes' : 'Publish Request')}
                 </button>
               )}

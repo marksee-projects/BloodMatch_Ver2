@@ -27,6 +27,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   const [filter, setFilter] = useState('all')
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [markingRead, setMarkingRead] = useState(false)
   const [error, setError] = useActionNoticeState(null, 'error')
   const rootRef = useRef(null)
   const sheetOutsideRef = useRef(null)
@@ -35,10 +36,12 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   const loadSequence = useRef(0)
   const clearingRead = useRef(false)
 
-  const toggleOpen = async () => {
-    setOpen(!open)
-    if (open || clearingRead.current) return
+  const toggleOpen = () => setOpen(current => !current)
+
+  const markAllRead = async () => {
+    if (clearingRead.current) return
     clearingRead.current = true
+    setMarkingRead(true)
     try {
       const result = await api.post('/api/notifications/read-all')
       const count = typeof result?.unread_count === 'number' ? result.unread_count : 0
@@ -49,6 +52,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
       setError(err.message || 'Could not mark notifications as read.')
     } finally {
       clearingRead.current = false
+      setMarkingRead(false)
     }
   }
 
@@ -144,7 +148,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
     }
   }
 
-  const badge = formatBadge(unread)
+  const badge = open ? null : formatBadge(unread)
   const label = `Notifications${unread > 0 ? `, ${unread} unread` : ''}`
 
   const panel = open && (
@@ -165,8 +169,9 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
           <X size={18} weight="regular" aria-hidden="true" />
         </button>
         <div className="notif-filter-row">
-          <button type="button" className={`notif-filter-btn ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All</button>
-          <button type="button" className={`notif-filter-btn ${filter === 'unread' ? 'active' : ''}`} onClick={() => setFilter('unread')}>Unread</button>
+          <button type="button" className={`notif-filter-btn ${filter === 'all' ? 'active' : ''}`} aria-pressed={filter === 'all'} onClick={() => { if (filter !== 'all') { setData(null); setFilter('all') } }}>All</button>
+          <button type="button" className={`notif-filter-btn ${filter === 'unread' ? 'active' : ''}`} aria-pressed={filter === 'unread'} onClick={() => { if (filter !== 'unread') { setData(null); setFilter('unread') } }}>Unread</button>
+          {unread > 0 && <button type="button" className="notif-filter-btn" disabled={markingRead} onClick={markAllRead}>{markingRead ? 'Marking…' : 'Mark all as read'}</button>}
         </div>
       </div>
 
@@ -182,8 +187,8 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
         )}
         {data && data.notifications.length === 0 && (
           <div className="notif-empty">
-            <p style={{ margin: 0, fontWeight: 600 }}>No notifications</p>
-            <p className="muted" style={{ margin: 0, fontSize: '0.8125rem' }}>Match alerts and account updates will appear here.</p>
+            <p style={{ margin: 0, fontWeight: 600 }}>{filter === 'unread' ? 'No unread notifications' : 'No notifications'}</p>
+            <p className="muted" style={{ margin: 0, fontSize: '0.8125rem' }}>{filter === 'unread' ? 'You’re all caught up. Choose All to view earlier notifications.' : 'Match alerts and account updates will appear here.'}</p>
           </div>
         )}
         {data && data.notifications.length > 0 && (
