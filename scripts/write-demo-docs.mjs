@@ -1,4 +1,5 @@
 import fs from 'node:fs';import path from 'node:path';
+if(fs.existsSync(path.resolve(import.meta.dirname,'../backend/storage/maintenance/DEMO_MAIN_20261022_B42E/manifest.json'))){console.log('Main database demo is active. Use node scripts/write-main-demo-docs.mjs instead.');process.exit(0);}
 const root=path.resolve(import.meta.dirname,'..'),dir=path.join(root,'backend/storage/maintenance/DEMO_20261022_7C91');
 const read=name=>JSON.parse(fs.readFileSync(path.join(dir,name+'.json')));
 const m=read('manifest'),i=read('final-inventory'),s=read('prepared'),b=read('baseline'),api=read('api-checks'),safety=read('safety-checks'),release=read('released-emails-backup');

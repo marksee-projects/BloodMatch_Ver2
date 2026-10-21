@@ -1,0 +1,15 @@
+<?php
+/** Inventory the one scoped compatibility fixture; protect the screenshot user. */
+if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
+require dirname(__DIR__).'/backend/src/autoload.php';
+use BloodMatch\Config\{Env,Database};
+Env::load(dirname(__DIR__).'/.env');$p=Database::pdo();if($p->query('SELECT DATABASE()')->fetchColumn()!=='bloodmatch'||(int)$p->query('SELECT @@port')->fetchColumn()!==3306)throw new RuntimeException('Main target mismatch');
+$dir=dirname(__DIR__).'/backend/storage/maintenance/DEMO_MAIN_20261022_B42E';$m=json_decode(file_get_contents($dir.'/manifest.json'),true);$made=json_decode(file_get_contents($dir.'/created-records.json'),true);$id=136;
+$q=$p->prepare('SELECT requester_id,required_blood_type,description FROM blood_requests WHERE id=?');$q->execute([$id]);$r=$q->fetch();if(!$r||(int)$r['requester_id']!==85||$r['required_blood_type']!=='A+'||!str_starts_with($r['description']??'',$m['batch']))throw new RuntimeException('Fixture mismatch');
+$p->prepare('UPDATE blood_requests SET description=? WHERE id=?')->execute([$m['batch'].' regular-account-compatible: A+ request visible to A- Regular Ito User',$id]);
+$filters=['blood_requests'=>'id=136','matches'=>'request_id=136','notifications'=>"related_type='blood_request' AND related_id=136",'audit_log'=>"target_type='blood_request' AND target_id='136'",'email_outbox'=>"notification_id IN (SELECT id FROM notifications WHERE related_type='blood_request' AND related_id=136)"];
+foreach($filters as $t=>$where){$c=$p->query('SHOW FULL COLUMNS FROM `'.$t.'`')->fetchAll();$names=array_column(array_filter($c,fn($x)=>!str_contains($x['Extra'],'GENERATED')),'Field');foreach($p->query('SELECT `'.implode('`,`',$names).'` FROM `'.$t.'` WHERE '.$where)->fetchAll() as $row){$found=false;foreach($made[$t]??[] as $n=>$old)if((int)$old['id']===(int)$row['id']){$made[$t][$n]=$row;$found=true;break;}if(!$found)$made[$t][]=$row;$m['maps'][$t]['main-'.$row['id']]=(int)$row['id'];}}
+$allowed=array_map('intval',$m['maps']['users']);foreach($p->query("SELECT user_id FROM notifications WHERE related_type='blood_request' AND related_id=136")->fetchAll(PDO::FETCH_COLUMN) as $u)if(!in_array((int)$u,$allowed,true))throw new RuntimeException('Non-example notification recipient');
+$before=json_decode(file_get_contents($dir.'/before.json'),true)['tables']['users'];$original=array_values(array_filter($before['rows'],fn($u)=>(int)$u['id']===64))[0];$current=$p->query('SELECT `'.implode('`,`',$before['columns']).'` FROM users WHERE id=64')->fetch();if($original!==$current)throw new RuntimeException('Regular account profile changed');
+$m['requests']['regular-account-compatible']=['id'=>136,'status'=>'OPEN','urgency'=>'urgent','chapter'=>2,'screen'=>'/requests/136/matches'];$m['created_counts']=array_map('count',$made);$m['checks']['regular_account_profile_unchanged']=true;
+file_put_contents($dir.'/created-records.json',json_encode($made,JSON_PRETTY_PRINT),LOCK_EX);file_put_contents($dir.'/manifest.json',json_encode($m,JSON_PRETTY_PRINT),LOCK_EX);echo "Recorded request 136 and scoped children; Regular Ito User profile unchanged.\n";

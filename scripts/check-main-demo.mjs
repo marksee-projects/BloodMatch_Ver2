@@ -1,0 +1,20 @@
+// Scoped HTTP verification on the MAIN DB; no donor/decision/report mutations.
+import fs from 'node:fs';import path from 'node:path';
+const dir=path.resolve(import.meta.dirname,'../backend/storage/maintenance/DEMO_MAIN_20261022_B42E');
+const m=JSON.parse(fs.readFileSync(path.join(dir,'manifest.json'))),created=JSON.parse(fs.readFileSync(path.join(dir,'created-records.json')));
+const existing=JSON.parse(fs.readFileSync(path.join(dir,'existing-access.json'))),synthetic=JSON.parse(fs.readFileSync(path.join(dir,'synthetic-access.json')));
+class Client{cookies=new Map();async req(url,method='GET',data,status=200){let csrf;if(method!=='GET')csrf=(await this.req('/api/csrf')).body.data.csrf_token;const r=await fetch('http://127.0.0.1:8011'+url,{method,headers:{Cookie:[...this.cookies].map(([k,v])=>`${k}=${v}`).join('; '),'Content-Type':'application/json',...(csrf?{'X-CSRF-Token':csrf}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(15000)});for(const s of r.headers.getSetCookie()){const v=s.split(';')[0],n=v.indexOf('=');this.cookies.set(v.slice(0,n),v.slice(n+1));}const bytes=Buffer.from(await r.arrayBuffer());let body;try{body=JSON.parse(bytes.toString())}catch{}if(r.status!==status)throw Error(`${url}: expected ${status}, got ${r.status}: ${body?.error?.message??''}`);return {body,bytes,type:r.headers.get('content-type')};}async login(a){if(!a)throw Error('Missing scoped access');await this.req('/api/login','POST',{email:a.email,password:a.password});}}
+const checks=[];
+const anon=new Client();await anon.req('/api/analytics/summary','GET',undefined,401);checks.push('Anonymous analytics denied 401');
+const nearId=m.accounts.find(a=>a.label==='near').id,near=new Client();await near.login(synthetic.find(a=>a.id===nearId));await near.req('/api/analytics/summary','GET',undefined,403);checks.push('Main synthetic donor login; member analytics denied 403');
+const owner=new Client();await owner.login(existing.find(a=>a.id===85));const matches=await owner.req(`/api/requests/${m.requests['main-live'].id}/matches`);checks.push('Main requester reads main request '+m.requests['main-live'].id+' matching data');
+const admin=new Client();await admin.login(existing.find(a=>a.id===3));const doc=await admin.req(`/api/admin/documents/${m.cases['document-89'].document_id}/file`);if(!doc.type?.includes('image/png')||!doc.bytes.subarray(1,4).equals(Buffer.from('PNG')))throw Error('Main dummy document did not decrypt to PNG');checks.push('Admin reads the remapped dummy document as decrypted PNG');
+const reportId=created.chat_reports[0].id;await admin.req('/api/admin/chat-reports/'+reportId);checks.push('Admin reads remapped main chat report '+reportId);
+await near.req('/api/donation-proof/'+created.donation_report_evidence[0].id+'/file','GET',undefined,403);checks.push('Outsider main proof access denied 403');
+await admin.req('/api/analytics/summary?days=30');const csv=await admin.req('/api/analytics/export.csv?days=30');if(!csv.bytes.length)throw Error('Empty CSV');checks.push('Main Admin analytics and nonempty CSV endpoint 200 (browser download/print not tested)');
+const demand=await near.req('/api/demand-map?chapter_id=3&urgency=emergency');const baseline=demand.body.data.chapters.reduce((n,c)=>n+c.open_requests_count,0);
+const donorIds=matches.body?.data?.matches?.map(x=>x.profile_user_id??Number(x.donor_reference?.replace('donor-','')))??[];
+if(!donorIds.includes(m.maps.users[156])||!donorIds.includes(m.maps.users[157]))throw Error('Main near/far examples missing from current matching response');
+checks.push('Both remapped near/far donors appear in the main request matching response');
+const result={database:'bloodmatch',batch:m.batch,browser_tested:false,checks,demand:{chapter_id:3,urgency:'emergency',baseline,expected_after_cancel:baseline-1,cancel_request_id:m.requests['cancel-live'].id,poll_interval_ms:30000},matching_donor_ids:donorIds,captured_local_mail_only:true};
+fs.writeFileSync(path.join(dir,'api-checks.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result,null,2));

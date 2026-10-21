@@ -1,99 +1,68 @@
-# Demo preparation, cleanup and restore commands
+# MAIN database preparation and scoped recovery
 
-Run from the BloodMatch repository root in PowerShell. The batch is `DEMO_20261022_7C91`; the isolated database is `bloodmatch_demo_20261022_7c91` on `127.0.0.1:3306`. No passwords or tokens are embedded in these commands. Database credentials are read from the existing local environment; demo process overrides do not edit `.env`.
+Run from the repository root in PowerShell. Target is **bloodmatch / 127.0.0.1:3306**, batch **DEMO_MAIN_20261022_B42E**. These commands never drop or recreate the main database.
 
-## Existing prepared demo
+## Review / preparation / verification
 
-The demo servers were left running. Open:
-
-- UI: http://127.0.0.1:5174
-- Local captured mail: http://127.0.0.1:8026
-
-If stopped, start them with:
+The transfer has already been applied. Rerunning apply detects the batch and creates no duplicates.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts/start-system-demo.ps1
+C:/xampp/php/php.exe database/prepare_main_demo.php review
+C:/xampp/php/php.exe database/prepare_main_demo.php apply DEMO_MAIN_20261022_B42E
+C:/xampp/php/php.exe database/finalize_main_demo.php
+node scripts/check-main-demo.mjs
+node scripts/write-main-demo-docs.mjs
 ```
 
-Startup refuses occupied ports. It records the exact process IDs and start times; the stop command checks both before terminating a process. It does not stop the normal application or installed workers.
+Finalization verifies imported IDs/references and prepares private access files. It never resets original passwords. HTTP verification signs into only approved examples/Admin and reads only the listed demo evidence and authorized analytics. The normal application’s audit/presence may continue changing concurrently.
 
-## Reusable preparation and verification
+## Local capture interface to MAIN
 
-The initial seed is transactional; copied reference/schema creation is separate. A committed batch is detected and skipped on rerun. The initial failed encrypted-document attempt rolled back its data; unused dummy files are retained in the manifest. The seed never invokes the legacy general-purpose seed/cleanup scripts.
-
-```powershell
-C:/xampp/php/php.exe database/prepare_system_demo.php prepare
-C:/xampp/php/php.exe database/demo_recover_existing_access.php
-```
-
-Start the demo servers if needed, then finish/check independent examples:
-
-```powershell
-node scripts/check-system-demo.mjs
-C:/xampp/php/php.exe database/demo_independence.php
-node scripts/check-demo-demand.mjs
-C:/xampp/php/php.exe database/demo_request_examples.php
-C:/xampp/php/php.exe database/demo_copy_timestamp_review.php
-C:/xampp/php/php.exe database/finalize_system_demo.php
-C:/xampp/php/php.exe database/verify_system_demo.php
-node scripts/write-demo-docs.mjs
-```
-
-These commands skip recorded API creation/checks to avoid duplicates. Their saved checks describe the prepared snapshot; a skip is not a new retest after live actions. The finalizer saves the current isolated state as `prepared.json`; **do not rerun it after live actions if you want to preserve the original reset point**. To reset the demonstration, stop servers and restore the saved snapshot instead of reseeding from the changed application database. The walkthrough is a maintained document; the manifest and coverage checklist are regenerated from local evidence.
-
-The source schema/reference data is imported unchanged into a new named database. Foreign-key checks are disabled only during that empty-database import and re-enabled afterwards; the final review checks every relationship for orphans. Schema comparison excludes only advancing AUTO_INCREMENT counters. Existing application schema/constraints/triggers are never changed.
-
-## Stop demo servers
+Servers were left running. UI http://127.0.0.1:5174 ; inbox http://127.0.0.1:8026 . Unlike the original version of these scripts, the starter now selects **bloodmatch**. It applies SMTP/key overrides only to its child process; .env and the normal application's configuration are unchanged.
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts/stop-system-demo.ps1
-```
-
-This only stops the recorded demo processes. It does not change data or erase captured emails.
-
-## Scoped demo database cleanup — prepared, not executed
-
-After stopping the demo servers, run this only when you want to remove the dedicated demo database:
-
-```powershell
-C:/xampp/php/php.exe database/prepare_system_demo.php cleanup DEMO_20261022_7C91
-```
-
-The command validates the exact batch/target and drops **only** `bloodmatch_demo_20261022_7c91`. It never deletes application accounts in `bloodmatch`. It retains backups, dummy documents, local mail, private access files and the separate demo key so restoration remains possible. No automatic shared-storage file deletion is provided; exact new/unused dummy file paths are recorded for later reviewed disposal.
-
-## Restore the prepared demo — prepared, not executed
-
-Stop the demo servers first. This replaces only the isolated demo database with the recorded prepared snapshot, discarding subsequent live-demo changes in that database:
-
-```powershell
-C:/xampp/php/php.exe database/prepare_system_demo.php restore DEMO_20261022_7C91
 powershell -ExecutionPolicy Bypass -File scripts/start-system-demo.ps1
+C:/xampp/php/php.exe database/check_main_demo_mail.php
 ```
 
-The snapshot contains table definitions, rows and original triggers. Generated columns are recomputed by the database. Keep the encrypted dummy document files and demo-only key; a database-only restore cannot reconstruct missing image bytes or encryption keys. The key is under the OS temporary directory, so move it through a separately reviewed secure backup process before clearing temporary files. Captured mail and PHP sessions are separate files and are not rolled back by database restore; log out/in after a reset.
+The last command is an idempotent local transport smoke check, not a global queued worker or workflow proof. Keep the demo key and existing dummy files; their location is recorded privately. Real document keys/files are not changed.
 
-## Nine working-email releases in the application database
+## Scoped request creation/edit helper
 
-The release has already been executed once after you identified the nine addresses. It deactivated the exact test accounts, assigned reserved demo addresses, canceled only their queued mail if pending, and retained passwords and linked history. Default review is read-only:
+Broad normal request creation/material edits/renewal/rematching can select genuine donors in the shared main database. The local capture helper refuses these broad routes; product feature code and normal application routes remain unchanged. The helper below uses the normal payload validator, fixture repository and per-donor scoped matching, only for requester 85 and confirmed demo donors. It does not prove UI creation/edit works.
+
+For a bounded edit, create a private payload file and run:
 
 ```powershell
-C:/xampp/php/php.exe database/release_demo_emails.php review
+@{ quantity_units = 3 } | ConvertTo-Json | Set-Content -Encoding ASCII backend/storage/maintenance/DEMO_MAIN_20261022_B42E/edit.json
+C:/xampp/php/php.exe database/main_demo_request.php edit 116 backend/storage/maintenance/DEMO_MAIN_20261022_B42E/edit.json
 ```
 
-The original apply command is recorded here for reproducibility; rerunning refuses to overwrite its backup:
+For creation, save a complete normal request payload (required_blood_type, quantity_units, facility_name, hospital_id, location_id, urgency, future needed_datetime) as create.json in that same private directory, then use:
 
 ```powershell
-C:/xampp/php/php.exe database/release_demo_emails.php apply DEMO_20261022_7C91
+C:/xampp/php/php.exe database/main_demo_request.php create 0 backend/storage/maintenance/DEMO_MAIN_20261022_B42E/create.json
 ```
 
-Optional scoped restore, **not executed**:
+Do not use a global worker or general seeder. Successful bounded live actions are logged in scoped-request-actions.jsonl; they may require reviewed cleanup beyond the initial transfer inventory.
+
+## Scoped cleanup — PREPARED, NOT EXECUTED
+
+Stop the demo interface first. This removes only imported business rows listed in the main batch's created-records.json and restores the backed-up changed fields on example 85. It refuses modified fixtures, intervening changes to those example fields or unrecorded FK-linked business records. It preserves immutable audit/accounting records, dummy files and backups. A later live action may make cleanup require review; the command will stop instead of cascading into unknown history.
 
 ```powershell
-C:/xampp/php/php.exe database/release_demo_emails.php restore DEMO_20261022_7C91
+C:/xampp/php/php.exe database/prepare_main_demo.php cleanup DEMO_MAIN_20261022_B42E
 ```
 
-Restore refuses if a working address has been reused, if an affected profile changed after release, or if its backed-up mail state changed. It restores only the saved email/status/timestamps and scoped job fields, never overwrites passwords, and appends audit records. Do not restore the release after registering a new owner for one of those addresses. This operation is separate from demo database cleanup/restore.
+## Restore original example fields only — PREPARED, NOT EXECUTED
 
-## Private local evidence
+This restores only the backed-up original profile fields changed on example 85. It leaves imported fixtures in place and refuses intervening edits. It does not reverse donation credit or overwrite any password/Admin row.
 
-Everything under `backend/storage/maintenance/DEMO_20261022_7C91/` is gitignored. It includes sensitive account backups/access files and captured verification codes. Keep these private; the public deliverables contain IDs/labels/states, not secret contents. Detailed record/file inventories and syntax/API/service results are linked from the manifest. Neither cleanup nor restore has been run as a test.
+```powershell
+C:/xampp/php/php.exe database/prepare_main_demo.php restore-examples DEMO_MAIN_20261022_B42E
+```
+
+The full private main before.json is an emergency backup, not permission for a global restore over genuine activity. Resetting main fixtures after completed live donations requires reviewed scoped changes; no whole-main-database reset command is provided. The isolated database's old DROP/restore command applies only to that old isolated database and must not be repurposed for main.
+
+The previous nine working-email releases remain independently backed up. Their optional guarded restore is still database/release_demo_emails.php restore DEMO_20261022_7C91; it refuses reused addresses. It has not been executed.

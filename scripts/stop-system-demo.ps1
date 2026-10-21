@@ -1,5 +1,5 @@
 $ErrorActionPreference='Stop'
-$demoPrivate=Join-Path (Split-Path -Parent $PSScriptRoot) 'backend/storage/maintenance/DEMO_20261022_7C91'
+$demoPrivate=Join-Path (Split-Path -Parent $PSScriptRoot) 'backend/storage/maintenance/DEMO_MAIN_20261022_B42E'
 $demoProcesses=Get-Content -LiteralPath "$demoPrivate/processes.json" -Raw | ConvertFrom-Json
 foreach($demoKind in @('php','node')) {
  $demoId=$demoProcesses.("${demoKind}_pid");$demoTicks=$demoProcesses.("${demoKind}_start_ticks")
