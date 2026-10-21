@@ -25,9 +25,9 @@ export default function ConfirmedDonationSummary({ version = 0 }) {
   const loading = query.isPending && !error
   const ready = !loading && !error && data && data.date_from === from && data.date_to === to && String(data.chapter_id ?? '') === chapter
   const scopeLabel = data?.chapter_id == null ? 'All chapters' : chapters.find(row=>String(row.id)===String(data.chapter_id))?.name || `Chapter ${data.chapter_id}`
-  const dailyTable = ready && (data.daily_confirmations.length === 0 ? <p className={styles.empty}>No confirmed donation reports in this period.</p> : <div className={`table-container ${styles.table}`}><table><thead><tr><th>Confirmation date (UTC)</th><th>Confirmed reports</th></tr></thead><tbody>{data.daily_confirmations.map(row=><tr key={row.confirmation_date_utc}><td><time dateTime={row.confirmation_date_utc}>{formatDate(row.confirmation_date_utc)}</time></td><td>{row.confirmed_reports}</td></tr>)}</tbody></table></div>)
+  const dailyTable = ready && (data.daily_confirmations.length === 0 ? <p className={styles.empty}>No confirmed donation reports in this period.</p> : <div className={`table-container ${styles.table}`}><table><thead><tr><th>Confirmation date</th><th>Confirmed reports</th></tr></thead><tbody>{data.daily_confirmations.map(row=><tr key={row.confirmation_date_utc}><td><time dateTime={row.confirmation_date_utc}>{formatDate(row.confirmation_date_utc)}</time></td><td>{row.confirmed_reports}</td></tr>)}</tbody></table></div>)
   const printReport = ready ? <article className={printStyles.report} aria-label="Printable confirmed donation summary"><h1>BloodMatch confirmed donation summary</h1>
-    <p>Confirmation dates: {data.date_from} through {data.date_to} (UTC). Request chapter scope: {scopeLabel}.</p>
+    <p>Confirmation dates: {data.date_from} through {data.date_to}. Request chapter scope: {scopeLabel}.</p>
     <p>{data.total_confirmed_reports} confirmed donation {data.total_confirmed_reports === 1 ? 'report' : 'reports'}. Counts use confirmation time; donation dates and donated units are not included.</p>
     {dailyTable}</article> : null
   return <>
@@ -35,8 +35,8 @@ export default function ConfirmedDonationSummary({ version = 0 }) {
       <h2 id="confirmed-summary-heading">Confirmed donation summary</h2>
       <div className={styles.toolbar}>
         <div className={styles.filters} role="group" aria-label="Confirmation date range and request chapter">
-          <div className="field"><label htmlFor="confirmed-from">From (UTC)</label><input type="date" id="confirmed-from" value={from} onChange={event=>setFrom(event.target.value)} /></div>
-          <div className="field"><label htmlFor="confirmed-to">To (UTC)</label><input type="date" id="confirmed-to" value={to} onChange={event=>setTo(event.target.value)} /></div>
+          <div className="field"><label htmlFor="confirmed-from">From</label><input type="date" id="confirmed-from" value={from} onChange={event=>setFrom(event.target.value)} /></div>
+          <div className="field"><label htmlFor="confirmed-to">To</label><input type="date" id="confirmed-to" value={to} onChange={event=>setTo(event.target.value)} /></div>
           <div className="field"><label htmlFor="confirmed-chapter">Request chapter</label><select id="confirmed-chapter" value={chapter} onChange={event=>setChapter(event.target.value)}><option value="">All chapters</option>{chapters.map(row=><option key={row.id} value={row.id}>{row.name}</option>)}</select></div>
         </div>
         <div className={styles.actions}>

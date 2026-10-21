@@ -173,6 +173,20 @@ final class AuthService
             throw new Exceptions\AuthException('Invalid email or password.', 401);
         }
 
+        if (!empty($user['disabled_until'])) {
+            $disabledTime = strtotime($user['disabled_until'] . ' UTC');
+            if ($disabledTime > time()) {
+                $remaining = max(1, (int) ceil(($disabledTime - time()) / 3600));
+                AuditLogger::log((int) $user['id'], 'auth.login.blocked_disabled_temporary', 'user', (string) $user['id']);
+                throw new Exceptions\AuthException("This account has been temporarily deactivated for {$remaining} hour" . ($remaining === 1 ? '' : 's') . " due to a chat report violation.", 403);
+            }
+            if ((string) $user['account_status'] === 'deactivated') {
+                \BloodMatch\Config\Database::pdo()->prepare('UPDATE users SET account_status = "active", disabled_until = NULL WHERE id = ?')->execute([$user['id']]);
+                $user['account_status'] = 'active';
+                $user['disabled_until'] = null;
+            }
+        }
+
         if ((string) $user['account_status'] === 'deactivated') {
             AuditLogger::log((int) $user['id'], 'auth.login.blocked_deactivated', 'user', (string) $user['id']);
             throw new Exceptions\AuthException('This account has been deactivated.', 403);

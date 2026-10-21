@@ -36,7 +36,7 @@ final class UserRepository
                     u.blood_type_verified, u.date_of_birth, u.password_hash, u.donor_enrolled_at,
                     u.donor_availability, u.last_verified_donation_at, u.profile_picture,
                     u.location_id, u.latitude, u.longitude, u.email_verified_at,
-                    u.email_code_hash, u.email_code_expires_at,
+                    u.email_code_hash, u.email_code_expires_at, u.disabled_until,
                     EXISTS (SELECT 1 FROM member_documents consent
                             WHERE consent.user_id = u.id AND consent.doc_type = \'parental_consent\') AS has_parental_consent
              FROM users u
@@ -220,7 +220,7 @@ final class UserRepository
         $total = (int) $countStmt->fetchColumn();
 
         $sql = "SELECT id, email, full_name, role, chapter_id, verification_status,
-                       account_status, blood_type, blood_type_verified, last_verified_donation_at, created_at
+                       account_status, disabled_until, blood_type, blood_type_verified, last_verified_donation_at, created_at
                 FROM users $whereSql
                 ORDER BY id ASC
                 LIMIT " . (int) $pageSize . " OFFSET $offset";

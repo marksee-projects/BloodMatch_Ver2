@@ -14,8 +14,8 @@ const ACTIVE_POLL_INTERVAL_MS = 3000
 function formatTime(isoString) {
   if (!isoString) return ''
   try {
-    const d = new Date(isoString.includes('T') ? isoString : `${isoString.replace(' ', 'T')}Z`)
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const d = new Date(isoString.includes('T') ? (isoString.endsWith('Z') || isoString.includes('+') ? isoString : `${isoString}Z`) : `${isoString.replace(' ', 'T')}Z`)
+    return d.toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true })
   } catch {
     return ''
   }

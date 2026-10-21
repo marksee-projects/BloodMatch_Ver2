@@ -7,7 +7,7 @@ export default function AuditFilterToolbar({ draft, change, chapters, onSubmit, 
   const field = (key, label, type = 'text') => <div className="field"><label htmlFor={`audit-${key}`}>{label}</label><input id={`audit-${key}`} type={type} value={draft[key]} onChange={event => change(key,event.target.value)} /></div>
   return <form className="card" onSubmit={onSubmit}>
     <div className={styles.grid}>
-      {field('dateFrom','From (UTC)','date')}{field('dateTo','Through (UTC)','date')}
+      {field('dateFrom','From','date')}{field('dateTo','Through','date')}
       <div className="field"><label htmlFor="audit-category">Event category</label><select id="audit-category" value={draft.action} onChange={event => change('action',event.target.value)}>{categories.map(([value,label]) => <option key={value} value={value}>{label}</option>)}{draft.action && !categories.some(([value]) => value === draft.action) && <option value={draft.action}>Custom action: {draft.action}</option>}</select></div>
       <div className="field"><label htmlFor="audit-chapter">Chapter</label><select id="audit-chapter" value={draft.chapterId} onChange={event => change('chapterId',event.target.value)}><option value="">All chapters</option>{chapters.map(chapter => <option key={chapter.id} value={chapter.id}>{chapter.name}</option>)}</select></div>
     </div>

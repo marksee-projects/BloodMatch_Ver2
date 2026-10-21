@@ -105,44 +105,50 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
           </div>
 
           {filtersOpen && (
-            <div style={{ display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap', alignItems: 'center', paddingTop: 'var(--space-2)', borderTop: '1px solid var(--color-border-hairline)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <label htmlFor="bt-filter" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', fontWeight: '600', textTransform: 'uppercase' }}>Type</label>
-                <select
-                  id="bt-filter"
-                  value={selectedBloodType}
-                  onChange={(e) => setSelectedBloodType(e.target.value)}
-                  style={{ height: '32px', padding: '0 var(--space-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-hairline)', fontSize: 'var(--text-sm)', outline: 'none' }}
-                >
-                  {BLOOD_TYPES.map((bt) => <option key={bt} value={bt}>{bt}</option>)}
-                </select>
+            <div className={styles.adminFiltersRow}>
+              <div className={styles.adminFilterField}>
+                <label htmlFor="bt-filter">Type</label>
+                <div className={styles.selectWrapper}>
+                  <select
+                    id="bt-filter"
+                    value={selectedBloodType}
+                    onChange={(e) => setSelectedBloodType(e.target.value)}
+                  >
+                    {BLOOD_TYPES.map((bt) => <option key={bt} value={bt}>{bt}</option>)}
+                  </select>
+                  <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <label htmlFor="urgency-filter" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', fontWeight: '600', textTransform: 'uppercase' }}>Urgency</label>
-                <select
-                  id="urgency-filter"
-                  value={selectedUrgency}
-                  onChange={(e) => setSelectedUrgency(e.target.value)}
-                  style={{ height: '32px', padding: '0 var(--space-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-hairline)', fontSize: 'var(--text-sm)', outline: 'none' }}
-                >
-                  {URGENCIES.map((u) => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
-                </select>
+              <div className={styles.adminFilterField}>
+                <label htmlFor="urgency-filter">Urgency</label>
+                <div className={styles.selectWrapper}>
+                  <select
+                    id="urgency-filter"
+                    value={selectedUrgency}
+                    onChange={(e) => setSelectedUrgency(e.target.value)}
+                  >
+                    {URGENCIES.map((u) => <option key={u} value={u}>{u.charAt(0).toUpperCase() + u.slice(1)}</option>)}
+                  </select>
+                  <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
-                <label htmlFor="days-filter" style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-subtle)', fontWeight: '600', textTransform: 'uppercase' }}>Window</label>
-                <select
-                  id="days-filter"
-                  value={selectedDays}
-                  onChange={(e) => setSelectedDays(e.target.value)}
-                  style={{ height: '32px', padding: '0 var(--space-2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border-hairline)', fontSize: 'var(--text-sm)', outline: 'none' }}
-                >
-                  <option value="">All Open</option>
-                  <option value="7">Last 7 Days</option>
-                  <option value="30">Last 30 Days</option>
-                  <option value="90">Last 90 Days</option>
-                </select>
+              <div className={styles.adminFilterField}>
+                <label htmlFor="days-filter">Window</label>
+                <div className={styles.selectWrapper}>
+                  <select
+                    id="days-filter"
+                    value={selectedDays}
+                    onChange={(e) => setSelectedDays(e.target.value)}
+                  >
+                    <option value="">All Open</option>
+                    <option value="7">Last 7 Days</option>
+                    <option value="30">Last 30 Days</option>
+                    <option value="90">Last 90 Days</option>
+                  </select>
+                  <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
+                </div>
               </div>
             </div>
           )}
@@ -150,7 +156,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
       )}
 
       <div className={styles.refreshStatus}>
-        <span>{!online && 'Offline - '}{query.dataUpdatedAt > 0 && allowed && !denied ? 'Last updated ' + new Date(query.dataUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+        <span>{!online && 'Offline - '}{query.dataUpdatedAt > 0 && allowed && !denied ? 'Last updated ' + new Date(query.dataUpdatedAt).toLocaleTimeString('en-US', { timeZone: 'Asia/Manila', hour: 'numeric', minute: '2-digit', hour12: true }) : ''}</span>
         {(isMini || !showFilters) && <Button variant="secondary" size="sm" onClick={fetchMapData} disabled={query.isFetching || denied || !allowed || !online}><ArrowsClockwise size={16} /> Refresh</Button>}
       </div>
 
@@ -195,24 +201,21 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
           {(chapters.length > 0 || selectedMiniChapter !== 'All') && isMini && (
             <>
-              <details className={styles.filterDropdown}>
-                <summary>
-                  <Funnel size={16} aria-hidden="true" />
-                  <span>Filter</span>
-                  <CaretDown size={16} aria-hidden="true" />
-                </summary>
-                <div className={styles.miniFilters} aria-label="Chapter demand filters">
-                  <label className={styles.miniFilterField} htmlFor="home-demand-chapter">
-                    <span>Chapter</span>
+              <div className={styles.miniFiltersRow} aria-label="Chapter demand filters">
+                <div className={styles.miniFilterField}>
+                  <label htmlFor="home-demand-chapter">Chapter</label>
+                  <div className={styles.selectWrapper}>
                     <select id="home-demand-chapter" value={selectedMiniChapter} onChange={(event) => setSelectedMiniChapter(event.target.value)}>
                       <option value="All">All chapters ({chapters.length})</option>
                       {selectedChapterMissing && <option value={selectedMiniChapter}>Selected chapter (unavailable)</option>}
                       {chapters.map((chapter) => <option key={chapter.chapter_id} value={chapter.chapter_id}>{chapter.chapter_name}</option>)}
                     </select>
                     <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
-                  </label>
-                  <label className={styles.miniFilterField} htmlFor="home-demand-urgency">
-                    <span>Urgency level</span>
+                  </div>
+                </div>
+                <div className={styles.miniFilterField}>
+                  <label htmlFor="home-demand-urgency">Urgency level</label>
+                  <div className={styles.selectWrapper}>
                     <select id="home-demand-urgency" value={selectedMiniUrgency} onChange={(event) => setSelectedMiniUrgency(event.target.value)}>
                       <option value="All">All urgencies ({totalDemand})</option>
                       {MINI_URGENCIES.map((urgency) => (
@@ -220,13 +223,9 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                       ))}
                     </select>
                     <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
-                  </label>
-                  <button type="button" className={styles.resetFilters} onClick={() => {
-                    setSelectedMiniChapter('All')
-                    setSelectedMiniUrgency('All')
-                  }}>Reset filters</button>
+                  </div>
                 </div>
-              </details>
+              </div>
 
               {!selectedChapterMissing && totalDemand === 0 && selectedMiniUrgency === 'All' && (
                 <p className={styles.miniEmptyState}>No active requests across these chapters.</p>

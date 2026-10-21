@@ -16,7 +16,15 @@ function formatDate(value) {
   if (!value) return 'Not available'
   const normalized = String(value).includes('T') ? String(value) : `${String(value).replace(' ', 'T')}Z`
   const date = new Date(normalized)
-  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString()
+  return Number.isNaN(date.getTime()) ? String(value) : date.toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
 }
 
 function formatMimeType(value) {

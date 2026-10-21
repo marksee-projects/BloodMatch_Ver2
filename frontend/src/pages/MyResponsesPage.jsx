@@ -28,12 +28,14 @@ import styles from './MyResponsesPage.module.css'
 
 function formatDate(value) {
   if (!value) return 'Not provided'
-  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString(undefined, {
+  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
-    minute: '2-digit'
+    minute: '2-digit',
+    hour12: true
   })
 }
 
@@ -151,7 +153,6 @@ export default function MyResponsesPage() {
     <div className={styles.container}>
       <header className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>My Responses</h1>
-        <Button to="/donation-reports" variant="secondary">Donation reports and holds</Button>
       </header>
 
 
@@ -164,9 +165,6 @@ export default function MyResponsesPage() {
             <HandHeart size={36} weight="regular" />
           </div>
           <h2>You haven't responded to any blood requests yet</h2>
-          <p>
-            When you offer to help with compatible blood requests from the Home feed, they will appear here so you can easily track and manage them.
-          </p>
           <div className={styles.emptyActions}>
             <Button to="/" variant="primary">Browse compatible requests</Button>
           </div>

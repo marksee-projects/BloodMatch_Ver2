@@ -18,7 +18,7 @@ function formatSnippetTime(isoString) {
     if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m`
     if (diffSec < 86400) return `${Math.floor(diffSec / 3600)}h`
     if (diffSec < 172800) return 'Yesterday'
-    return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+    return d.toLocaleDateString('en-US', { timeZone: 'Asia/Manila', month: 'short', day: 'numeric' })
   } catch {
     return ''
   }

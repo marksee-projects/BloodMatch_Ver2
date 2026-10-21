@@ -14,8 +14,15 @@ import styles from './RequestsPage.module.css'
 const STATUSES = ['ALL', 'OPEN', 'FULFILLED', 'CANCELLED', 'EXPIRED']
 
 function formatDate(value) {
-  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString(undefined, {
-    month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  if (!value) return 'Not provided'
+  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
   })
 }
 

@@ -14,7 +14,8 @@
 button.conversation { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 64px; padding: var(--space-3); text-align: left; border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-text); box-shadow: none; }
 button.conversation:hover:not(:disabled), button.conversation[aria-pressed=true] { background: var(--color-surface-sunken); border-color: var(--color-border); color: var(--color-text); box-shadow: none; transform: none; }
 .conversation:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
-.avatar { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: var(--radius-avatar); background: var(--color-surface-sunken); color: var(--color-text-muted); }
+.avatar { display: grid; place-items: center; width: 40px; height: 40px; flex: none; border-radius: var(--radius-avatar); background: var(--color-surface-sunken); color: var(--color-text-muted); overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }
 .identity { display: grid; gap: var(--space-2); flex: 1; min-width: 0; font-size: var(--text-sm); }
 .identity small { color: var(--color-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .unread { flex: none; background: var(--color-brand-navy); color: var(--color-accent-fg); padding: var(--space-2) var(--space-3); border-radius: var(--radius-pill); font-size: var(--text-xs); }

@@ -28,8 +28,8 @@ export function donationStatus(report) {
   if (report.status === 'CONFIRMED') return report.completion_basis === 'mutual' ? 'Mutually acknowledged donation' : report.completion_basis === 'legacy_admin' ? 'Previously confirmed by admin' : 'Admin-confirmed donation'
   if (report.status === 'REJECTED') return 'Rejected report'
   if (report.workflow_state === 'clarification') return 'Clarification requested'
-  if (report.requester_response === 'did_not_donate') return 'Disputed — admin review'
-  if (report.requester_response === 'not_sure') return 'Uncertain — admin review'
+  if (report.requester_response === 'did_not_donate') return 'Disputed - admin review'
+  if (report.requester_response === 'not_sure') return 'Uncertain - admin review'
   if (report.workflow_state === 'needs_review') return 'Pending admin review'
   return 'Pending requester acknowledgment'
 }

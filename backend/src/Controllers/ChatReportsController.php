@@ -80,6 +80,48 @@ final class ChatReportsController
             if (!in_array($status,['under_review','resolved','dismissed'],true) || $note==='' || mb_strlen($note)>2000) throw new RuntimeException('Choose a status and enter findings up to 2000 characters.',400);
             if (in_array($r['status'],['resolved','dismissed'],true)) throw new RuntimeException('This report has already been closed.',409);
             $s=$p->prepare('UPDATE chat_reports SET status=?,findings=?,resolved_at=? WHERE id=?');$s->execute([$status,$note,in_array($status,['resolved','dismissed'],true)?AuthService::nowUtc():null,$id]);
+            if ($status === 'resolved') {
+                $offendersStmt = $p->prepare('SELECT DISTINCT sender_id FROM chat_report_evidence WHERE report_id=? AND is_selected=1 AND sender_id IS NOT NULL AND sender_id<>?');
+                $offendersStmt->execute([$id, (int)$r['reporter_id']]);
+                $offenders = $offendersStmt->fetchAll(\PDO::FETCH_COLUMN);
+                if (empty($offenders) && !empty($r['conversation_id'])) {
+                    $otherStmt = $p->prepare('SELECT user_id FROM conversation_participants WHERE conversation_id = ? AND user_id <> ?');
+                    $otherStmt->execute([(int)$r['conversation_id'], (int)$r['reporter_id']]);
+                    $offenders = $otherStmt->fetchAll(\PDO::FETCH_COLUMN);
+                }
+                foreach ($offenders as $offenderId) {
+                    $offenderId = (int) $offenderId;
+                    if ($offenderId > 0 && $offenderId !== (int) $a['id']) {
+                        $p->prepare('UPDATE users SET account_status="deactivated", deactivated_at=UTC_TIMESTAMP(), disabled_until=DATE_ADD(UTC_TIMESTAMP(), INTERVAL 24 HOUR) WHERE id=?')->execute([$offenderId]);
+                        AuditLogger::log((int)$a['id'], 'user.deactivated_temporary', 'user', (string)$offenderId, ['duration_hours' => 24, 'reason' => 'chat_report_' . $id]);
+                        \BloodMatch\Services\NotificationService::notify(
+                            $offenderId,
+                            'account.disabled_temporary',
+                            'Account temporarily deactivated',
+                            'Your account has been temporarily deactivated for 24 hours following a chat report review.',
+                            ['related_type' => 'chat_report', 'related_id' => $id, 'dedup_key' => "chat-report:disable:{$id}:{$offenderId}"]
+                        );
+                        $uStmt = $p->prepare('SELECT email, full_name FROM users WHERE id = ?');
+                        $uStmt->execute([$offenderId]);
+                        $offenderUser = $uStmt->fetch(\PDO::FETCH_ASSOC);
+                        if ($offenderUser && !empty($offenderUser['email']) && \BloodMatch\Services\Mailer::isConfigured()) {
+                            try {
+                                $subject = '[BloodMatch] Account Deactivation Notice';
+                                $tpl = \BloodMatch\Services\EmailTemplate::accountDeactivated24Hours();
+                                \BloodMatch\Services\Mailer::send(
+                                    $offenderUser['email'],
+                                    $subject,
+                                    $tpl['html'],
+                                    \BloodMatch\Services\EmailAttemptBudget::ACCOUNT,
+                                    $tpl['text']
+                                );
+                            } catch (\Throwable $e) {
+                                error_log('[mailer] deactivation email error: ' . $e->getMessage());
+                            }
+                        }
+                    }
+                }
+            }
             if (AuditLogger::log((int)$a['id'],'chat.report.'.$status,'chat_report',(string)$id)===null) throw new RuntimeException('Review action could not be recorded.',503);return ['status'=>$status];
         });});
     }

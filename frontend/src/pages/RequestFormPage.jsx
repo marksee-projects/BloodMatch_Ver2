@@ -396,6 +396,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
                       errors={{ ...errors, ...stepErrors }}
                       required={true}
                       barangayRequired={false}
+                      showBarangay={false}
                     />
                   </div>
                 )}

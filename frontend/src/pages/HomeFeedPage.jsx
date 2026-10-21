@@ -1,7 +1,7 @@
 import React from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { CaretDown, MapPin } from '@phosphor-icons/react'
+import { CaretDown, MapPin, Drop, WarningCircle, ClipboardText, PencilSimple } from '@phosphor-icons/react'
 import { useAuth } from '../context/AuthContext'
 import { Card } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
@@ -145,10 +145,14 @@ export default function HomeFeedPage() {
                   <span className={styles.accountDetailValue}>{user?.chapter_name || 'N/A'}</span>
                 </div>
                 <hr className={styles.accountDetailDivider} />
-                <ul className={styles.quickLinks}>
-                  <li><Link to="/profile" className={styles.quickLink}>My Requests</Link></li>
-                  <li><Link to="/profile" className={styles.quickLink}>Edit Profile</Link></li>
-                </ul>
+                <div className={styles.quickActionIcons}>
+                  <Link to="/profile" className={styles.quickActionBtn} title="My Requests" aria-label="My Requests">
+                    <ClipboardText size={20} weight="regular" aria-hidden="true" />
+                  </Link>
+                  <Link to="/profile" className={styles.quickActionBtn} title="Edit Profile" aria-label="Edit Profile">
+                    <PencilSimple size={20} weight="regular" aria-hidden="true" />
+                  </Link>
+                </div>
               </div>
             </details>
           </Card>
@@ -163,6 +167,7 @@ export default function HomeFeedPage() {
             <div className={styles.filterRow}>
               <label className={`${styles.selectFilter} ${styles.municipalityFilter}`}>
                 <span className={styles.visuallyHidden}>Municipality</span>
+                <MapPin className={styles.selectLeadIcon} size={16} aria-hidden="true" />
                 <select ref={municipalityRef} value={municipalityCode} onChange={(event) => updateFilter('municipality_code', event.target.value ? [event.target.value] : [])}>
                   <option value="">All municipalities</option>
                   {municipalityCode && !municipalities.some((item) => item.psgc_code === municipalityCode) && (
@@ -174,6 +179,7 @@ export default function HomeFeedPage() {
               </label>
               <label className={styles.selectFilter}>
                 <span className={styles.visuallyHidden}>Blood type</span>
+                <Drop className={styles.selectLeadIcon} size={16} aria-hidden="true" />
                 <select value={blood.join(',')} onChange={(event) => updateFilter('blood', event.target.value ? [event.target.value] : [])}>
                   <option value="">All blood types</option>
                   {blood.length > 1 && <option value={blood.join(',')}>{blood.join(', ')}</option>}
@@ -183,6 +189,7 @@ export default function HomeFeedPage() {
               </label>
               <label className={styles.selectFilter}>
                 <span className={styles.visuallyHidden}>Urgency</span>
+                <WarningCircle className={styles.selectLeadIcon} size={16} aria-hidden="true" />
                 <select value={urgency.join(',')} onChange={(event) => updateFilter('urgency', event.target.value ? [event.target.value] : [])}>
                   <option value="">All urgencies</option>
                   {urgency.length > 1 && <option value={urgency.join(',')}>{urgency.map(titleCase).join(', ')}</option>}
@@ -227,11 +234,11 @@ export default function HomeFeedPage() {
                   hasFilters && feedData?.total_unfiltered > 0 ? 'No compatible requests fit these filters' :
                     'No compatible requests right now'}
               </h2>
-              <p className={styles.feedStateText}>
-                {feedData?.reason_text || (hasFilters && feedData?.total_unfiltered > 0
-                  ? 'Remove a filter or clear them all to see more compatible requests.'
-                  : 'There are no current open requests compatible with your blood type. Check again later.')}
-              </p>
+              {(feedData?.reason_text || (hasFilters && feedData?.total_unfiltered > 0)) && (
+                <p className={styles.feedStateText}>
+                  {feedData?.reason_text || 'Remove a filter or clear them all to see more compatible requests.'}
+                </p>
+              )}
               {hasFilters && <Button variant="secondary" onClick={clearFilters}>Reset filters</Button>}
               {['blood_type_missing', 'staff_no_blood_type'].includes(feedData?.reason_code) && <Button to="/profile">Update profile</Button>}
             </Card>

@@ -15,7 +15,8 @@ export default function LocationSelector({
   errors = {},
   municipalityLabel = 'Municipality / City',
   required = true,
-  barangayRequired = required
+  barangayRequired = required,
+  showBarangay = true
 }) {
   const [municipalities, setMunicipalities] = useState([])
   const [barangays, setBarangays] = useState([])
@@ -93,18 +94,20 @@ export default function LocationSelector({
         {errors.location_id && <span className="field-error">{errors.location_id.join(' ')}</span>}
       </div>
 
-      <div className="field">
-        <label htmlFor={`${municipalityId}-barangay`}>Barangay{barangayRequired ? ' *' : ' (optional)'}</label>
-        <SearchableCombobox
-          id={`${municipalityId}-barangay`}
-          value={barangays.find(b => b.psgc_code === barangayCode)?.name || ''}
-          onChange={handleBarangay}
-          options={(loadedMunicipality === municipalityCode ? barangays : []).map(b => ({ label: b.name, value: b.name }))}
-          placeholder="Select Barangay..."
-          required={barangayRequired}
-        />
-        {errors.barangay_code && <span className="field-error">{errors.barangay_code.join(' ')}</span>}
-      </div>
+      {showBarangay && (
+        <div className="field">
+          <label htmlFor={`${municipalityId}-barangay`}>Barangay{barangayRequired ? ' *' : ' (optional)'}</label>
+          <SearchableCombobox
+            id={`${municipalityId}-barangay`}
+            value={barangays.find(b => b.psgc_code === barangayCode)?.name || ''}
+            onChange={handleBarangay}
+            options={(loadedMunicipality === municipalityCode ? barangays : []).map(b => ({ label: b.name, value: b.name }))}
+            placeholder="Select Barangay..."
+            required={barangayRequired}
+          />
+          {errors.barangay_code && <span className="field-error">{errors.barangay_code.join(' ')}</span>}
+        </div>
+      )}
     </>
   )
 }

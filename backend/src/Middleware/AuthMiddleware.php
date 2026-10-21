@@ -34,6 +34,20 @@ final class AuthMiddleware
 
         self::checkPasswordSession($user);
 
+        if ($user !== null && !empty($user['disabled_until'])) {
+            $disabledTime = strtotime($user['disabled_until'] . ' UTC');
+            if ($disabledTime > time()) {
+                $remaining = max(1, (int) ceil(($disabledTime - time()) / 3600));
+                Response::error("Your account has been temporarily deactivated for {$remaining} hour" . ($remaining === 1 ? '' : 's') . " due to a chat report violation.", 403);
+                exit;
+            }
+            if ((string) $user['account_status'] === 'deactivated') {
+                \BloodMatch\Config\Database::pdo()->prepare('UPDATE users SET account_status = "active", disabled_until = NULL WHERE id = ?')->execute([$user['id']]);
+                $user['account_status'] = 'active';
+                $user['disabled_until'] = null;
+            }
+        }
+
         if ($user === null || (string) $user['account_status'] !== 'active') {
             AuditLogger::log(
                 $user !== null ? (int) $user['id'] : $userId,

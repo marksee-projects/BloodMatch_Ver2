@@ -52,7 +52,7 @@ export default function ProfilePage() {
   const { id: profileId } = useParams()
   const isOtherProfile = Boolean(profileId)
   const { user, refresh } = useAuth()
-  const { openChatWithUser, canChat } = useChat()
+  const { openChatWithUser, canChat, openTabs } = useChat()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [renewingRequestId, setRenewingRequestId] = useState(null)
@@ -89,7 +89,7 @@ export default function ProfilePage() {
     queryFn: async () => {
       const response = await api.get(isOtherProfile ? `/api/profile/${profileId}` : '/api/profile')
       if (isOtherProfile) {
-        return { profile: response.profile, reports: [], requests: [] }
+        return { profile: response.profile, reports: [], requests: response.requests || [] }
       }
       const donations = await api.get('/api/my/donation-reports')
       return {
@@ -134,7 +134,20 @@ export default function ProfilePage() {
     retry: false
   })
   const profile = data?.profile
+  const otherRequests = (data?.requests || []).map(request => {
+    const raw = request.needed_datetime || ''
+    const deadline = Date.parse(raw.replace(' ', 'T') + (/Z$|[+-]\d{2}:?\d{2}$/.test(raw) ? '' : 'Z'))
+    return request.status === 'OPEN' && Number.isFinite(deadline) && deadline < Date.now()
+      ? { ...request, status: 'EXPIRED' } : request
+  })
   const reports = data?.reports || []
+  const [otherFilter, setOtherFilter] = useState('ALL')
+  const otherOpenCount = otherRequests.filter(r => r.status === 'OPEN').length
+  const otherFulfilledCount = otherRequests.filter(r => r.status === 'FULFILLED').length
+  const otherExpiredCount = otherRequests.filter(r => r.status === 'EXPIRED').length
+  const filteredOtherRequests = otherFilter === 'ALL'
+    ? otherRequests
+    : otherRequests.filter(r => r.status === otherFilter)
   const filteredRequests = requestFilter === 'ALL' ? requestHistory : requestHistory.filter((request) => request.status === requestFilter)
 
   useEffect(() => setPictureFailed(false), [profile?.profile_picture_url])
@@ -295,7 +308,6 @@ export default function ProfilePage() {
   if (isOtherProfile) {
     return (
       <div className={styles.container}>
-        <div className={styles.backRow}><Button variant="secondary" size="sm" onClick={() => navigate(-1)}><ArrowLeft size={16} /> Back</Button></div>
         <header className={styles.profileHeader}>
           <div className={styles.headerInner}>
             <div className={styles.avatarWrapper}>
@@ -305,31 +317,91 @@ export default function ProfilePage() {
               <div className={styles.nameLine}><h1>{profile.full_name}</h1>{(presence?.is_online ?? profile.is_online) && <span className={styles.onlineStatus}><span aria-hidden="true" />Online</span>}{profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}</div>
               <p>{profile.chapter_name ? `${profile.chapter_name} member` : profile.role_label}</p>
             </div>
-            {canChat && profile.verification_status === 'verified' && user.id !== Number(profileId) && (
-              <div className={styles.headerActions}>
-                <Button
-                  variant="secondary"
-                  onClick={() => openChatWithUser(Number(profileId), { name: profile.full_name, avatar: profile.profile_picture_url })}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
-                >
-                  <ChatCircleDots size={18} weight="regular" /> Request message
-                </Button>
-              </div>
-            )}
+            {canChat && profile.verification_status === 'verified' && user.id !== Number(profileId) && (() => {
+              const isConnected = Boolean(profile.is_connected || openTabs?.some(t => Number(t.recipient?.id) === Number(profileId)))
+              return (
+                <div className={styles.headerActions}>
+                  <Button
+                    variant="secondary"
+                    onClick={() => openChatWithUser(Number(profileId), { name: profile.full_name, avatar: profile.profile_picture_url })}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                  >
+                    <ChatCircleDots size={18} weight={isConnected ? "fill" : "regular"} /> {isConnected ? 'Connected' : 'Request message'}
+                  </Button>
+                </div>
+              )
+            })()}
           </div>
         </header>
         <main className={styles.profileLayout}>
-          <Card className={styles.aboutCard}>
-            <div className={styles.cardHeader}><h2>About</h2></div>
-            <dl className={styles.aboutDetails}>
-              <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
-              <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
-              <div><dt>Municipality</dt><dd>{profile.municipality_name || 'Municipality not provided'}</dd></div>
-              <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
-              <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
-              {profile.role_label && <div><dt>Role</dt><dd>{profile.role_label}</dd></div>}
-            </dl>
-          </Card>
+          <aside className={styles.aboutColumn} aria-label="Member information">
+            <Card className={styles.aboutCard}>
+              <div className={styles.cardHeader}><h2>About</h2></div>
+              <dl className={styles.aboutDetails}>
+                <div><dt>Blood type</dt><dd>{profile.blood_type || 'Not provided'}</dd></div>
+                <div><dt>Chapter</dt><dd>{profile.chapter_name || 'Not assigned'}</dd></div>
+                <div><dt>Municipality</dt><dd>{profile.municipality_name || 'Municipality not provided'}</dd></div>
+                <div><dt>Member since</dt><dd>{formatMemberSince(profile.member_since)}</dd></div>
+                <div><dt>Verification</dt><dd>{titleCase(profile.verification_status)}</dd></div>
+                {profile.role_label && <div><dt>Role</dt><dd>{profile.role_label}</dd></div>}
+              </dl>
+            </Card>
+          </aside>
+          <div className={styles.profileContent}>
+            <section className={styles.activitySection} aria-labelledby="member-requests-heading">
+              <div className={styles.cardHeader} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                <h2 id="member-requests-heading">Blood requests</h2>
+                {otherRequests.length > 0 && (
+                  <div style={{ display: 'inline-flex', gap: 'var(--space-1)', flexWrap: 'wrap' }}>
+                    {[
+                      { id: 'ALL', label: `All (${otherRequests.length})` },
+                      { id: 'OPEN', label: `Open (${otherOpenCount})` },
+                      { id: 'FULFILLED', label: `Fulfilled (${otherFulfilledCount})` },
+                      { id: 'EXPIRED', label: `Expired (${otherExpiredCount})` },
+                    ].map(tab => (
+                      <Button
+                        key={tab.id}
+                        size="sm"
+                        variant={otherFilter === tab.id ? 'primary' : 'secondary'}
+                        onClick={() => setOtherFilter(tab.id)}
+                      >
+                        {tab.label}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {filteredOtherRequests.length === 0 ? (
+                <Card className={styles.compactCard}>
+                  <p className={styles.emptyText}>
+                    {otherRequests.length === 0 ? 'No blood requests posted yet.' : `No ${otherFilter.toLowerCase()} blood requests.`}
+                  </p>
+                </Card>
+              ) : (
+                filteredOtherRequests.map((request) => (
+                  <FeedCard
+                    key={request.id}
+                    hideActions
+                    defaultExpanded
+                    showNeededYear
+                    request={{
+                      ...request,
+                      requester_name: profile.full_name,
+                      requester_chapter_name: profile.chapter_name,
+                      requester_profile_picture_url: profile.profile_picture_url,
+                      requester_verification_status: profile.verification_status
+                    }}
+                  >
+                    <div className={styles.postCounts}>
+                      <Badge variant={request.status === 'OPEN' ? 'brand' : request.status === 'FULFILLED' ? 'success' : 'neutral'}>
+                        {titleCase(request.status)}
+                      </Badge>
+                    </div>
+                  </FeedCard>
+                ))
+              )}
+            </section>
+          </div>
         </main>
       </div>
     )

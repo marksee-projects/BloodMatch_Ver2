@@ -67,4 +67,21 @@ final class EmailTemplate
         $next = 'Open BloodMatch to check the current request status and offer to donate. The receiving facility determines medical eligibility.';
         return self::layout($heading, $html.'<p style="margin:20px 0 0">'.self::escape($next).'</p>', implode("\n\n",$text)."\n\n$next");
     }
+
+    public static function accountDeactivated24Hours(): array
+    {
+        $heading = 'Account temporarily deactivated';
+        $body = 'Your BloodMatch account has been temporarily deactivated for 24 hours following an administrative review of a reported chat conversation that violated community guidelines.';
+        $details = 'During this 24-hour period, you will not be able to sign in, send messages, or coordinate donations on BloodMatch.';
+        $note = 'Access will be restored after 24 hours. Please ensure future communications remain respectful and adhere to BloodMatch community guidelines.';
+        $content = '<p style="margin:0 0 16px">'.self::escape($body).'</p>'
+            . '<div style="padding:16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin:0 0 16px;color:#991b1b">'
+            . '<strong style="display:block;margin-bottom:6px">Status: Deactivated for 24 hours</strong>'
+            . '<span style="font-size:14px;color:#7f1d1d">'.self::escape($details).'</span>'
+            . '</div>'
+            . '<p style="margin:0;color:#58657a;font-size:14px">'.self::escape($note).'</p>';
+        $text = "$body\n\nStatus: Deactivated for 24 hours\n$details\n\n$note";
+        return self::layout($heading, $content, $text);
+    }
 }
+

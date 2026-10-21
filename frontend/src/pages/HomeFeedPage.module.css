@@ -107,6 +107,40 @@
 }
 
 /* Quick links */
+/* Quick links & icons */
+.quickActionIcons {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+.quickActionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-brand-navy);
+  transition: all var(--duration-fast) ease;
+  text-decoration: none;
+}
+
+.quickActionBtn:hover {
+  background: var(--color-surface-hover, rgba(0, 0, 0, 0.05));
+  border-color: var(--color-brand-navy);
+  color: var(--color-brand-navy);
+  transform: translateY(-1px);
+}
+
+.quickActionBtn:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
 .quickLinks {
   list-style: none;
   padding: 0;
@@ -187,9 +221,10 @@
 .filterHeader > .clearFilters { justify-self: start; }
 .filterHeading { margin: 0; text-align: center; font-size: var(--text-h3); color: var(--color-text); }
 .filterRow { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: var(--space-3); }
-.selectFilter { position: relative; flex: 0 1 150px; min-width: 0; max-width: 100%; }
-.municipalityFilter { flex-basis: 180px; }
-.selectFilter select { appearance: none; width: 100%; min-height: 44px; margin: 0; padding: var(--space-3) var(--space-6) var(--space-3) var(--space-3); border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font: inherit; font-size: var(--text-sm); text-overflow: ellipsis; }
+.selectFilter { position: relative; flex: 0 1 165px; min-width: 0; max-width: 100%; }
+.municipalityFilter { flex-basis: 195px; }
+.selectFilter select { appearance: none; width: 100%; min-height: 44px; margin: 0; padding: var(--space-3) var(--space-6) var(--space-3) calc(var(--space-3) + 22px); border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-text); font: inherit; font-size: var(--text-sm); text-overflow: ellipsis; }
+.selectLeadIcon { position: absolute; top: 50%; left: var(--space-3); transform: translateY(-50%); pointer-events: none; color: var(--color-text-muted); z-index: 1; }
 .selectCaret { position: absolute; top: 50%; right: var(--space-3); transform: translateY(-50%); pointer-events: none; color: var(--color-text-muted); }
 .selectFilter select:focus-visible, .clearFilters:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 .clearFilters { display: inline-flex; align-items: center; justify-content: center; flex: none; min-height: 32px; padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius-control); background: transparent; color: var(--color-brand-navy); font: inherit; font-size: var(--text-sm); text-decoration: none; }

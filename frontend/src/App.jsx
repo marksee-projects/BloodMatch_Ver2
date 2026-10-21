@@ -3,7 +3,7 @@ import ChatReportsView from './pages/admin/views/ChatReportsView'
 import ChatPage from './pages/ChatPage'
 import { useEffect, useState, useRef } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, Users, HandHeart, House, ClipboardText, ShieldCheck, SignOut, CircleNotch } from '@phosphor-icons/react'
+import { CaretDown, CaretRight, Circle, Moon, Plus, Sun, User, Users, HandHeart, House, ClipboardText, ShieldCheck, SignOut, CircleNotch, FileText } from '@phosphor-icons/react'
 import { Divide as Hamburger } from 'hamburger-react'
 import { useAuth } from './context/AuthContext'
 import { useQueryClient } from '@tanstack/react-query'
@@ -213,6 +213,7 @@ function AppShell() {
 
   const isActive = (path) => location.pathname === path
   const isResponsesActive = isActive('/responses') || isActive('/my-responses')
+  const isDonationReportsActive = isActive('/donation-reports')
   const isMatchesActive = isActive('/matches') || (/^\/requests\/[^/]+\/matches$/.test(location.pathname) && !isResponsesActive)
   const isPortalActive = location.pathname.startsWith('/officer') ||
     location.pathname.startsWith('/admin') ||
@@ -290,6 +291,11 @@ function AppShell() {
                 <HandHeart size={28} weight={isResponsesActive ? 'fill' : 'regular'} />
               </Link>
             )}
+            {user && (
+              <Link to="/donation-reports" className={`nav-link nav-control ${isDonationReportsActive ? 'active' : ''}`} aria-current={isDonationReportsActive ? 'page' : undefined} aria-label="Donation Reports" title="Donation Reports">
+                <FileText size={28} weight={isDonationReportsActive ? 'fill' : 'regular'} />
+              </Link>
+            )}
 
             {user?.role === 'admin' && (
               <Link
@@ -349,13 +355,12 @@ function AppShell() {
                     </button>
                     {profileMenuOpen && (
                       <div className="nav-dropdown">
-                        <div className="dropdown-profile-header">
+                        <Link to="/profile" className="dropdown-profile-header dropdown-profile-header-link" onClick={() => setProfileMenuOpen(false)} title="View profile" aria-label="View profile">
                           <NavbarAvatar src={user.profile_picture_url} alt={`${user.full_name}'s profile picture`} className="dropdown-avatar-large" />
                           <div className="dropdown-profile-info">
                             <strong>{user.full_name}</strong>
-                            <Link to="/profile" className="btn btn-sm" style={{ padding: '4px 12px', fontSize: 'var(--text-xs)', marginTop: '4px' }} onClick={() => setProfileMenuOpen(false)}>See your profile</Link>
                           </div>
-                        </div>
+                        </Link>
 
                         <hr className="dropdown-divider" />
 
@@ -471,6 +476,7 @@ function AppShell() {
                 <>
                   <Link to="/matches" className={`mobile-link ${isMatchesActive ? 'active' : ''}`} aria-current={isMatchesActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Matches</Link>
                   <Link to="/responses" className={`mobile-link ${isResponsesActive ? 'active' : ''}`} aria-current={isResponsesActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>My Responses</Link>
+                  <Link to="/donation-reports" className={`mobile-link ${isDonationReportsActive ? 'active' : ''}`} aria-current={isDonationReportsActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Donation Reports</Link>
                   <div className="mobile-section-label">Account</div>
 
                   <Link to="/profile" className="mobile-link" onClick={() => setMobileOpen(false)}>My Requests</Link>

@@ -189,7 +189,7 @@ final class VerificationService
                 $userId,
                 'verification.resubmitted',
                 'Verification is being processed',
-                'We received your new National ID. Your account is being reviewed. Please wait—you will be notified when a decision is made.',
+                'We received your new National ID. Your account is being reviewed. Please wait - you will be notified when a decision is made.',
                 [
                     'related_type' => 'verification',
                     'related_id' => $userId,

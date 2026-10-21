@@ -48,12 +48,29 @@ export function notificationDeepLink(n, role = 'admin') {
   return null
 }
 
-/** Format a `YYYY-MM-DD HH:MM:SS` UTC timestamp for display. */
-export function formatNotificationTime(createdAt) {
-  if (!createdAt) return ''
+/** Format a `YYYY-MM-DD HH:MM:SS` or ISO timestamp in Philippine time (Asia/Manila) for display. */
+export function formatPhilippineDateTime(value) {
+  if (!value) return ''
   try {
-    return new Date(String(createdAt).replace(' ', 'T') + 'Z').toLocaleString()
+    const str = String(value).trim()
+    const normalized = str.includes('T') ? (str.endsWith('Z') || str.includes('+') ? str : `${str}Z`) : `${str.replace(' ', 'T')}Z`
+    const date = new Date(normalized)
+    if (Number.isNaN(date.getTime())) return String(value)
+    return date.toLocaleString('en-US', {
+      timeZone: 'Asia/Manila',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
   } catch {
-    return String(createdAt)
+    return String(value)
   }
 }
+
+export function formatNotificationTime(createdAt) {
+  return formatPhilippineDateTime(createdAt)
+}
+

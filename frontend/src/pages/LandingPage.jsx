@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Card } from '../components/ui/Card'
+import ConfirmationDialog from '../components/ConfirmationDialog'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import styles from './LandingPage.module.css'
 
@@ -20,6 +21,7 @@ export default function LandingPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useActionNoticeState(null, 'error')
+  const [deactivationAlert, setDeactivationAlert] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [showPrivacyModal, setShowPrivacyModal] = useState(false)
   const [privacyReadonly, setPrivacyReadonly] = useState(true)
@@ -37,12 +39,18 @@ export default function LandingPage() {
   const onSubmit = async (e) => {
     e.preventDefault()
     setError(null)
+    setDeactivationAlert(null)
     setSubmitting(true)
     try {
       await login(email, password)
       navigate('/')
     } catch (err) {
-      setError(err.message || 'Invalid email or password.')
+      const msg = err.message || 'Invalid email or password.'
+      if (msg.toLowerCase().includes('deactivated') || msg.toLowerCase().includes('violation')) {
+        setDeactivationAlert(msg)
+      } else {
+        setError(msg)
+      }
     } finally {
       setSubmitting(false)
     }
@@ -73,7 +81,7 @@ export default function LandingPage() {
             </h1>
             <p className={styles.lede}>
               BloodMatch links patients with verified volunteer donors from Mt. Samat,
-              Mt. Tarak, and Meridian Heights — ranked by compatibility first,
+              Mt. Tarak, and Meridian Heights - ranked by compatibility first,
               proximity second.
             </p>
             <div className={styles.stats}>
@@ -94,6 +102,11 @@ export default function LandingPage() {
 
 
             <form className={styles.form} onSubmit={onSubmit} noValidate>
+              {error && (
+                <div className="alert alert-error" role="alert" style={{ marginBottom: 'var(--space-3)' }}>
+                  {error}
+                </div>
+              )}
               <Input
                 label="Email"
                 id="landing-email"
@@ -164,7 +177,7 @@ export default function LandingPage() {
             <h3 className={styles.featureTitle}>Red-cell first</h3>
             <p className={styles.featureText}>
               Only ABO + Rh compatible donors are considered. Proximity refines
-              the eligible pool — it never overrides compatibility.
+              the eligible pool - it never overrides compatibility.
             </p>
           </div>
           <div className={styles.featureItem}>
@@ -228,6 +241,17 @@ export default function LandingPage() {
         }}
         readonly={privacyReadonly}
       />
+
+      <ConfirmationDialog
+        open={Boolean(deactivationAlert)}
+        title="Account Deactivated"
+        cancelLabel="Close"
+        onCancel={() => setDeactivationAlert(null)}
+      >
+        <p style={{ margin: 0, fontSize: 'var(--text-base)', lineHeight: 1.6, color: 'var(--color-text-primary)' }}>
+          {deactivationAlert}
+        </p>
+      </ConfirmationDialog>
     </div>
   )
 }

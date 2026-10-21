@@ -610,11 +610,11 @@ export default function RegisterPage() {
                     <div style={{ marginTop: 'var(--space-1)' }}>
                       {age < 16 ? (
                         <span className="field-error" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <WarningCircle size={14} weight="fill" /> Age: {age} — Ineligible (minimum age is 16)
+                          <WarningCircle size={14} weight="fill" /> Age: {age} - Ineligible (minimum age is 16)
                         </span>
                       ) : (
                         <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '4px', background: 'var(--color-surface-hover)', padding: '2px 8px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-                          <CheckCircle size={14} weight="fill" /> Age: {age} — Eligible volunteer donor
+                          <CheckCircle size={14} weight="fill" /> Age: {age} - Eligible volunteer donor
                         </span>
                       )}
                     </div>
@@ -797,11 +797,11 @@ export default function RegisterPage() {
                 <div className={styles.summaryGrid}>
                   <div className={styles.summaryItem}>
                     <span className={styles.summaryItemLabel}>Full Name</span>
-                    <span className={styles.summaryItemValue}>{`${form.first_name} ${form.middle_name} ${form.last_name}`.replace(/\s+/g, ' ').trim() || '—'}</span>
+                    <span className={styles.summaryItemValue}>{`${form.first_name} ${form.middle_name} ${form.last_name}`.replace(/\s+/g, ' ').trim() || '-'}</span>
                   </div>
                   <div className={styles.summaryItem}>
                     <span className={styles.summaryItemLabel}>Email</span>
-                    <span className={styles.summaryItemValue}>{form.email || '—'}</span>
+                    <span className={styles.summaryItemValue}>{form.email || '-'}</span>
                   </div>
                   <div className={styles.summaryItem}>
                     <span className={styles.summaryItemLabel}>Assigned Chapter</span>
@@ -825,7 +825,7 @@ export default function RegisterPage() {
                   <div className={styles.summaryItem}>
                     <span className={styles.summaryItemLabel}>Date of Birth</span>
                     <span className={styles.summaryItemValue}>
-                      {form.date_of_birth ? `${form.date_of_birth} (Age: ${age})` : '—'}
+                      {form.date_of_birth ? `${form.date_of_birth} (Age: ${age})` : '-'}
                     </span>
                   </div>
                   <div className={styles.summaryItem}>

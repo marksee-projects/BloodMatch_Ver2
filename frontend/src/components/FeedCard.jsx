@@ -13,8 +13,14 @@ import { useNotify } from '../context/NotificationContext'
 
 function formatNeededDate(value, includeYear = false) {
   if (!value) return 'Date not provided'
-  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString(undefined, {
-    month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', ...(includeYear ? { year: 'numeric' } : {})
+  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    ...(includeYear ? { year: 'numeric' } : {})
   })
 }
 

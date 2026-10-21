@@ -20,8 +20,14 @@ import styles from './MatchesPage.module.css'
 
 function formatDate(value) {
   if (!value) return 'Not provided'
-  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString(undefined, {
-    month: 'long', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit'
+  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('en-US', {
+    timeZone: 'Asia/Manila',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
   })
 }
 
@@ -163,7 +169,6 @@ export default function MatchesPage() {
         <h1 className={styles.matchesTitle}>Matches</h1>
         <section className={styles.emptyState}>
           <h2>You don't have an active blood request yet.</h2>
-          <p>Create a blood request to view potential donors.</p>
           <div className={styles.emptyActions}><Button onClick={openCreateRequest}>Create request</Button></div>
         </section>
       </div>

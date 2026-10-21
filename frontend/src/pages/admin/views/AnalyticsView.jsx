@@ -121,7 +121,7 @@ export default function AnalyticsView() {
             className={`btn btn-sm ${activePreset === 'daily' ? 'btn' : 'btn-secondary'}`}
             onClick={() => applyPreset('daily', 1)}
           >
-            Today (UTC)
+            Today
           </button>
           <button
             type="button"
@@ -157,7 +157,7 @@ export default function AnalyticsView() {
       <div className={styles.filterBar}>
         <div className={styles.dateFilters}>
           <div className="field">
-            <label htmlFor="date-from">From (UTC)</label>
+            <label htmlFor="date-from">From</label>
             <input
               id="date-from"
               type="date"
@@ -170,7 +170,7 @@ export default function AnalyticsView() {
           </div>
 
           <div className="field">
-            <label htmlFor="date-to">To (UTC)</label>
+            <label htmlFor="date-to">To</label>
             <input
               id="date-to"
               type="date"
@@ -238,7 +238,7 @@ export default function AnalyticsView() {
             {/* Donor Pool Status Distribution with Segmented Gauge */}
             <section className="card">
               <div className="card-header">
-                <h3>Donor Pool Availability Status</h3>
+                <h3>Donor Availability Status</h3>
                 <span className="muted" style={{ fontSize: '0.75rem' }}>Active Enrolled Pool</span>
               </div>
               <DonorPoolBreakdownChart donorPool={donorPool} />
@@ -274,7 +274,7 @@ export default function AnalyticsView() {
                 <table>
                   <thead>
                     <tr>
-                      <th>Date (UTC)</th>
+                      <th>Date</th>
                       <th>Requests Created</th>
                       <th>Units Requested</th>
                       <th>Fulfilled</th>

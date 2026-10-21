@@ -16,3 +16,4 @@ logs/
 *.log
 backend/storage/
 .phpunit.result.cache
+scratch/
