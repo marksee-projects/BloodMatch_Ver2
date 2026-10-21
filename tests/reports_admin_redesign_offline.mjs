@@ -60,7 +60,7 @@ async function component(entry, exportName = 'default') {
   } }] })
   const mod = { exports: {} }
   const icons = new Proxy({}, { get: () => () => React.createElement('svg') })
-  const router = { useLocation: () => ({ pathname: '/donation-reports', search: '', state: null }), Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children) }
+  const router = { useLocation: () => ({ pathname: '/donation-reports', search: '', state: null }), Link: ({ to, children, ...props }) => React.createElement('a', { href: to, ...props }, children), Outlet: () => React.createElement('div', null, 'Admin page content') }
   new Function('require', 'module', 'exports', 'fixture', 'offlineApi', result.outputFiles[0].text)(id => id === '@phosphor-icons/react' ? icons : id === '@tanstack/react-query' ? queries : id === 'react-router-dom' ? router : require(id), mod, mod.exports, fixture, offlineApi)
   return mod.exports[exportName]
 }
@@ -113,5 +113,32 @@ try {
   html = render(); assert(html.includes('Request correction') && !html.includes('<textarea') && !html.includes('View proof and corrections'))
   control('Request correction').props.onClick(); html = render()
   assert(html.includes('<textarea') && html.includes('Submit correction request') && html.includes('does not automatically reverse'))
+
+  // A desktop collapse preference must not remove mobile menu labels.
+  const oldWindow = globalThis.window, oldStorage = globalThis.localStorage
+  try {
+    globalThis.localStorage = { getItem: () => 'true', setItem() {} }
+    globalThis.window = { matchMedia: () => ({ matches: true }) }
+    current = await component('src/pages/admin/AdminLayout.jsx'); props = {}; states = []
+    html = render()
+    const menu = () => walk(tree, n => n.type === 'button' && n.props['aria-controls'])
+    const sidebar = () => walk(tree, n => n.type === 'aside')
+    assert.equal(menu().props['aria-expanded'], false)
+    assert(html.includes('Account Verifications') && html.includes('Admin page content'))
+    assert.equal(sidebar().props.style, undefined, 'Sidebar visibility is controlled by responsive CSS, not inline display')
+    menu().props.onClick(); render()
+    assert.equal(menu().props['aria-expanded'], true)
+    assert(sidebar().props.className.includes('sidebarMobileOpen'))
+    sidebar().props.onKeyDown({ key: 'Escape' }); render()
+    assert.equal(menu().props['aria-expanded'], false)
+    globalThis.window = { matchMedia: () => ({ matches: false }) }; states = []
+    html = render()
+    assert(!html.includes('class="navLabel"'), 'Desktop keeps the saved collapsed navigation')
+    walk(tree, n => n.props?.['aria-label'] === 'Expand sidebar').props.onClick(); html = render()
+    assert(html.includes('class="navLabel"'), 'Desktop collapse control still expands the menu')
+  } finally {
+    if (oldWindow === undefined) delete globalThis.window; else globalThis.window = oldWindow
+    if (oldStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = oldStorage
+  }
 } finally { React.useState = originalState }
-console.log('PASS dashboard contract/rendering, report scopes/pagination, ID presentation, inline history, correction-form and notification-link checks; synthetic transport only.')
+console.log('PASS dashboard contract/rendering, report scopes/pagination, ID presentation, inline history, correction-form, notification links, and mobile/desktop admin menu checks; synthetic transport only.')

@@ -1,8 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useId, useRef } from 'react'
 import { Link, Outlet, useLocation } from 'react-router-dom'
 import {
-  CaretLeft,
-  CaretRight,
   ChartBar,
   ChartLineUp,
   CheckCircle,
@@ -29,6 +27,18 @@ export default function AdminLayout() {
     }
   })
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(max-width: 960px)').matches)
+  const menuId = useId()
+  const menuButton = useRef(null)
+  const sidebarCollapsed = collapsed && !isMobile
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 960px)')
+    const update = () => { setIsMobile(media.matches); setMobileDrawerOpen(false) }
+    update()
+    media.addEventListener('change', update)
+    return () => media.removeEventListener('change', update)
+  }, [])
 
   const toggleCollapse = () => {
     const next = !collapsed
@@ -65,12 +75,15 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className={`${styles.container} ${collapsed ? styles.collapsed : ''}`} style={{ paddingBlock: 0, paddingLeft: 0, minHeight: '100vh', gap: 0 }}>
+    <div className={`${styles.container} ${sidebarCollapsed ? styles.collapsed : ''}`}>
       {/* Mobile Drawer Bar */}
-      <div className={styles.mobileBar} style={{ padding: 'var(--space-4)' }}>
+      <div className={styles.mobileBar}>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
+          ref={menuButton}
+          aria-expanded={mobileDrawerOpen}
+          aria-controls={menuId}
           onClick={() => setMobileDrawerOpen(!mobileDrawerOpen)}
           aria-label={mobileDrawerOpen ? 'Close admin menu' : 'Open admin menu'}
         >
@@ -82,26 +95,12 @@ export default function AdminLayout() {
       {/* Persistent Sidebar Navigation */}
       <aside
         className={`${styles.sidebar} ${mobileDrawerOpen ? styles.sidebarMobileOpen : ''}`}
-        style={{
-          borderRadius: 0,
-          borderTop: 'none',
-          borderBottom: 'none',
-          borderLeft: 'none',
-          top: '64px',
-          minHeight: 'calc(100vh - 64px)',
-          height: 'calc(100vh - 64px)',
-          marginBottom: 0,
-          paddingTop: 'var(--space-5)',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'sticky',
-          alignSelf: 'start',
-          overflowY: 'auto'
-        }}
+        id={menuId}
+        onKeyDown={event => { if (isMobile && event.key === 'Escape') { setMobileDrawerOpen(false); menuButton.current?.focus() } }}
       >
         <div className={styles.sidebarHeader} style={{ borderBottom: 'none', marginBottom: 'var(--space-4)', alignItems: 'center' }}>
           {/* User Profile Section at Top */}
-          {!collapsed && (
+          {!sidebarCollapsed && (
             <Link to="/profile" style={{
               display: 'flex',
               alignItems: 'center',
@@ -160,9 +159,9 @@ export default function AdminLayout() {
 
           <button
             type="button"
-            onClick={toggleCollapse}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={isMobile ? () => { setMobileDrawerOpen(false); menuButton.current?.focus() } : toggleCollapse}
+            title={isMobile ? 'Close admin menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={isMobile ? 'Close admin menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             style={{
               background: 'transparent',
               border: 'none',
@@ -171,17 +170,19 @@ export default function AdminLayout() {
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '4px',
-              marginLeft: collapsed ? '0' : 'auto'
+              minWidth: '44px',
+              minHeight: '44px',
+              padding: 'var(--space-1)',
+              marginLeft: sidebarCollapsed ? '0' : 'auto'
             }}
           >
-            <List size={22} />
+            {isMobile ? <X size={22} /> : <List size={22} />}
           </button>
         </div>
 
         <nav className={styles.nav} aria-label="Admin Navigation" style={{ flex: 1 }}>
           <div className={styles.sectionLabel}>
-            {!collapsed ? 'Administrative Tools' : '•••'}
+            {!sidebarCollapsed ? 'Administrative Tools' : '•••'}
           </div>
 
           {adminNavItems.map((item) => {
@@ -192,32 +193,32 @@ export default function AdminLayout() {
                 key={item.path}
                 to={item.path}
                 className={`${styles.navLink} ${active ? styles.navLinkActive : ''}`}
-                title={collapsed ? item.label : undefined}
+                title={sidebarCollapsed ? item.label : undefined}
                 aria-current={active ? 'page' : undefined}
               >
                 <Icon size={20} weight={active ? 'fill' : 'regular'} className={styles.navIcon} />
-                {!collapsed && <span className={styles.navLabel}>{item.label}</span>}
+                {!sidebarCollapsed && <span className={styles.navLabel}>{item.label}</span>}
               </Link>
             )
           })}
 
           <div className={styles.sectionLabel} style={{ marginTop: 'var(--space-4)' }}>
-            {!collapsed ? 'Quick Shortcuts' : '•••'}
+            {!sidebarCollapsed ? 'Quick Shortcuts' : '•••'}
           </div>
 
           <Link
             to="/"
             className={styles.navLink}
-            title={collapsed ? 'Public Home' : undefined}
+            title={sidebarCollapsed ? 'Public Home' : undefined}
           >
             <House size={20} weight="regular" className={styles.navIcon} />
-            {!collapsed && <span className={styles.navLabel}>Public Home</span>}
+            {!sidebarCollapsed && <span className={styles.navLabel}>Public Home</span>}
           </Link>
         </nav>
       </aside>
 
       {/* Dynamic Main Viewport via React Router Outlet */}
-      <section className={styles.mainContent} style={{ padding: 'var(--space-6)' }}>
+      <section className={styles.mainContent}>
         <Outlet />
       </section>
     </div>
