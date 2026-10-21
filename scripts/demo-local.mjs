@@ -1,11 +1,11 @@
-// Local-only SMTP capture and isolated Vite proxy. No outbound networking.
+// Local-only SMTP capture and Vite interface to the MAIN database.
 import net from 'node:net';
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 const root=path.resolve(import.meta.dirname,'..');
-const dir=path.join(root,'backend/storage/maintenance/DEMO_20261022_7C91/mail');fs.mkdirSync(dir,{recursive:true});
+const dir=path.join(root,'backend/storage/maintenance/DEMO_MAIN_20261022_B42E/mail');fs.mkdirSync(dir,{recursive:true});
 net.createServer(socket=>{
  socket.write('220 localhost BloodMatch DEMO capture\r\n');let buffer='',data=false,lines=[];
  socket.on('data',chunk=>{buffer+=chunk;let i;while((i=buffer.indexOf('\r\n'))>=0){const line=buffer.slice(0,i);buffer=buffer.slice(i+2);
