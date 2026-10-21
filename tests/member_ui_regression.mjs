@@ -73,7 +73,7 @@ const filterLabels = [...html.matchAll(/<label class="selectFilter[^]*?<\/label>
 check(filterLabels.length === 3 && filterLabels.every(label => !label.includes('selectLeadIcon') && (label.match(/<svg/g) || []).length === 1), 'Home filters keep dropdown indicators but remove decorative leading icons')
 const Chat = await load('./src/pages/ChatPage.jsx')
 html = render(Chat, {}, '/chat?conversation=11')
-check(html.includes('Donation reports') && html.includes('href="/donation-reports"'), 'Direct chat exposes donation-report history navigation')
+check(!html.includes('href="/donation-reports"') && html.includes('Back to chats'), 'Chat header omits donation-report navigation and retains chat controls')
 check(!html.includes('Report donation'), 'Direct chat cannot create request-linked reporting controls without context')
 fixture.contexts = [{ id: 9, match_id: 42, request_id: 91, donor_id: 7, required_blood_type: 'A+', facility_name: 'Fixture hospital', quantity_units: 1, request_status: 'OPEN', active: true, offer_cycle: 1, current_cycle: 1, report: null }]
 html = render(Chat, {}, '/chat?conversation=11&request=91')
