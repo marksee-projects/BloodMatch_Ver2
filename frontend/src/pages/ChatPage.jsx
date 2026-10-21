@@ -28,6 +28,7 @@ function ChatWorkspace() {
   const route = useLocation()
   const [conversations, setConversations] = useState([])
   const [requests, setRequests] = useState([])
+  const [donationOffers, setDonationOffers] = useState([])
   const [thread, setThread] = useState(null)
   const [messages, setMessages] = useState([])
   const [search, setSearch] = useState('')
@@ -58,9 +59,18 @@ function ChatWorkspace() {
       const [c, r] = await Promise.all([api.get('/api/chat/conversations'), api.get('/api/chat/requests')])
       if (!mounted.current) return
       setConversations(c.conversations || []); const requested = Number(new URLSearchParams(route.search).get('conversation')); if (requested) { const found = (c.conversations || []).find(row => Number(row.id) === requested); setThread(found || null); if (!found) setError('This conversation is unavailable.') } setRequests(r.requests || []);
+      setDonationOffers(r.donation_offers || [])
     } catch (e) { if (mounted.current) setError(e.message) } finally { listInFlight.current = false }
   }
-  useEffect(() => { if (!canChat) return undefined; load(); const timer = setInterval(load, 30000); return () => clearInterval(timer) }, [user?.id, canChat, route.search])
+  useEffect(() => {
+    if (!canChat) return undefined
+    const refresh = () => { if (!document.hidden) load() }
+    refresh()
+    const timer = setInterval(refresh, 5000)
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', refresh)
+    return () => { clearInterval(timer); window.removeEventListener('focus', refresh); document.removeEventListener('visibilitychange', refresh) }
+  }, [user?.id, canChat, route.search])
   useEffect(() => {
     setIsOnline(false); setSuggestions(null); setMessages([]); setSelected([]); setReporting(false); setBody(''); pollCursor.current = 0; readCursor.current = 0; setHasOlder(true)
     if (!thread || !canChat) return undefined
@@ -99,6 +109,16 @@ function ChatWorkspace() {
     catch (e) { if (mounted.current) notify({ severity: 'error', message: e.message }) }
     finally { if (mounted.current) setBusy(false) }
   }
+  const acceptOffer = async (offer) => {
+    if (busy) return
+    setBusy(true)
+    try {
+      const result = await api.post(`/api/donation-offers/${offer.match_id}/accept`, { expected_cycle: Number(offer.offer_cycle) })
+      if (!mounted.current) return
+      navigate(`/chat?conversation=${result.conversation_id}&request=${offer.request_id}`)
+    } catch (e) { if (mounted.current) { notify({ severity: 'error', message: e.message }); await load() } }
+    finally { if (mounted.current) setBusy(false) }
+  }
   const send = async (event) => {
     event.preventDefault(); if (busy || !body.trim()) return
     setBusy(true)
@@ -122,8 +142,16 @@ function ChatWorkspace() {
       <aside className={styles.list + (thread ? ' ' + styles.hideOnMobile : '')}>
         <div className={styles.search}><label className="sr-only" htmlFor="chat-search">Search chats</label><MagnifyingGlass size={18} aria-hidden="true" /><input className="chat-control" id="chat-search" placeholder="Search chats..." value={search} onChange={e => setSearch(e.target.value)} /></div>
         <div className={styles.sidebarScroll}>
-          <section className={styles.listSection}><h2>Message requests <span>{requests.length}</span></h2>
-            {!requests.length && <p className={styles.hint}>No pending requests.</p>}
+          <section className={styles.listSection}><h2>Message requests <span>{requests.length + donationOffers.length}</span></h2>
+            {!requests.length && !donationOffers.length && <p className={styles.hint}>No pending requests.</p>}
+            {donationOffers.map(offer => <div className={styles.request} key={`offer-${offer.match_id}`}>
+              <strong>{offer.donor_name}</strong>
+              <small>Offered to donate · {offer.required_blood_type} · {offer.facility_name}</small>
+              <div className={styles.actions}>
+                <Button disabled={busy} onClick={() => acceptOffer(offer)}>Accept &amp; chat</Button>
+                <Button variant="secondary" to={`/requests/${offer.request_id}/matches`}>View request</Button>
+              </div>
+            </div>)}
             {requests.map(r => <div className={styles.request} key={r.id}><strong>{Number(r.sender_id) === Number(user.id) ? r.recipient_name : r.sender_name}</strong><small>{Number(r.recipient_id) === Number(user.id) ? 'Wants to chat with you' : 'Waiting for acceptance'}</small>
               <div className={styles.actions}>{Number(r.recipient_id) === Number(user.id) ? <><Button disabled={busy} onClick={() => decide(r.id, 'accept')}>Accept</Button><Button variant="secondary" disabled={busy} onClick={() => decide(r.id, 'decline')}>Decline</Button></> : <Button variant="secondary" disabled={busy} onClick={() => decide(r.id, 'cancel')}>Cancel request</Button>}</div>
             </div>)}

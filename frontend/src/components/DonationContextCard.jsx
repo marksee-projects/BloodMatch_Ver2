@@ -65,22 +65,22 @@ function ContextWorkspace({ conversationId }) {
       <div><strong>{summary}</strong><span title={requestLabel}>{requestLabel}</span></div>
       <Button type="button" variant="secondary" aria-haspopup="dialog" aria-expanded={modalOpen} onClick={() => { setSelected(String(context.id)); if (donor && !report) setFormOpen(true); setModalOpen(true) }}>Report donation</Button>
     </section>
-    <ConfirmationDialog open={modalOpen} dialogRole="dialog" panelClassName={styles.modalPanel} title={donor && !report ? 'Report completed donation' : 'Donation details'} cancelLabel="Close" busy={busy} onCancel={() => { if (!pending.current) setModalOpen(false) }}>
+    <ConfirmationDialog open={modalOpen} dialogRole="dialog" panelClassName={styles.modalPanel} title={donor && !report ? 'Report completed donation' : 'Donation details'} cancelLabel={null} showCloseButton busy={busy} onCancel={() => { if (!pending.current) setModalOpen(false) }}>
     <div className={styles.card}>
     <label htmlFor={id}>Request coordination</label>
     <select disabled={busy} id={id} value={context.id} onChange={e => { const next = contexts.find(c => String(c.id) === e.target.value); setSelected(e.target.value); setDetailsOpen(false); setFormOpen(Number(next?.donor_id) === Number(user.id) && !next?.report); setDate(''); setPhotos([]); setError(''); setFeedback('') }}>{contexts.map(c => <option key={c.id} value={c.id}>{contextLabel(c)}</option>)}</select>
-    <p><strong>{summary}</strong></p>
+    {!(formOpen && !report) && <p><strong>{summary}</strong></p>}
     {feedback && <p role="status" className={styles.feedback}>{feedback}</p>}
-    <div className={styles.actions}>
+    {!(formOpen && !report) && <div className={styles.actions}>
       {!report && !donor && <div><Button variant="secondary" disabled={busy} onClick={() => signal('prompt_donor')}>Ask donor to report for donation</Button><small className={styles.promptHelp}>Sends a reminder only. It does not confirm a donation.</small></div>}
       {report && context.report_in_context && !donor && report.status === 'PENDING' && !report.requester_response && report.workflow_state !== 'clarification' && <>
         <Button disabled={busy} onClick={() => acknowledge('received')}>Donation received</Button><Button variant="secondary" disabled={busy} onClick={() => acknowledge('did_not_donate')}>Did not donate</Button><Button variant="secondary" disabled={busy} onClick={() => acknowledge('not_sure')}>Not sure</Button>
       </>}
-    </div>
+    </div>}
     {formOpen && !report && <form className={styles.reportForm} onSubmit={submit} aria-busy={busy}>
       <DonationDateTimeFields value={date} onChange={setDate} /><DonationProofInput files={photos} onChange={setPhotos} disabled={busy} />
       {error && <p ref={errorRef} tabIndex={-1} role="alert" className={styles.error}>{error}</p>}
-      <div className={styles.actions}><Button type="submit" isLoading={busy}>{busy ? 'Submitting…' : 'Submit donation report'}</Button><Button type="button" variant="secondary" disabled={busy} onClick={() => setModalOpen(false)}>Cancel</Button></div>
+      <div className={`${styles.actions} ${styles.formActions}`}><Button type="button" variant="secondary" disabled={busy} onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit" isLoading={busy}>{busy ? 'Submitting…' : 'Submit donation report'}</Button></div>
     </form>}
     {error && !formOpen && <p ref={errorRef} tabIndex={-1} role="alert" className={styles.error}>{error}</p>}
     {!(donor && !report) && <Button type="button" variant="secondary" aria-expanded={detailsOpen} aria-controls={id + '-details'} onClick={() => setDetailsOpen(!detailsOpen)}>{detailsOpen ? 'Hide donation details' : 'View donation details'}</Button>}

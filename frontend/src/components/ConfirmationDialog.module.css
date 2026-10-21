@@ -7,3 +7,8 @@
 
 
 .actions > * { flex: 1; min-width: 0; }
+.panel { position: relative; }
+.closeButton { position: absolute; top: var(--space-2); right: var(--space-2); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: var(--radius-control); background: transparent; color: var(--color-text); cursor: pointer; }
+.closeButton:hover:not(:disabled) { background: var(--color-surface-sunken); }
+.closeButton:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.closeButton:disabled { opacity: 0.5; cursor: not-allowed; }

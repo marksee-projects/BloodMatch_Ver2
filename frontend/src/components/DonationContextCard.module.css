@@ -4,7 +4,9 @@
 .reminder strong { display: block; font-size: var(--text-sm); line-height: 1.4; }
 .reminder span { display: block; margin-top: var(--space-1); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: var(--text-xs); color: var(--color-text-muted); }
 .reminder > :global(.ui-button) { flex: none; font-size: var(--text-sm) !important; padding-inline: var(--space-3) !important; }
-.modalPanel { width: min(100%, 40rem); display: grid; grid-template-rows: auto minmax(0,1fr) auto; overflow: hidden; }
+.modalPanel { box-sizing: border-box; width: min(100%, 40rem); display: flex; flex-direction: column; overflow: hidden; }
+.modalPanel > h2 { text-align: center; padding-inline: var(--space-6); margin-bottom: var(--space-5); flex: none; }
+.modalPanel > div:last-child:empty { display: none; }
 .modalPanel > div:first-of-type { overflow-y: auto; min-height: 0; overscroll-behavior: contain; padding-inline: var(--space-2); }
 .modalPanel .card { margin: 0; padding: 0; border: 0; }
 .card h2, .card h3 { margin: 0 0 var(--space-2); font-size: var(--text-body); }
@@ -14,6 +16,7 @@
 .body { display: grid; gap: var(--space-3); margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius-control); background: var(--color-surface-sunken); }
 .promptHelp { display: block; }
 .reportForm { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--color-border-hairline); }
+.formActions { justify-content: flex-end; padding-top: var(--space-4); border-top: 1px solid var(--color-border-hairline); }
 .error { color: var(--color-emergency-red) !important; padding: var(--space-3); border: 1px solid var(--color-danger-border); border-radius: var(--radius-control); }
 .feedback { padding: var(--space-3); background: var(--color-surface-sunken); border-radius: var(--radius-control); }
 .actions, .offer { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin-top: var(--space-3); }

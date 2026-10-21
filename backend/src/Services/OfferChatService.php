@@ -12,6 +12,20 @@ final class OfferChatService
         $s->execute(['031_offer_chat_donation_proof.sql']);return $s->fetchColumn()!==false;
     }
     public static function requireReady(): void { if (!self::ready()) throw new RuntimeException('Offer chat requires migration 031.',503); }
+    /** Existing offers only: listing never creates pair consent or accepts an offer. */
+    public static function pendingIncoming(array $actor): array {
+        if (!ChatPolicy::isEligible($actor) || !self::ready()) return [];
+        $s=Database::pdo()->prepare("SELECT m.id AS match_id,m.offer_cycle,m.request_id,u.full_name AS donor_name,
+            br.required_blood_type,br.facility_name
+            FROM matches m JOIN blood_requests br ON br.id=m.request_id JOIN users u ON u.id=m.donor_id
+            LEFT JOIN donation_chat_contexts c ON c.match_id=m.id AND c.offer_cycle=m.offer_cycle
+            WHERE br.requester_id=? AND m.donor_id<>br.requester_id AND m.status='RESPONDED'
+            AND br.status='OPEN' AND br.needed_datetime>UTC_TIMESTAMP() AND c.id IS NULL
+            AND u.account_status='active' AND u.verification_status='verified' AND u.role IN ('member','admin')
+            ORDER BY m.id DESC");
+        $s->execute([(int)$actor['id']]);
+        return $s->fetchAll();
+    }
     /** Notification destination only; existing conversation authorization still applies. */
     public static function notificationConversation(array $actor,int $requestId): ?int {
         if (!ChatPolicy::isEligible($actor) || !self::ready()) return null;

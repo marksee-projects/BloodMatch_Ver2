@@ -36,14 +36,20 @@ try {
     $responseRequest=ocRequest($owner);$responseService=new \BloodMatch\Services\MatchResponseService();
     $offered=$responseService->respond($donor,$responseRequest,'offer_chat_test');
     ocDb($offered['chat_request']===null,'Actual donor offer does not send a second message request');
+    ocDb(in_array((int)$offered['match_id'],array_map('intval',array_column(Offers::pendingIncoming($owner),'match_id')),true),'Existing donor offer appears in requester message requests');
+    ocDb(!in_array((int)$offered['match_id'],array_map('intval',array_column(Offers::pendingIncoming($outsider),'match_id')),true),'Other members cannot list requester donor offers');
+    ocFail(fn()=>(new Completion())->submit($donor,(int)$offered['match_id'],gmdate('Y-m-d\TH:i:s\Z'),null),409,'Unaccepted offer cannot create a donation report');
     $s=$p->prepare('SELECT COUNT(*) FROM chat_requests WHERE user_low=? AND user_high=?');$s->execute([min($owner['id'],$donor['id']),max($owner['id'],$donor['id'])]);ocDb((int)$s->fetchColumn()===0,'Offer alone creates no pair consent');
-    $responseService->withdraw($donor,$offered['match_id']);$responseService->respond($donor,$responseRequest,'offer_chat_test');
+    $responseService->withdraw($donor,$offered['match_id']);
+    ocDb(!in_array((int)$offered['match_id'],array_map('intval',array_column(Offers::pendingIncoming($owner),'match_id')),true),'Withdrawn offer disappears from message requests');
+    $responseService->respond($donor,$responseRequest,'offer_chat_test');
     ocFail(fn()=>Offers::accept($owner,$offered['match_id'],1),409,'Withdraw/re-offer invalidates the original offer cycle');
     foreach(['routine','urgent','emergency'] as $urgency) {
         $r=ocRequest($owner,$urgency);$m=ocOffer($r,$donor);
         ocDb(Offers::ownOffer($donor,$m)['conversation_id']===null,"$urgency offer alone grants no chat consent/context");
         ocFail(fn()=>Offers::accept($outsider,$m,1),403,"$urgency outsider cannot accept");
         $accepted=Offers::accept($owner,$m,1);$contexts[]=[$r,$m,$accepted];
+        ocDb(!in_array($m,array_map('intval',array_column(Offers::pendingIncoming($owner),'match_id')),true),"$urgency accepted offer leaves pending message requests");
         ocDb(Offers::notificationConversation($donor,$r)===$accepted['conversation_id'],"$urgency offer alert links only to authorized request chat");
         ocDb(Offers::notificationConversation($outsider,$r)===null,"$urgency outsider receives no offer chat destination");
         ocDb((new ChatPolicy())->canAccessConversation($donor,$accepted['conversation_id']),"$urgency acceptance satisfies existing chat gates");

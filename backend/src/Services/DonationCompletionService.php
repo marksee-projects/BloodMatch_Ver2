@@ -51,6 +51,8 @@ final class DonationCompletionService
             } elseif ($contextId!==null) OfferChatService::requireReady();
             $now=AuthService::nowUtc();$occurred=DonationCompletionPolicy::occurrence($occurredAt,$context?$context['responded_at']:self::responseAt($match),$now);
             $s=Database::pdo()->prepare('SELECT * FROM donation_reports WHERE match_id=? ORDER BY id DESC LIMIT 1 FOR UPDATE');$s->execute([$matchId]);$prior=$s->fetch();
+            // Preserve historical report coordination, but new reports require explicit offer acceptance.
+            if (OfferChatService::ready() && !$context && (!$prior || !empty($prior['offer_context_id']))) throw new RuntimeException('Wait for the requester to accept your donor offer before reporting a donation.',409);
             if ($prior) {
                 $sameContext=($prior['offer_context_id']??null)===null ? $context===false || $context===null : (int)$prior['offer_context_id']===(int)($context['id']??0);
                 if ($prior['status']==='PENDING' && (int)$prior['content_version']===1 && $prior['occurred_at']===$occurred && $prior['report_note']===$note && $sameContext

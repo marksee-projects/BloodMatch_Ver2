@@ -5,7 +5,7 @@ export default function DonationProofInput({ files = [], onChange, disabled = fa
   const [error, setError] = useState('')
   return <div className={styles.field}>
     <label htmlFor={id}>Upload donation proof <span>(optional)</span></label>
-    <p id={`${id}-hint`}>Donation acknowledgment, certificate, or donor-card entry showing this donation. Crop or cover unrelated personal information. Photos support review; they do not confirm donation.</p>
+    <p id={`${id}-hint`}>Attach a donation receipt, certificate, or donor-card photo. Hide unrelated personal details. Photos support review; they do not confirm donation.</p>
     <input id={id} type="file" multiple accept="image/jpeg,image/png,image/webp" disabled={disabled} aria-describedby={`${id}-hint ${id}-limit`} onChange={e => {
       const chosen = Array.from(e.target.files || [])
       if (chosen.length > 3 || chosen.some(f => f.size > 5 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp'].includes(f.type))) { setError('Choose up to three JPG, PNG or WEBP photos, 5 MB each.'); e.target.value = ''; onChange([]); return }

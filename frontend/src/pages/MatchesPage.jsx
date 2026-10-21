@@ -8,7 +8,7 @@ import { donationReportForm, donationTimeToUtc } from '../services/donationCompl
 import DonationDateTimeFields from '../components/DonationDateTimeFields'
 import DonationProofInput from '../components/DonationProofInput'
 import OfferAcceptancePanel from '../components/OfferAcceptancePanel'
-import DonationOfferStatus from '../components/DonationOfferStatus'
+import DonationOfferStatus, { DonationReportButton } from '../components/DonationOfferStatus'
 import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
 import { useRequestCreation } from '../context/RequestCreationContext'
@@ -262,7 +262,7 @@ export default function MatchesPage() {
           <div className={styles.donorActions}>
             {!isRequesterView && hasActiveResponse && <DonationOfferStatus matchId={ownMatch.match_id} />}
             {!isRequesterView && !hasActiveResponse && <Button disabled={!canRespond || actionLoading} onClick={() => setConfirmation('respond')}><Check size={18} /> Offer to donate</Button>}
-            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportError(''); setReportingMatchId(ownMatch.match_id) }}>I donated</Button>}
+            {!isRequesterView && ownMatch?.status === 'RESPONDED' && <DonationReportButton matchId={ownMatch.match_id} onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportError(''); setReportingMatchId(ownMatch.match_id) }} />}
             {!isRequesterView && ownMatch?.status === 'RESPONDED' && <Button variant="secondary" className={styles.cancelOffer} onClick={() => setConfirmation('withdraw')}><X size={18} /> Cancel help</Button>}
             {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && (
               !user?.donor_enrolled ? (

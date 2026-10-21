@@ -11,7 +11,7 @@ import { FeedCard } from '../components/FeedCard'
 import ConfirmationDialog from '../components/ConfirmationDialog'
 import DonationDateTimeFields from '../components/DonationDateTimeFields'
 import DonationProofInput from '../components/DonationProofInput'
-import DonationOfferStatus from '../components/DonationOfferStatus'
+import DonationOfferStatus, { DonationReportButton } from '../components/DonationOfferStatus'
 import { donationReportForm } from '../services/donationCompletion'
 import styles from './MyResponsesPage.module.css'
 
@@ -144,7 +144,7 @@ export default function MyResponsesPage() {
                   </div>
                   <div className={styles.secondaryActions}>
                     {canManageResponses && (isResponded || req.match_status === 'CLOSED') && req.match_id && (
-                      <Button size="sm" onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(req.match_id) }}>I donated</Button>
+                      <DonationReportButton size="sm" matchId={req.match_id} onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(req.match_id) }} />
                     )}
                     {canManageResponses && isResponded && req.status === 'OPEN' && req.match_id && (
                       <Button variant="secondary" size="sm" className={styles.cancelOffer} onClick={() => setConfirmWithdrawMatchId(req.match_id)}>

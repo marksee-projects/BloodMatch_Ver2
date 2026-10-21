@@ -1,9 +1,10 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { X } from '@phosphor-icons/react'
 import { Button } from './ui/Button'
 import styles from './ConfirmationDialog.module.css'
 
-export default function ConfirmationDialog({ open, title, children, confirmLabel, cancelLabel = 'Keep editing', destructive = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel, dialogRole = 'alertdialog', panelClassName = '' }) {
+export default function ConfirmationDialog({ open, title, children, confirmLabel, cancelLabel = 'Keep editing', destructive = false, busy = false, confirmDisabled = false, error, onConfirm, onCancel, dialogRole = 'alertdialog', panelClassName = '', showCloseButton = false }) {
   const panelRef = useRef(null)
   const titleId = useId()
   const descriptionId = useId()
@@ -56,6 +57,7 @@ export default function ConfirmationDialog({ open, title, children, confirmLabel
     <div className={styles.backdrop}>
       <section ref={panelRef} className={`${styles.panel} ${panelClassName}`} role={dialogRole} aria-modal="true" aria-labelledby={titleId} aria-describedby={children && dialogRole === 'alertdialog' ? descriptionId : undefined} aria-busy={busy} tabIndex={-1}>
         <h2 id={titleId}>{title}</h2>
+        {showCloseButton && <button type="button" className={styles.closeButton} aria-label="Close dialog" disabled={busy} onClick={onCancel}><X size={20} aria-hidden="true" /></button>}
         {children && <div id={descriptionId} className={styles.description}>{children}</div>}
         {error && <p className="alert alert-error" role="alert">{error}</p>}
         <div className={styles.actions}>
