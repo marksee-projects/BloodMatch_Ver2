@@ -100,7 +100,7 @@ final class RequestService
         ];
     }
 
-    public static function validatePayload(array $body, bool $partial = false): array
+    public static function validatePayload(array $body, bool $partial = false, ?array $existing = null): array
     {
         $v = new \BloodMatch\Utils\Validator();
         $fields = [];
@@ -160,7 +160,22 @@ final class RequestService
             ]);
         }
 
-        if ($has('location_id')) {
+        $addressChanged = !$partial || array_intersect(['facility_name', 'hospital_id', 'location_id'], array_keys($body)) !== [];
+        $hospital = null;
+        if ($addressChanged) {
+            // A changed name without an explicit hospital ID is a new selection.
+            $hospitalId = $body['hospital_id'] ?? (array_key_exists('facility_name', $body) ? null : ($existing['hospital_id'] ?? null));
+            $hospital = HospitalLocationService::resolve($hospitalId, $fields['facility_name'] ?? ($existing['facility_name'] ?? null));
+            $fields['hospital_id'] = $hospital['id'] ?? null;
+            if ($hospital !== null) { $fields['facility_name'] = $hospital['name']; }
+        }
+        if ($hospital !== null && $hospital['address_complete']) {
+            // Authoritative directory location overrides even conflicting client values.
+            $location = LocationService::resolveLocationId($hospital['location']['location_id']);
+            $fields['location_id'] = $location['location_id'];
+            $fields['latitude'] = $location['latitude'];
+            $fields['longitude'] = $location['longitude'];
+        } elseif ($has('location_id')) {
             $locRaw = $body['location_id'] ?? null;
             if ($locRaw === null || $locRaw === '') {
                 $fields['location_id'] = null;
@@ -178,11 +193,23 @@ final class RequestService
             $fields['longitude'] = null;
         }
 
-        if ($has('hospital_id')) {
-            $hIdRaw = $body['hospital_id'] ?? null;
-            $fields['hospital_id'] = $hIdRaw !== null && $hIdRaw !== '' ? (int) $hIdRaw : null;
-        } elseif (!$partial) {
-            $fields['hospital_id'] = null;
+        // A new manual facility must not inherit the previous facility's address.
+        if ($partial && $addressChanged && !array_key_exists('location_id', $body)
+            && !($hospital['address_complete'] ?? false)
+            && (($fields['facility_name'] ?? $existing['facility_name'] ?? '') !== ($existing['facility_name'] ?? '')
+                || (string)($fields['hospital_id'] ?? '') !== (string)($existing['hospital_id'] ?? ''))) {
+            $fields['location_id'] = null;
+            $fields['latitude'] = null;
+            $fields['longitude'] = null;
+        }
+        if ($addressChanged && $hospital !== null && !$hospital['address_complete'] && $hospital['location'] !== null) {
+            $manualId = array_key_exists('location_id', $fields) ? $fields['location_id'] : ($existing['location_id'] ?? null);
+            if ($manualId !== null) {
+                $manual = LocationService::resolveLocationId($manualId);
+                if ($manual['municipality_code'] !== $hospital['location']['municipality_code']) {
+                    throw new Exceptions\ValidationException(['location_id' => ['Choose an address in the hospital directory municipality.']]);
+                }
+            }
         }
 
         if ($v->fails()) {
@@ -196,7 +223,7 @@ final class RequestService
     {
         $materialGroups = [
             'required_blood_type' => ['required_blood_type'],
-            'location' => ['facility_name', 'location_id', 'latitude', 'longitude'],
+            'location' => ['facility_name', 'hospital_id', 'location_id', 'latitude', 'longitude'],
             'urgency' => ['urgency'],
             'needed_datetime' => ['needed_datetime'],
             'quantity_units' => ['quantity_units'],

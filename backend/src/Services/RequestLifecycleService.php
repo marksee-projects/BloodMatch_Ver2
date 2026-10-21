@@ -34,7 +34,7 @@ final class RequestLifecycleService
                 $users = WorkflowLockService::users([(int) $actor['id'], (int) $request['requester_id']]);
                 self::assertCanEdit($users[(int) $actor['id']], $request);
                 WorkflowLockService::assertOpenBeforeDeadline($request);
-                $fields = RequestService::validatePayload($body, partial: true);
+                $fields = RequestService::validatePayload($body, partial: true, existing: $request);
                 if ($fields === []) { throw new RuntimeException('No editable fields supplied.', 400); }
                 // Recheck time after reference-data validation, just before writing.
                 $nowUtc = AuthService::nowUtc();

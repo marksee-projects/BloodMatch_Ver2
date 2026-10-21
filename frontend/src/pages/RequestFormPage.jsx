@@ -11,6 +11,7 @@ import requestStyles from './RequestFormPage.module.css'
 import LocationSelector from '../components/LocationSelector'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import SearchableCombobox from '../components/ui/SearchableCombobox'
+import { emptyFacilityLocation, findHospital, locationForHospital, OTHER_LOCATION_NAME } from '../services/facilityAddress'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 const URGENCIES = [
@@ -21,7 +22,7 @@ const URGENCIES = [
 
 function draftSnapshot(form, location) {
   return JSON.stringify([
-    ...['required_blood_type', 'quantity_units', 'facility_name', 'urgency', 'needed_date', 'needed_time'].map((key) => String(form[key] ?? '')),
+    ...['required_blood_type', 'quantity_units', 'facility_name', 'location_mode', 'urgency', 'needed_date', 'needed_time'].map((key) => String(form[key] ?? '')),
     ...['location_id', 'municipality_code', 'barangay_code'].map((key) => String(location[key] ?? ''))
   ])
 }
@@ -44,12 +45,19 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
     required_blood_type: '',
     quantity_units: 1,
     facility_name: '',
+    location_mode: 'hospital',
     urgency: 'routine',
     needed_date: '',
     needed_time: ''
   })
   const [hospitalsList, setHospitalsList] = useState([])
+  const [hospitalsLoaded, setHospitalsLoaded] = useState(false)
+  const [hospitalError, setHospitalError] = useState(null)
   const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
+  const hospitalMode = form.location_mode === 'hospital'
+  const selectedHospital = hospitalMode ? findHospital(hospitalsList, form.facility_name) : null
+  const directoryAddress = selectedHospital?.address_complete
+  const effectiveLocation = directoryAddress ? locationForHospital(selectedHospital) : location
   const [errors, setErrors] = useState({}); const [stepErrors, setStepErrors] = useState({});
   const [message, setMessage] = useActionNoticeState(null, 'error')
   const [submitting, setSubmitting] = useState(false)
@@ -64,8 +72,8 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
   useEffect(() => {
     let active = true
     api.get('/api/hospitals')
-      .then((data) => setHospitalsList(data.hospitals || []))
-      .catch((err) => console.error('Failed to load hospitals:', err))
+      .then((data) => { if (active) { setHospitalsList(data.hospitals || []); setHospitalsLoaded(true) } })
+      .catch(() => { if (active) setHospitalError('Hospital directory could not load. Reopen this form to retry before saving.') })
 
     if (!editing) return () => { active = false }
     setLoaded(false)
@@ -81,6 +89,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
           required_blood_type: r.required_blood_type,
           quantity_units: r.quantity_units,
           facility_name: r.facility_name,
+          location_mode: !r.hospital_id && [OTHER_LOCATION_NAME, 'Other location'].includes(r.facility_name) ? 'other' : 'hospital',
           urgency: r.urgency,
           needed_date: needed ? `${needed.getFullYear()}-${pad(needed.getMonth() + 1)}-${pad(needed.getDate())}` : '',
           needed_time: needed ? `${pad(needed.getHours())}:${pad(needed.getMinutes())}` : ''
@@ -141,17 +150,18 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
   }
 
   const saveRequest = async () => {
+    if (!hospitalsLoaded) return
     if (savingRef.current) return
     savingRef.current = true
     setErrors({})
     setMessage(null)
     setSubmitting(true)
     try {
-      const payload = { ...form, location_id: location.location_id }
+      const payload = { ...form, location_id: effectiveLocation.location_id }
+      if (!hospitalMode) payload.facility_name = OTHER_LOCATION_NAME
+      delete payload.location_mode
 
-      const matchedHospital = hospitalsList.find(
-        (h) => h.name.toLowerCase().trim() === payload.facility_name.toLowerCase().trim()
-      )
+      const matchedHospital = selectedHospital
       payload.hospital_id = matchedHospital ? matchedHospital.id : null
 
       if (payload.needed_date && payload.needed_time) {
@@ -188,14 +198,11 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
       if (!form.quantity_units || form.quantity_units < 1 || form.quantity_units > 10) newErrors.quantity_units = ['Quantity must be between 1 and 10.']
     }
     if (currentStep === 2) {
-      if (!form.facility_name || !form.facility_name.trim()) {
+      if (hospitalMode && (!form.facility_name || !form.facility_name.trim())) {
         newErrors.facility_name = ['Facility name is required.']
       }
-      if (!location.municipality_code) {
+      if (!effectiveLocation.municipality_code) {
         newErrors.municipality_code = ['Municipality is required.']
-      }
-      if (!location.barangay_code) {
-        newErrors.barangay_code = ['Barangay is required.']
       }
     }
     if (currentStep === 3) {
@@ -237,7 +244,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
 
   return (
       <div className={requestStyles.page}>
-      <div style={{ marginBottom: 'var(--space-3)', textAlign: 'center' }}>
+      <div style={{ marginBottom: 'var(--space-6)', textAlign: 'center' }}>
         <h1 style={{ marginBottom: '0', fontSize: 'var(--text-h1)' }}>
           {editing ? 'Edit request' : 'Create blood request'}
         </h1>
@@ -332,32 +339,66 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
           {(editing || step === 2) && (
             <div className={requestStyles.step}>
 
+              <fieldset className={requestStyles.locationChoices}>
+                <legend className="metric-label">Donation location</legend>
+                {[['hospital', 'Hospital'], ['other', 'Other donation venue']].map(([value, label]) => (
+                  <label key={value} className={requestStyles.locationChoice}>
+                    <input type="radio" name="donation-location" value={value} checked={form.location_mode === value} onChange={() => {
+                      if (form.location_mode === value) return
+                      setForm(f => ({ ...f, location_mode: value, facility_name: '' }))
+                      setLocation(emptyFacilityLocation())
+                      setStepErrors({})
+                      setErrors({})
+                    }} />
+                    <span>{label}</span>
+                  </label>
+                ))}
+              </fieldset>
+
+              {hospitalMode && (
               <div className="field">
-                <label htmlFor="facility_name">Healthcare Facility / Hospital Name *</label>
+                <label htmlFor="facility_name">Hospital name *</label>
                 <SearchableCombobox
                   id="facility_name"
                   options={hospitalOptions}
                   placeholder="Select or type facility name..."
                   value={form.facility_name}
                   onChange={(val) => {
+                    if (val === form.facility_name) return
                     setField('facility_name')({ target: { value: val } })
+                    setLocation(locationForHospital(findHospital(hospitalsList, val)))
+                    setStepErrors({})
+                    setErrors({})
                   }}
                   required={true}
                 />
                 {(stepErrors.facility_name || errors.facility_name) && <span className="field-error">{(stepErrors.facility_name || errors.facility_name).join(' ')}</span>}
+                {errors.hospital_id && <span className="field-error">{errors.hospital_id.join(' ')}</span>}
+                {hospitalError && <span className="field-error" role="alert">{hospitalError}</span>}
               </div>
+              )}
 
               <div className="field" role="group" aria-labelledby="request-location-heading">
-                <span id="request-location-heading" className="metric-label" style={{ display: 'block', marginBottom: 'var(--space-2)' }}>Facility Location</span>
+                <span id="request-location-heading" className="metric-label">{hospitalMode ? 'Hospital address' : 'Location'}</span>
 
-                <LocationSelector
-                  municipalityId="request-municipality"
-                  municipalityCode={location.municipality_code}
-                  barangayCode={location.barangay_code}
-                  onChange={setLocation}
-                  errors={stepErrors}
-                  required={true}
-                />
+                {directoryAddress ? (
+                  <div>
+                    <label htmlFor="directory-facility-address">Saved hospital address (read-only)</label>
+                    <input id="directory-facility-address" readOnly value={`${selectedHospital.location.barangay_name}, ${selectedHospital.location.municipality_name}`} />
+                  </div>
+                ) : (
+                  <div className={requestStyles.locationFields}>
+                    <LocationSelector
+                      municipalityId="request-municipality"
+                      municipalityCode={location.municipality_code}
+                      barangayCode={location.barangay_code}
+                      onChange={setLocation}
+                      errors={{ ...errors, ...stepErrors }}
+                      required={true}
+                      barangayRequired={false}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -433,7 +474,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
                   Next Step
                 </button>
               ) : (
-                <button type="submit" className="btn" disabled={submitting}>
+                <button type="submit" className="btn" disabled={submitting || !hospitalsLoaded}>
                   {submitting ? 'Saving…' : (editing ? 'Save changes' : 'Publish Request')}
                 </button>
               )}

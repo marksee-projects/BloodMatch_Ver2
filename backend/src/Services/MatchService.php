@@ -99,17 +99,15 @@ final class MatchService
                 && $donor['chapter_id'] !== null
                 && (int) $donor['chapter_id'] === $reqChapter;
 
-            $locatedBonus = $distance !== null ? 10000 : 0;
-            $chapterBonus = $sameChapter ? 100 : 0;
-            $proximityBonus = $distance !== null ? max(0, 5000 - (int) ceil($distance)) : 0;
-
             $scored[(int) $donor['id']] = [
                 'row' => $donor,
                 'distance' => $distance,
-                'rank_score' => $locatedBonus + $chapterBonus + $proximityBonus,
+                'same_chapter' => $sameChapter,
+                // Retained for storage compatibility; ordering uses distance directly.
+                'rank_score' => 0,
             ];
         }
-        uasort($scored, static fn (array $a, array $b): int => $b['rank_score'] <=> $a['rank_score']);
+        uasort($scored, [MatchProximity::class, 'compare']);
 
         $maxGenStmt = $pdo->prepare('SELECT COALESCE(MAX(generation), 0) FROM matches WHERE request_id = ?');
         $maxGenStmt->execute([$requestId]);
@@ -308,7 +306,7 @@ final class MatchService
             $sql .= ' AND m.donor_id = ?';
             $params[] = $onlyDonorId;
         }
-        $sql .= ' ORDER BY m.generation DESC, m.rank_score DESC';
+        $sql .= ' ORDER BY ' . MatchProximity::orderSql('br.request_chapter_id');
 
         $stmt = Database::pdo()->prepare($sql);
         $stmt->execute($params);

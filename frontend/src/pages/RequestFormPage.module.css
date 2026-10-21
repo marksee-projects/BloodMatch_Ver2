@@ -1,8 +1,13 @@
 .page { width: 100%; max-width: 640px; margin: 0 auto; }
-.formCard.formCard { padding: var(--space-5) var(--space-6) var(--space-4); }
+.formCard.formCard { padding: var(--space-5) var(--space-6) var(--space-6); }
 .stepper.stepper { padding-top: var(--space-3); margin-bottom: var(--space-5); }
 .step { display: grid; gap: var(--space-5); }
 .step :global(.field) { gap: var(--space-3); }
 .step > :global(.field) + :global(.field) { margin-top: 0; }
 .footer { flex-wrap: wrap; gap: var(--space-4); }
+.locationFields { display: grid; gap: var(--space-5); }
+.locationChoices { display: grid; margin: 0; padding: 0; min-width: 0; border: 0; }
+.locationChoices legend { margin-bottom: var(--space-2); padding: 0; }
+.locationChoices .locationChoice { display: flex; align-items: center; gap: var(--space-2); width: fit-content; min-height: 44px; margin: 0; cursor: pointer; }
+.locationChoice input[type="radio"] { width: var(--space-4); height: var(--space-4); margin: 0; accent-color: var(--color-brand-navy); cursor: pointer; }
 @media(max-width:640px) { .formCard.formCard { padding-inline: var(--space-4); } }
