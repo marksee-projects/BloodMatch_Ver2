@@ -209,7 +209,7 @@ function AppShell() {
       window.removeEventListener('online',reconnect)
       window.removeEventListener('focus',reconnect)
     }
-  }, [user, notify])
+  }, [user?.id, user?.role, notify])
 
   const isActive = (path) => location.pathname === path
   const isResponsesActive = isActive('/responses') || isActive('/my-responses')

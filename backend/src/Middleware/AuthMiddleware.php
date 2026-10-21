@@ -38,6 +38,7 @@ final class AuthMiddleware
             $disabledTime = strtotime($user['disabled_until'] . ' UTC');
             if ($disabledTime > time()) {
                 $remaining = max(1, (int) ceil(($disabledTime - time()) / 3600));
+                Session::destroy();
                 Response::error("Your account has been temporarily deactivated for {$remaining} hour" . ($remaining === 1 ? '' : 's') . " due to a chat report violation.", 403);
                 exit;
             }
@@ -56,6 +57,7 @@ final class AuthMiddleware
                 (string) $userId,
                 ['endpoint' => $endpoint, 'reason' => 'inactive_or_missing_account']
             );
+            Session::destroy();
             Response::error('Forbidden.', 403);
             exit;
         }

@@ -1,63 +1,19 @@
 import { useActionNoticeState } from '../context/NotificationContext'
-import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  ArrowRight,
-  CalendarBlank,
-  CheckCircle,
-  Clock,
-  Drop,
-  HandHeart,
-  MapPin,
-  User,
-  X
-} from '@phosphor-icons/react'
+import { HandHeart, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
-import { BloodTypeBlock } from '../components/ui/BloodTypeBlock'
+import { FeedCard } from '../components/FeedCard'
 import ConfirmationDialog from '../components/ConfirmationDialog'
 import DonationDateTimeFields from '../components/DonationDateTimeFields'
 import DonationProofInput from '../components/DonationProofInput'
 import DonationOfferStatus from '../components/DonationOfferStatus'
 import { donationReportForm } from '../services/donationCompletion'
 import styles from './MyResponsesPage.module.css'
-
-function formatDate(value) {
-  if (!value) return 'Not provided'
-  return new Date(value.replace(' ', 'T') + 'Z').toLocaleString('en-US', {
-    timeZone: 'Asia/Manila',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  })
-}
-
-function RequesterAvatar({ src, name }) {
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    setFailed(false)
-  }, [src])
-
-  if (!src || failed) {
-    return <User size={22} aria-hidden="true" />
-  }
-
-  return (
-    <img
-      src={src}
-      alt={name ? `${name}'s profile picture` : ''}
-      onError={() => setFailed(true)}
-    />
-  )
-}
 
 export default function MyResponsesPage() {
   const { user } = useAuth()
@@ -172,111 +128,32 @@ export default function MyResponsesPage() {
       ) : (
         <div className={styles.responseList}>
           {responses.map((req) => {
-            const urgencyLevel = req.urgency === 'emergency' ? 'emergency' : req.urgency === 'urgent' ? 'urgent' : 'normal'
             const isCompleted = req.match_status === 'COMPLETED'
             const isResponded = req.match_status === 'RESPONDED'
 
             return (
-              <article key={req.id} className={styles.responseCard} aria-label={`Response for ${req.required_blood_type} blood request at ${req.facility_name}`}>
-                <div className={styles.cardHeader}>
-                  <div className={styles.requesterInfo}>
-                    <div className={styles.avatar}>
-                      <RequesterAvatar src={req.requester_profile_picture_url} name={req.requester_name} />
-                    </div>
-                    <div className={styles.requesterMeta}>
-                      <div className={styles.requesterNameLine}>
-                        <h2 className={styles.requesterName}>{req.requester_name || 'Community Member'}</h2>
-                        {req.requester_verification_status === 'verified' && (
-                          <CheckCircle size={16} weight="fill" className={styles.verifiedIcon} aria-label="Verified account" />
-                        )}
-                      </div>
-                      <p className={styles.requestDate}>
-                        {req.requester_chapter_name ? `${req.requester_chapter_name} • ` : ''}Needed {formatDate(req.needed_datetime)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className={styles.statusBadges}>
-                    <Badge variant={req.urgency === 'emergency' ? 'emergency' : req.urgency === 'urgent' ? 'urgent' : 'neutral'}>
-                      {req.urgency}
-                    </Badge>
-                    <Badge variant={isCompleted ? 'success' : isResponded ? 'brand' : 'neutral'}>
-                      {req.match_status || 'RESPONDED'}
-                    </Badge>
-                  </div>
-                </div>
-
-                <div className={styles.cardBody}>
-                  <div className={styles.bloodBlockWrap}>
-                    <BloodTypeBlock bloodType={req.required_blood_type} level={urgencyLevel} />
-                  </div>
-
-                  <dl className={styles.factsGrid}>
-                    <div className={styles.factItem}>
-                      <dt className={styles.factLabel}>
-                        <Drop size={14} weight="fill" /> Blood needed
-                      </dt>
-                      <dd className={styles.factValue}>
-                        {req.quantity_units} {req.quantity_units === 1 ? 'unit' : 'units'} ({req.required_blood_type})
-                      </dd>
-                    </div>
-
-                    <div className={styles.factItem}>
-                      <dt className={styles.factLabel}>
-                        <MapPin size={14} /> Facility
-                      </dt>
-                      <dd className={styles.factValue} title={`${req.facility_name}, ${req.location?.municipality_name || 'Bataan'}`}>
-                        {req.facility_name}
-                      </dd>
-                    </div>
-
-                    <div className={styles.factItem}>
-                      <dt className={styles.factLabel}>
-                        <CalendarBlank size={14} /> Needed by
-                      </dt>
-                      <dd className={styles.factValue}>
-                        {formatDate(req.needed_datetime)}
-                      </dd>
-                    </div>
-
-                    <div className={styles.factItem}>
-                      <dt className={styles.factLabel}>
-                        <Clock size={14} /> Request status
-                      </dt>
-                      <dd className={styles.factValue}>
-                        {req.status}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-
+              <FeedCard key={req.id} request={req} hideActions defaultExpanded showNeededYear
+                headerActions={<>
+                  <Badge variant={isCompleted ? 'success' : isResponded ? 'brand' : 'neutral'}>{req.match_status || 'RESPONDED'}</Badge>
+                  {req.status !== 'OPEN' && <Badge variant="neutral">{req.status}</Badge>}
+                </>}>
                 <div className={styles.cardActions}>
-                  <div className={styles.primaryAction} style={{ display: 'flex', gap: 'var(--space-2)', flexWrap: 'wrap', alignItems: 'center' }}>
-                    <Button to={`/profile/${req.requester_id}`} variant="secondary" size="sm">
-                      View profile
-                    </Button>
+                  <div className={styles.primaryAction}>
+                    <Button to={`/profile/${req.requester_id}`} variant="secondary" size="sm">View profile</Button>
                     <DonationOfferStatus matchId={req.match_id} />
                   </div>
-
                   <div className={styles.secondaryActions}>
                     {canManageResponses && (isResponded || req.match_status === 'CLOSED') && req.match_id && (
-                      <Button size="sm" onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(req.match_id) }}>
-                        I donated
-                      </Button>
+                      <Button size="sm" onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(req.match_id) }}>I donated</Button>
                     )}
                     {canManageResponses && isResponded && req.status === 'OPEN' && req.match_id && (
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className={styles.cancelOffer}
-                        onClick={() => setConfirmWithdrawMatchId(req.match_id)}
-                      >
-                        <X size={14} style={{ marginRight: '4px' }} /> Cancel help
+                      <Button variant="secondary" size="sm" className={styles.cancelOffer} onClick={() => setConfirmWithdrawMatchId(req.match_id)}>
+                        <X size={14} aria-hidden="true" /> Cancel help
                       </Button>
                     )}
                   </div>
                 </div>
-              </article>
+              </FeedCard>
             )
           })}
         </div>

@@ -17,6 +17,11 @@ let csrfClears = 0
 let response
 const effects = []
 const listeners = new Map()
+const timers = new Map()
+const originalSetInterval = globalThis.setInterval
+const originalClearInterval = globalThis.clearInterval
+globalThis.setInterval = (fn, delay) => { const key = timers.size + 1; timers.set(key, { fn, delay }); return key }
+globalThis.clearInterval = key => timers.delete(key)
 globalThis.window = { addEventListener: (name, fn) => listeners.set(name, fn), removeEventListener: (name) => listeners.delete(name) }
 globalThis.document = { visibilityState: "visible", addEventListener() {}, removeEventListener() {} }
 Object.defineProperty(globalThis, "localStorage", { configurable: true, value: { setItem() {} } })
@@ -92,7 +97,7 @@ console.log('PASS Logout clears identity, cache and CSRF even if its API call fa
 response = async () => ({ user: member })
 await auth().login('fixture-member', 'fixture-password')
 client.setQueryData(['profile', member.id], { profile: member })
-response = async () => { throw new Error('Fixture session expired') }
+response = async () => { throw Object.assign(new Error('Fixture session expired'), { status: 401 }) }
 await auth().refresh()
 assert.equal(auth().user, null)
 assert.equal(client.getQueryCache().getAll().length, 0)
@@ -126,7 +131,30 @@ first.resolve({ user: member })
 await firstRefresh
 assert.equal(auth().user.id, admin.id)
 console.log('PASS Older refresh results cannot overwrite a newer session refresh')
+const poll = [...timers.values()][0]
+assert.equal(poll.delay, 5000)
+client.setQueryData(['profile', admin.id], { profile: admin })
+response = async () => { throw new TypeError('Fixture connection lost') }
+await poll.fn()
+assert.equal(auth().user.id, admin.id)
+assert.ok(client.getQueryData(['profile', admin.id]))
+console.log('PASS Background checks preserve identity during temporary network failures')
+let backgroundCalls = 0
+response = async () => { backgroundCalls++; throw Object.assign(new Error('Account deactivated'), { status: 403 }) }
+document.visibilityState = 'hidden'
+await poll.fn()
+assert.equal(backgroundCalls, 0)
+document.visibilityState = 'visible'
+await poll.fn()
+assert.equal(auth().user, null)
+assert.equal(client.getQueryCache().getAll().length, 0)
+console.log('PASS Deactivated account is signed out by visible-tab polling without a page refresh')
+await poll.fn()
+assert.equal(backgroundCalls, 1, 'signed-out tabs stop checking')
 cleanup()
 assert.equal(listeners.size, 0)
+assert.equal(timers.size, 0)
+globalThis.setInterval = originalSetInterval
+globalThis.clearInterval = originalClearInterval
 client.clear()
-console.log('9 offline authentication checks passed. Browser sessions and backend behavior were not exercised.')
+console.log('12 offline authentication checks passed. Browser sessions and backend behavior were not exercised.')

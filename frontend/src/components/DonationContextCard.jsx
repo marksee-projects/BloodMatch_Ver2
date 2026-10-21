@@ -68,7 +68,7 @@ function ContextWorkspace({ conversationId }) {
     <ConfirmationDialog open={modalOpen} dialogRole="dialog" panelClassName={styles.modalPanel} title={donor && !report ? 'Report completed donation' : 'Donation details'} cancelLabel="Close" busy={busy} onCancel={() => { if (!pending.current) setModalOpen(false) }}>
     <div className={styles.card}>
     <label htmlFor={id}>Request coordination</label>
-    <select disabled={busy} id={id} value={context.id} onChange={e => { setSelected(e.target.value); setDetailsOpen(false); setFormOpen(false); setDate(''); setPhotos([]); setError(''); setFeedback('') }}>{contexts.map(c => <option key={c.id} value={c.id}>{contextLabel(c)}</option>)}</select>
+    <select disabled={busy} id={id} value={context.id} onChange={e => { const next = contexts.find(c => String(c.id) === e.target.value); setSelected(e.target.value); setDetailsOpen(false); setFormOpen(Number(next?.donor_id) === Number(user.id) && !next?.report); setDate(''); setPhotos([]); setError(''); setFeedback('') }}>{contexts.map(c => <option key={c.id} value={c.id}>{contextLabel(c)}</option>)}</select>
     <p><strong>{summary}</strong></p>
     {feedback && <p role="status" className={styles.feedback}>{feedback}</p>}
     <div className={styles.actions}>

@@ -92,7 +92,7 @@ export function ChatProvider({ children }) {
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('focus', onVisibilityChange)
     }
-  }, [user, canChat, fetchUnreadCount])
+  }, [accountKey, canChat, fetchUnreadCount])
 
   useEffect(() => {
     const fitTabs = () => setOpenTabs((tabs) => tabs.length > tabLimit() ? tabs.slice(-tabLimit()) : tabs)

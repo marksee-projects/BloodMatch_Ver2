@@ -1,5 +1,5 @@
-.container { max-width: 900px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
-.matchesHeader { display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: var(--space-6); }
+.container { box-sizing: border-box; width: 100%; max-width: 900px; margin: 0 auto; padding: var(--space-6) var(--space-4) var(--space-8); }
+.matchesHeader { display: flex; flex-direction: column; gap: var(--space-4); margin-bottom: var(--space-8); }
 .matchesTitle { margin: 0 0 var(--space-5); font-size: var(--text-hero); text-align: center; }
 .matchesHeader .matchesTitle { margin-bottom: 0; }
 .requestSelector { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; width: min(100%, 30rem); margin-inline: auto; }
@@ -112,6 +112,8 @@
 .requestSurface { padding: var(--space-5); border: 1px solid var(--color-border-hairline); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-sm); }
 .requestFacts { box-shadow: none; background: var(--color-surface-sunken); }
 .requestActions { align-items: flex-start; flex-wrap: wrap; }
+/* Floating chat may overlay the page, but must not shift or widen its cards. */
+:global(body:has([data-floating-chat='expanded'])) .container { padding-bottom: calc(min(440px, 100dvh - 80px) + var(--space-8)); }
 
 
 /* One donor surface with a centered switcher and unboxed result rows. */

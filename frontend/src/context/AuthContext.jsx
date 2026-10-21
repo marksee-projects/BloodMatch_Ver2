@@ -42,9 +42,16 @@ export function AuthProvider({ children }) {
     const authVersion = ++authVersionRef.current
     try {
       const data = await api.get('/api/auth/me')
-      if (authVersion === authVersionRef.current) applySessionUser(data.user)
-    } catch {
-      if (authVersion === authVersionRef.current) applySessionUser(null)
+      if (authVersion === authVersionRef.current) {
+        const nextUser = data.user?.account_status && data.user.account_status !== 'active' ? null : data.user
+        if (!nextUser && userIdRef.current !== null) { clearCsrf(); announceSessionChange() }
+        applySessionUser(nextUser)
+      }
+    } catch (error) {
+      if (authVersion === authVersionRef.current && (error.status === 401 || error.status === 403 || userIdRef.current === null)) {
+        if (userIdRef.current !== null) { clearCsrf(); announceSessionChange() }
+        applySessionUser(null)
+      }
     } finally {
       if (authVersion === authVersionRef.current) setLoading(false)
     }
@@ -66,7 +73,14 @@ export function AuthProvider({ children }) {
     window.addEventListener('storage', onStorage)
     window.addEventListener('focus', revalidate)
     document.addEventListener('visibilitychange', revalidate)
+    let checking = false
+    const timer = setInterval(async () => {
+      if (checking || userIdRef.current === null || document.visibilityState !== 'visible') return
+      checking = true
+      try { await refresh() } finally { checking = false }
+    }, 5000)
     return () => {
+      clearInterval(timer)
       window.removeEventListener('storage', onStorage)
       window.removeEventListener('focus', revalidate)
       document.removeEventListener('visibilitychange', revalidate)
