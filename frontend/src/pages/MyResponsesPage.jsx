@@ -132,10 +132,16 @@ export default function MyResponsesPage() {
             const isResponded = req.match_status === 'RESPONDED'
 
             return (
-              <FeedCard key={req.id} request={req} hideActions defaultExpanded showNeededYear
+              <div key={req.id} className={styles.responseItem}>
+                {req.status && req.status !== 'OPEN' && (
+                  <div className={styles.requestStatus}>
+                    <span>Request status</span>
+                    <Badge variant="neutral">{req.status}</Badge>
+                  </div>
+                )}
+              <FeedCard request={req} hideActions defaultExpanded showNeededYear
                 headerActions={<>
-                  <Badge variant={isCompleted ? 'success' : isResponded ? 'brand' : 'neutral'}>{req.match_status || 'RESPONDED'}</Badge>
-                  {req.status !== 'OPEN' && <Badge variant="neutral">{req.status}</Badge>}
+                  {!isCompleted && <Badge variant={isResponded ? 'brand' : 'neutral'}>{req.match_status || 'RESPONDED'}</Badge>}
                 </>}>
                 <div className={styles.cardActions}>
                   <div className={styles.primaryAction}>
@@ -143,6 +149,7 @@ export default function MyResponsesPage() {
                     <DonationOfferStatus matchId={req.match_id} />
                   </div>
                   <div className={styles.secondaryActions}>
+                    {isCompleted && <Badge variant="success">Donation confirmed</Badge>}
                     {canManageResponses && (isResponded || req.match_status === 'CLOSED') && req.match_id && (
                       <DonationReportButton size="sm" matchId={req.match_id} onClick={() => { setOccurredAt(''); setProofPhotos([]); setReportingMatchId(req.match_id) }} />
                     )}
@@ -154,6 +161,7 @@ export default function MyResponsesPage() {
                   </div>
                 </div>
               </FeedCard>
+              </div>
             )
           })}
         </div>

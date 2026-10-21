@@ -127,7 +127,7 @@ final class VerificationService
                 'verification.decision',
                 $decision === 'verified' ? 'Your membership has been verified' : 'Account verification rejected',
                 $decision === 'verified'
-                    ? 'An Admin/Officer verified your membership. You can now participate as a donor.'
+                    ? 'An Admin verified your membership. You can now participate as a donor.'
                     : 'Your National ID could not be approved: ' . trim((string) $reason)
                         . '. Upload a clearer or valid National ID to request another review.',
                 [

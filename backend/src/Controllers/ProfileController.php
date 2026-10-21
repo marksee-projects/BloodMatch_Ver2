@@ -261,10 +261,7 @@ final class ProfileController
     public function acknowledgeDonorStandby(): void
     {
         $actor=AuthMiddleware::requireActiveUser(self::ENDPOINT . '.standby_acknowledge');
-        try { $changed=\BloodMatch\Services\NonResponseStandbyService::acknowledge((int)$actor['id']); }
-        catch (\RuntimeException $e) { Response::error($e->getMessage(),in_array((int)$e->getCode(),[403,503],true)?(int)$e->getCode():409); return; }
-        if ($changed) { (new \BloodMatch\Services\MatchService())->refreshMatchesForDonor((int)$actor['id'],'non_response_acknowledged',(int)$actor['id']); }
-        Response::success(['acknowledged'=>$changed]);
+        Response::success(['acknowledged'=>false,'retired'=>true]);
     }
 
     public static function compose(array $user): array
@@ -314,7 +311,7 @@ final class ProfileController
                 : null,
             'donor_enrolled' => $user['donor_enrolled_at'] !== null,
             'availability' => $user['donor_availability'],
-            'non_response_standby' => $user['non_response_standby'] ?? null,
+            'non_response_standby' => null, // Retired; neutral field for API compatibility.
             'pending_report_hold' => \BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$user['id']),
             'donor_eligible' => \BloodMatch\Services\DonorEligibilityService::evaluateDonor($user)['eligible'],
             'availability_window' => \BloodMatch\Services\DonorEligibilityService::evaluateWindows(

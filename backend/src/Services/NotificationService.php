@@ -226,7 +226,6 @@ final class NotificationService
                 $pdo->prepare('UPDATE notifications SET title=?,body=?,generation=? WHERE id=?')->execute([$title,mb_substr($body,0,500),$generation,$visibleId]);
                 $pdo->prepare("UPDATE email_outbox SET status='cancelled',cancel_reason='opportunity_refreshed',lease_token=NULL,lease_expires_at=NULL,updated_at=UTC_TIMESTAMP(6)
                     WHERE notification_id=? AND status IN ('pending','leased') AND ?=0")->execute([$visibleId,(int)((int)$visible['generation']===$generation)]);
-                NonResponseStandbyService::opportunity($requestId,(int)$donorId,$generation,(int)$visibleId);
                 $notifiedDonorIds[]=(int)$donorId;
                 continue;
             }
@@ -245,7 +244,6 @@ final class NotificationService
                 ]
             );
             if ($id !== null) {
-                NonResponseStandbyService::opportunity($requestId,(int)$donorId,$generation,$id);
                 $notifiedDonorIds[] = (int) $donorId;
             }
         }

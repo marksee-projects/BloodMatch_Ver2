@@ -32,7 +32,6 @@ final class MatchResponseService
                     throw new RuntimeException('A completed donation match cannot be changed.', 409);
                 }
                 $wasResponded = $match !== null && (string) $match['status'] === 'RESPONDED';
-                NonResponseStandbyService::resolve($requestId,$actorId,'answered');
                 $created = $match === null;
                 if ($created) {
                     $matchId = $repo->insertResponded($requestId, $actorId, max(1, $repo->maxGenerationForRequest($requestId)));

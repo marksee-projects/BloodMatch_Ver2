@@ -79,7 +79,6 @@ final class MatchService
         $holdOnlyDonors = [];
         foreach ($pool as $donor) {
             $donor['pending_report_hold']=\BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$donor['id']);
-            $donor['non_response_standby']=NonResponseStandbyService::state((int)$donor['id'])['standby_started_at'];
             $eligibility = DonorEligibilityService::evaluateForRequest($donor, $request, $nowUtc);
             if (($eligibility['code']??null)==='pending_report_hold' && DonorEligibilityService::evaluateForRequest($donor,$request,$nowUtc,null,true)['eligible']) {
                 $holdOnlyDonors[(int)$donor['id']]=true;
@@ -199,7 +198,6 @@ final class MatchService
                 $cls = $pdo->prepare("UPDATE matches SET status = 'CLOSED' WHERE id = ?");
                 $cls->execute([$existing['id']]);
                 $closed++;
-                NonResponseStandbyService::resolve($requestId,$donorId,'invalidated');
                 $pdo->prepare("UPDATE email_outbox e JOIN notifications n ON n.id=e.notification_id SET e.status='cancelled',e.cancel_reason='donor_ineligible',e.lease_token=NULL,e.lease_expires_at=NULL,e.updated_at=UTC_TIMESTAMP(6)
                     WHERE n.user_id=? AND n.related_type='blood_request' AND n.related_id=? AND e.status IN ('pending','leased')")->execute([$donorId,$requestId]);
             }

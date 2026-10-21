@@ -87,7 +87,7 @@ final class MemberProfileController
                 'profile_picture_url' => ProfilePictureStorageService::urlFor($target['profile_picture'], $targetId),
                 'chapter_name' => $target['chapter_name'] !== null ? (string) $target['chapter_name'] : null,
                 'municipality_name' => $target['municipality_name'] !== null ? (string) $target['municipality_name'] : null,
-                'role_label' => $target['role'] === 'admin' ? 'Admin/Officer' : ucfirst((string) $target['role']),
+                'role_label' => $target['role'] === 'admin' ? 'Admin' : ucfirst((string) $target['role']),
                 'member_since' => substr((string) $target['created_at'], 0, 10),
                 'verification_status' => (string) $target['verification_status'],
                 'blood_type' => $target['blood_type'] !== null ? (string) $target['blood_type'] : null,

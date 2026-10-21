@@ -23,7 +23,8 @@ final class UserAdminController
 
         $users = (new UserRepository())->listAll(
             [
-                'role' => \BloodMatch\Utils\Request::str('role'),
+                // User Management manages members; staff accounts remain separate.
+                'role' => 'member',
                 'donor_window' => Request::str('donor_window'),
                 'verification_status' => \BloodMatch\Utils\Request::str('verification_status'),
                 'account_status' => \BloodMatch\Utils\Request::str('account_status'),
@@ -65,7 +66,7 @@ final class UserAdminController
 
         if (!in_array($role, ['member', 'admin'], true)) {
             Response::error('Invalid role value.', 400, [
-                'role' => ['Role must be member or admin (Admin/Officer).'],
+                'role' => ['Role must be member or admin.'],
             ]);
             return;
         }

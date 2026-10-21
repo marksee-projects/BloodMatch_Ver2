@@ -558,7 +558,6 @@ final class AnalyticsRepository
         }
 
         foreach ($donors as $d) {
-            $d['non_response_standby']=\BloodMatch\Services\NonResponseStandbyService::state((int)$d['id'])['standby_started_at'];
             $bt = (string) ($d['blood_type'] ?? '');
             if (isset($byBloodType[$bt])) {
                 $byBloodType[$bt]++;
@@ -587,7 +586,7 @@ final class AnalyticsRepository
                 $d['pending_report_hold']=DonationWorkflowRepository::hasHold((int)$d['id']);
                 $eligibility = DonorEligibilityService::evaluateDonor($d, null, $window);
                 if ($eligibility['eligible']) { $available++; }
-                elseif ($avail === 'standby' || !empty($d['non_response_standby'])) { $standby++; }
+                elseif ($avail === 'standby') { $standby++; }
                 else { $unavailable++; }
             }
         }

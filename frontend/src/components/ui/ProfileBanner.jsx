@@ -74,7 +74,7 @@ export function ProfileBanner({
               {isOwnProfile && (profile.role === 'member' || profile.donor_availability) && (
                 <p className={styles.profileBio}>
                   <Drop size={16} weight="fill" color="var(--color-brand-red)" />
-                  {profile.non_response_standby ? 'Non-response standby' : profile.availability_window?.blocked
+                  {profile.availability_window?.blocked
                     ? `Resting until ${profile.availability_window.ends_at_utc.split(' ')[0]}`
                     : (profile.donor_eligible === true
                         ? 'Available to donate' 

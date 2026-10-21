@@ -235,7 +235,7 @@ final class AuthService
             'availability_window' => $window,
             'pending_report_hold' => \BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$user['id']),
             'donor_eligible' => $eligibility['eligible'],
-            'non_response_standby' => $user['non_response_standby'] ?? null,
+            'non_response_standby' => null, // Retired; neutral field for API compatibility.
             'verification_status' => (string) $user['verification_status'],
             'account_status' => (string) $user['account_status'],
             'profile_picture_url' => ProfilePictureStorageService::urlFor($user['profile_picture'] ?? null),

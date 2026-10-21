@@ -20,7 +20,7 @@ export default function Hero() {
           <>
             <Link to="/requests/new" className="btn btn-lg">Create Blood Request</Link>
             <Link to="/profile" className="btn btn-secondary">Manage Profile</Link>
-            {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin/Officer Dashboard</Link>}
+            {user.role === 'admin' && <Link to="/admin/dashboard" className="btn btn-secondary">Admin Dashboard</Link>}
           </>
         ) : (
           <>

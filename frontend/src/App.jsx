@@ -302,8 +302,8 @@ function AppShell() {
                 to="/admin/dashboard"
                 className={`nav-link nav-control ${isPortalActive || isActive('/officer') ? 'active' : ''}`}
                 aria-current={isPortalActive || isActive('/officer') ? 'page' : undefined}
-                title="Admin/Officer Portal"
-                aria-label="Admin/Officer Portal"
+                title="Admin Portal"
+                aria-label="Admin Portal"
               >
                 <ShieldCheck size={28} weight={isActive('/officer') || isPortalActive ? 'fill' : 'regular'} />
               </Link>
@@ -374,7 +374,7 @@ function AppShell() {
                         {user.role === 'admin' && (
                           <Link to="/admin/dashboard" className="dropdown-menu-item" onClick={() => setProfileMenuOpen(false)}>
                             <div className="dropdown-icon-wrapper"><ShieldCheck size={20} weight="fill" /></div>
-                            <span className="dropdown-item-text">Admin/Officer Portal</span>
+                            <span className="dropdown-item-text">Admin Portal</span>
                             <CaretRight size={16} className="dropdown-caret" />
                           </Link>
                         )}
@@ -484,7 +484,7 @@ function AppShell() {
                   {user.role === 'admin' && (
                     <>
                       <div className="mobile-section-label">Administrative</div>
-                      <Link to="/admin/dashboard" className={`mobile-link ${isPortalActive ? 'active' : ''}`} aria-current={isPortalActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Admin/Officer Portal</Link>
+                      <Link to="/admin/dashboard" className={`mobile-link ${isPortalActive ? 'active' : ''}`} aria-current={isPortalActive ? 'page' : undefined} onClick={() => setMobileOpen(false)}>Admin Portal</Link>
                     </>
                   )}
 
@@ -526,7 +526,7 @@ function AppShell() {
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
             <Route path="/profile/:id" element={<RequireAuth><ProfilePage /></RequireAuth>} />
 
-            {/* Nested Admin/Officer Portal Routes */}
+            {/* Nested Admin Portal Routes */}
             <Route
               path="/admin"
               element={

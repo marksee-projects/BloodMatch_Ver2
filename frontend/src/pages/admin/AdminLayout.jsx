@@ -75,7 +75,7 @@ export default function AdminLayout() {
           aria-label={mobileDrawerOpen ? 'Close admin menu' : 'Open admin menu'}
         >
           {mobileDrawerOpen ? <X size={18} /> : <List size={18} />}
-          <span style={{ marginLeft: '6px' }}>Admin/Officer Portal Menu</span>
+          <span style={{ marginLeft: '6px' }}>Admin Portal Menu</span>
         </button>
       </div>
 

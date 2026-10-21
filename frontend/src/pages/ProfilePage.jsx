@@ -177,17 +177,6 @@ export default function ProfilePage() {
     }
   }
 
-  const acknowledgeStandby = async () => {
-    clearNotices()
-    setEnrolling(true)
-    try {
-      await api.post('/api/profile/acknowledge-standby')
-      await Promise.all([refetch(), refresh()])
-      setMessage('Standby acknowledged. Your current availability and post-donation safety windows still apply.')
-    } catch (error) { showError(error) }
-    finally { setEnrolling(false) }
-  }
-
   const onPictureUpload = async (pictureFile) => {
     if (!pictureFile) return
     clearNotices()
@@ -414,7 +403,7 @@ export default function ProfilePage() {
     .filter((document) => document.doc_type === 'national_id')
     .sort((a, b) => b.id - a.id)
   const availabilityBlocked = Boolean(profile.availability_window?.blocked)
-  const availabilityStatus = profile.non_response_standby ? 'Non-response standby: acknowledgment required' : availabilityBlocked
+  const availabilityStatus = availabilityBlocked
     ? `${titleCase(profile.availability_window.which)} until ${formatDate(profile.availability_window.ends_at_utc)}`
     : profile.donor_enrolled
       ? (profile.donor_eligible ? 'Available to donate' : 'Currently unavailable for donor matches')
@@ -431,13 +420,6 @@ export default function ProfilePage() {
         <div className={`${styles.alertBox} ${styles.alertDanger}`}>
           <div><strong>Verification needs attention</strong><p>Upload a clearer or valid National ID to request another review.</p></div>
           <Button variant="primary" onClick={() => setActiveSection('verification')}>Upload another ID</Button>
-        </div>
-      )}
-
-      {profile.non_response_standby && (
-        <div className={styles.alertBox} role="status">
-          <div><strong>Review your donor availability</strong><p>An unanswered opportunity passed its response deadline. Acknowledge standby to resume donor matching when your availability and safety windows allow.</p></div>
-          <Button variant="primary" disabled={enrolling} onClick={acknowledgeStandby}>Acknowledge standby</Button>
         </div>
       )}
 
@@ -465,7 +447,7 @@ export default function ProfilePage() {
               <h1>{profile.full_name}</h1>
               {profile.verification_status === 'verified' && <CheckCircle size={23} weight="fill" aria-label="Verified account" />}
             </div>
-            <p>{profile.role === 'admin' ? 'Admin/Officer' : profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
+            <p>{profile.role === 'admin' ? 'Admin' : profile.chapter_name ? `${profile.chapter_name} member` : titleCase(profile.role)}</p>
             {profile.role === 'member' && <span className={styles.availabilityText}><Drop size={16} weight="fill" aria-hidden="true" /> {profile.pending_report_hold ? 'Pending donation-report hold' : availabilityStatus}</span>}
           </div>
 

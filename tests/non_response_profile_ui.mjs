@@ -40,12 +40,12 @@ try {
       availability_window: { blocked: true, which: 'cooldown' } }, reports: [] })
     client.setQueryData(['my-requests', 42], [])
     const markup = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(MemoryRouter, null, React.createElement(Profile))))
-    assert(markup.includes('An unanswered opportunity passed its response deadline.'))
-    assert(markup.includes('Acknowledge standby'))
-    assert(markup.includes('when your availability and safety windows allow'))
-    assert(!markup.includes('reached 42 hours') && !markup.includes('reached 48 hours'))
+    assert(!markup.includes('An unanswered opportunity passed its response deadline.'))
+    assert(!markup.includes('Acknowledge standby'))
+    assert(!markup.includes('Non-response standby'))
+    assert(markup.includes('Cooldown until'))
     checks += 4
     client.clear()
   }
-  console.log(`${checks} mixed-legacy/new profile-copy render checks passed; no network or files changed.`)
+  console.log(`${checks} retired-standby/cooldown profile render checks passed; no network or files changed.`)
 } finally { console.error = originalError }

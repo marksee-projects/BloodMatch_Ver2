@@ -144,9 +144,6 @@ final class DonorEligibilityService
         }
 
         $availability = (string) ($donor['donor_availability'] ?? '');
-        if (!empty($donor['non_response_standby'])) {
-            return self::blocked('non_response_standby','Acknowledge the unanswered opportunity in your profile to recover donor availability.');
-        }
         $expiredStoredStandby = $availability === 'standby'
             && $lastDonation !== null
             && $lastDonation !== '';
