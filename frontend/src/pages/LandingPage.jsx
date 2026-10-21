@@ -1,12 +1,11 @@
 import { useActionNoticeState } from '../context/NotificationContext'
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { CheckCircle, Clock, Eye, EyeSlash, ShieldCheck } from '@phosphor-icons/react'
+import { Eye, EyeSlash } from '@phosphor-icons/react'
 import { useTheme } from '../context/ThemeContext'
 import { useAuth } from '../context/AuthContext'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { Card } from '../components/ui/Card'
 import ConfirmationDialog from '../components/ConfirmationDialog'
 import PrivacyConsentModal from '../components/PrivacyConsentModal'
 import styles from './LandingPage.module.css'
@@ -170,44 +169,6 @@ export default function LandingPage() {
 
       {/* ── Below fold ── */}
       <div className={styles.belowFold}>
-        <div className={styles.sectionLabel} id="how-it-works">How matching works</div>
-        <section className={styles.grid3} aria-labelledby="how-it-works">
-          <div className={styles.featureItem}>
-            <CheckCircle size={48} weight="duotone" className={styles.featureIcon} />
-            <h3 className={styles.featureTitle}>Red-cell first</h3>
-            <p className={styles.featureText}>
-              Only ABO + Rh compatible donors are considered. Proximity refines
-              the eligible pool - it never overrides compatibility.
-            </p>
-          </div>
-          <div className={styles.featureItem}>
-            <ShieldCheck size={48} weight="duotone" className={styles.featureIcon} />
-            <h3 className={styles.featureTitle}>Officer review</h3>
-            <p className={styles.featureText}>
-              Donor cards and IDs are checked by chapter officers. Every confirmed
-              donation is logged in a tamper-evident trail.
-            </p>
-          </div>
-          <div className={styles.featureItem}>
-            <Clock size={48} weight="duotone" className={styles.featureIcon} />
-            <h3 className={styles.featureTitle}>Protected intervals</h3>
-            <p className={styles.featureText}>
-              Post-donation 42-hour standby and 90-day cooldown are enforced
-              automatically; availability reflects them.
-            </p>
-          </div>
-        </section>
-
-        {/* Medical disclaimer */}
-        <section className={styles.disclaimer} role="note" aria-label="Medical Disclaimer">
-          <div className={styles.disclaimerNote} aria-hidden="true">Note</div>
-          <div>
-            <strong>Clinical confirmation required.</strong> Suggestions are advisory
-            and do not replace crossmatching, infectious screening, or physician review
-            at the facility.
-          </div>
-        </section>
-
         {/* Landing-specific minimalist footer */}
         <footer className={styles.footer} aria-label="BloodMatch landing footer">
           <div className={styles.footerLeft}>
@@ -216,7 +177,6 @@ export default function LandingPage() {
           </div>
           <div className={styles.footerRight}>
             <Link to="/register" className={styles.footerLink}>Join</Link>
-            <a href="#how-it-works" className={styles.footerLink}>How It Works</a>
             <button
               className={styles.footerLink}
               style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}

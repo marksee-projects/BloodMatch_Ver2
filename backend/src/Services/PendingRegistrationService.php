@@ -66,7 +66,10 @@ final class PendingRegistrationService
     private static function mail(string $email,string $code): void
     {
         if (!Mailer::isConfigured()) return;
-        try { Mailer::send($email,'[BloodMatch] Verify your registration','<p>Your verification code is <strong>'.htmlspecialchars($code,ENT_QUOTES,'UTF-8').'</strong>. It expires within 10 minutes or when your pending registration expires.</p>',EmailAttemptBudget::ACCOUNT); }
+        try {
+            $template = EmailTemplate::otp($code, 600);
+            Mailer::send($email, '[BloodMatch] Verify your registration', $template['html'], EmailAttemptBudget::ACCOUNT, $template['text']);
+        }
         catch(\Throwable $e) { error_log('[mailer] registration verification delivery unavailable'); }
     }
     public static function removeDocument(array $doc): void
