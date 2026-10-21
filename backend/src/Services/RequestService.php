@@ -30,7 +30,7 @@ final class RequestService
 
     /**
      * Validate and normalize the Home feed query. All list values are exact
-     * allow-list matches; q remains data and is escaped by the repository.
+     * allow-list matches. Only the current Home dropdown filters are supported.
      */
     public static function validateHomeFeedQuery(array $query): array
     {
@@ -54,15 +54,6 @@ final class RequestService
             $errors['page'][] = 'Page is too large.';
         } elseif ($pageRaw !== null) {
             $page = (int) $pageRaw;
-        }
-
-        $q = $scalar('q');
-        if ($q === '') {
-            $q = null;
-        }
-        $qLength = $q === null ? 0 : (function_exists('mb_strlen') ? mb_strlen($q, 'UTF-8') : strlen($q));
-        if ($qLength > 80) {
-            $errors['q'][] = 'Search must be at most 80 characters.';
         }
 
         $municipalityCode = $scalar('municipality_code');
@@ -103,7 +94,6 @@ final class RequestService
         return [
             'page' => $page,
             'page_size' => 20,
-            'q' => $q,
             'municipality_code' => $municipalityCode,
             'blood' => $blood,
             'urgency' => $urgency,

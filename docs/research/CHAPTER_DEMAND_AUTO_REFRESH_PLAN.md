@@ -1,6 +1,6 @@
 # Chapter demand automatic-refresh plan
 
-Prepared 2026-10-21. **Plan only; implementation is not authorized by this document.**
+Prepared 2026-10-21. **Implementation authorized by the user and applied 2026-10-21.** See [implementation evidence and remaining acceptance](CHAPTER_DEMAND_AUTO_REFRESH_RESULTS.md). The starting-point table below records pre-change behavior.
 
 The remaining FR-14 gap is automatic freshness of the existing privacy-safe chapter demand visualization. Chapter and urgency filters have offline verification; live aggregate/API acceptance remains unverified. This plan does not mark either gap complete.
 

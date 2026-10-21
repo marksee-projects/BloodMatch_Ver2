@@ -12,7 +12,8 @@ const { QueryClient, QueryClientProvider } = require('@tanstack/react-query')
 const sourceRoot = fileURLToPath(new URL('../frontend/src/', import.meta.url))
 const originalJsLoader = require.extensions['.js']
 function compile(module, filename) {
-  const source = readFileSync(filename, 'utf8')
+  let source = readFileSync(filename, 'utf8')
+  if (filename.endsWith('DemandMapWidget.jsx')) source = source.replace('const { user } = useAuth()', "const user = { id: 999, role: 'member', account_status: 'active' }")
   const jsxSource = /import React(?:,| from)/.test(source) ? source : `import React from 'react';\n${source}`
   module._compile(transformSync(jsxSource, { loader: 'jsx', format: 'cjs' }).code, filename)
 }
@@ -42,10 +43,11 @@ let inDemand = false
 let demandStateIndex = 0
 let demandTree
 const demandStates = []
+let demandFixture = []
 const originalState = React.useState
 const originalError = console.error
 React.useState = initial => {
-  if (inDemand) {
+  if (inDemand && demandStateIndex < 6) {
     const index = demandStateIndex++
     if (!(index in demandStates)) demandStates[index] = initial
     const state = originalState(demandStates[index])
@@ -78,6 +80,7 @@ function FixtureCard(props) {
 }
 function wrap(element, url = '/', setup = () => {}) {
   const client = new QueryClient()
+  client.setQueryData(['chapter-demand', 999, 'member', 'active', ''], demandFixture)
   setup(client)
   const markup = renderToStaticMarkup(React.createElement(QueryClientProvider, { client }, React.createElement(MemoryRouter, { initialEntries: [url] }, element)))
   client.clear()
@@ -186,11 +189,10 @@ try {
   const hidden = home('/', [])
   assert(!hidden.includes('Rafael Garcia'), 'Requests omitted by the backend are not rendered')
   // Seed only local state; no effect/API request is executed by server rendering.
-  demandStates[0] = [
+  demandFixture = [
     { chapter_id: 1, chapter_name: 'Mt. Samat Chapter', open_requests_count: 3, urgency_counts: { emergency: 1, urgent: 2, routine: 0 } },
     { chapter_id: 2, chapter_name: 'Mt. Tarak Chapter', open_requests_count: 4, urgency_counts: { emergency: 2, urgent: 0, routine: 2 } }
   ]
-  demandStates[1] = false
   let mapMarkup = wrap(React.createElement(FixtureDemandMap))
   const filterMenu = mapMarkup.match(/<details\b[^>]*>([\s\S]*?)<\/details>/)?.[1]
   assert(filterMenu?.includes('<span>Filter</span>') && filterMenu.includes('home-demand-chapter') && filterMenu.includes('home-demand-urgency'), 'Filter dropdown contains both inner dropdowns')
@@ -213,6 +215,14 @@ try {
   findElement(demandTree, element => element.type === 'button' && element.props.children === 'Reset filters').props.onClick()
   mapMarkup = wrap(React.createElement(FixtureDemandMap))
   assert(mapMarkup.includes('Mt. Samat Chapter: 3 matching active requests') && mapMarkup.includes('Mt. Tarak Chapter: 4 matching active requests'), 'Map reset restores all chapters and urgencies')
+  findElement(demandTree, element => element.type === 'select' && element.props.id === 'home-demand-chapter').props.onChange({ target: { value: '1' } })
+  const originalDemand = demandFixture
+  demandFixture = []
+  mapMarkup = wrap(React.createElement(FixtureDemandMap))
+  assert(mapMarkup.includes('Selected chapter (unavailable)') && mapMarkup.includes('Selected chapter is unavailable.'), 'Removed chapter retains its selection and explicit unavailable state')
+  demandFixture = [{ ...originalDemand[0], open_requests_count: 0, urgency_counts: {} }]
+  mapMarkup = wrap(React.createElement(FixtureDemandMap))
+  assert(mapMarkup.includes('Mt. Samat Chapter: 0 matching active requests') && !mapMarkup.includes('Selected chapter is unavailable.'), 'Returned zero-demand chapter is valid, not unavailable')
   console.log('PASS: grouped card, response confirmation/cancellation/repeat/stale safety, native Home filters, pagination, Chapter/urgency reset. Response API mocked; no real API mutations.')
 } finally {
   React.useState = originalState

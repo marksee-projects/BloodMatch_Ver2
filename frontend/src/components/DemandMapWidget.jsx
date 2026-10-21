@@ -1,7 +1,7 @@
-import { useActionNoticeState } from '../context/NotificationContext'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useSyncExternalStore } from 'react'
 import { ArrowsClockwise, CaretDown, Funnel, MapPin, Warning } from '@phosphor-icons/react'
-import { api } from '../services/apiClient'
+import { useQuery, useQueryClient, onlineManager } from '@tanstack/react-query'
+import { chapterDemandOptions, canReadDemand, demandAccessError, demandDeniedSession } from '../services/chapterDemand'
 import { useAuth } from '../context/AuthContext'
 import { Card } from './ui/Card'
 import { Button } from './ui/Button'
@@ -15,9 +15,6 @@ const MINI_URGENCIES = ['emergency', 'urgent', 'routine']
 
 export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
   const { user } = useAuth()
-  const [chapters, setChapters] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useActionNoticeState(null, 'error')
   const [selectedBloodType, setSelectedBloodType] = useState('All')
   const [selectedUrgency, setSelectedUrgency] = useState('All')
   const [selectedDays, setSelectedDays] = useState('')
@@ -27,28 +24,44 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
 
   const isMini = mode === 'mini'
 
-  const fetchMapData = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (selectedBloodType !== 'All') params.set('blood_type', selectedBloodType)
-      if (!isMini && selectedUrgency !== 'All') params.set('urgency', selectedUrgency)
-      if (selectedDays) params.set('days', selectedDays)
-
-      const res = await api.get(`/api/demand-map?${params.toString()}`)
-      setChapters(res.chapters || [])
-    } catch (err) {
-      setError(err.message || 'Failed to load chapter demand map.')
-    } finally {
-      setLoading(false)
-    }
+  const client = useQueryClient()
+  const online = useSyncExternalStore(callback => onlineManager.subscribe(callback), () => onlineManager.isOnline(), () => true)
+  const options = chapterDemandOptions(user, {
+    bloodType: selectedBloodType, urgency: isMini ? 'All' : selectedUrgency, days: selectedDays,
+  })
+  const query = useQuery(options)
+  const allowed = canReadDemand(user)
+  const denied = demandAccessError(query.error)
+  const chapters = allowed && !denied ? (query.data || []) : []
+  const loading = allowed && query.isPending && !query.isError
+  const error = query.error
+  const fetchMapData = () => {
+    if (allowed && !denied && onlineManager.isOnline()) query.refetch({ cancelRefetch: false })
   }
 
+  // A fresh auth/me result is the access revalidation boundary after 401/403.
   useEffect(() => {
-    fetchMapData()
-  }, [selectedBloodType, selectedUrgency, selectedDays])
+    const key = chapterDemandOptions(user, {
+      bloodType: selectedBloodType, urgency: isMini ? 'All' : selectedUrgency, days: selectedDays,
+    }).queryKey
+    if (!canReadDemand(user)) {
+      client.removeQueries({ queryKey: ['chapter-demand'] })
+    } else if (demandAccessError(client.getQueryState(key)?.error) && demandDeniedSession(client.getQueryState(key)?.error) !== user) {
+      client.resetQueries({ queryKey: key, exact: true })
+    }
+  }, [user, client])
 
+  useEffect(() => {
+    const onFocus = () => {
+      if (document.visibilityState === 'visible' && onlineManager.isOnline()) {
+        client.refetchQueries({ queryKey: options.queryKey, exact: true, type: 'active' }, { cancelRefetch: false })
+      }
+    }
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [client, JSON.stringify(options.queryKey)])
+
+  const selectedChapterMissing = selectedMiniChapter !== 'All' && !chapters.some(ch => String(ch.chapter_id) === selectedMiniChapter)
   const totalDemand = chapters.reduce((acc, c) => acc + (c.open_requests_count || 0), 0)
   const totalUnits = chapters.reduce((acc, c) => acc + (c.total_units_needed || 0), 0)
   const totalEmergency = chapters.reduce((acc, c) => acc + (c.urgency_counts?.emergency || 0), 0)
@@ -85,7 +98,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
               <Button variant="secondary" size="sm" onClick={() => setFiltersOpen(!filtersOpen)}>
                 <Funnel size={16} /> Filters
               </Button>
-              <Button variant="secondary" size="sm" onClick={fetchMapData}>
+              <Button variant="secondary" size="sm" onClick={fetchMapData} disabled={query.isFetching || denied || !allowed || !online}>
                 <ArrowsClockwise size={16} /> Refresh
               </Button>
             </div>
@@ -136,10 +149,16 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
         </Card>
       )}
 
-      {/* Mini Mode Header removed; rendered by parent */}
+      <div className={styles.refreshStatus}>
+        <span>{!online && 'Offline - '}{query.dataUpdatedAt > 0 && allowed && !denied ? 'Last updated ' + new Date(query.dataUpdatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : ''}</span>
+        {(isMini || !showFilters) && <Button variant="secondary" size="sm" onClick={fetchMapData} disabled={query.isFetching || denied || !allowed || !online}><ArrowsClockwise size={16} /> Refresh</Button>}
+      </div>
 
       {/* Error state */}
-      {error && <Badge variant="emergency" style={{ alignSelf: 'flex-start' }}>{error}</Badge>}
+      {error && <div className={styles.refreshStatus} role="status">
+        <span>{denied ? 'Demand map access requires session revalidation.' : query.data ? 'Could not update. Showing the last successful result.' : 'Could not load chapter demand.'}</span>
+        {!denied && <Button variant="secondary" size="sm" onClick={fetchMapData} disabled={query.isFetching || !online}>Retry</Button>}
+      </div>}
 
       {/* Loading state: skeleton bars */}
       {loading && (
@@ -163,10 +182,10 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
         )
       )}
 
-      {!loading && !error && (
+      {allowed && !denied && !loading && query.data !== undefined && (
         <>
           {/* Empty state */}
-          {chapters.length === 0 && (
+          {chapters.length === 0 && (!isMini || selectedMiniChapter === 'All') && (
             <Card padding="md" style={{ textAlign: 'center' }}>
               <p style={{ color: 'var(--color-text-muted)', fontSize: 'var(--text-sm)', margin: 0 }}>
                 No active demand in your region
@@ -174,7 +193,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
             </Card>
           )}
 
-          {chapters.length > 0 && isMini && (
+          {(chapters.length > 0 || selectedMiniChapter !== 'All') && isMini && (
             <>
               <details className={styles.filterDropdown}>
                 <summary>
@@ -187,6 +206,7 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                     <span>Chapter</span>
                     <select id="home-demand-chapter" value={selectedMiniChapter} onChange={(event) => setSelectedMiniChapter(event.target.value)}>
                       <option value="All">All chapters ({chapters.length})</option>
+                      {selectedChapterMissing && <option value={selectedMiniChapter}>Selected chapter (unavailable)</option>}
                       {chapters.map((chapter) => <option key={chapter.chapter_id} value={chapter.chapter_id}>{chapter.chapter_name}</option>)}
                     </select>
                     <CaretDown className={styles.selectCaret} size={16} aria-hidden="true" />
@@ -208,10 +228,11 @@ export default function DemandMapWidget({ mode = 'full', showFilters = true }) {
                 </div>
               </details>
 
-              {totalDemand === 0 && selectedMiniUrgency === 'All' && (
+              {!selectedChapterMissing && totalDemand === 0 && selectedMiniUrgency === 'All' && (
                 <p className={styles.miniEmptyState}>No active requests across these chapters.</p>
               )}
-              {miniSelectionHasNoMatches && (
+              {selectedChapterMissing && <p className={styles.miniEmptyState} role="status">Selected chapter is unavailable.</p>}
+              {!selectedChapterMissing && miniSelectionHasNoMatches && (
                 <p className={styles.miniEmptyState} role="status">
                   No chapter has active requests for the selected urgencies.
                 </p>

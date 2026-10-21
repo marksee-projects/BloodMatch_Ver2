@@ -41,11 +41,9 @@ Home is where a logged-in DeMolay Bataan member sees blood requests that matter 
 - **[PROPOSED]** After responding, the card shows "You responded", and the requester gets a bell notification.
 - **[DECIDE]** What does a donor see on the details page, and what does the requester see (matched donors list)? ANSWER:
 
-## 6. Search (header bar)
-- **[DECIDED]** The search bar must work.
-- **[PROPOSED]** It searches requests in the user's feed by hospital/facility name and municipality. No donor or people search (CONTEXT.md 9.8), and patient names are not searchable.
-- **[PROPOSED]** Debounced (about 300 ms), clear button, "N results" line, query kept in the URL.
-- **[DECIDE]** Should it search only on Home, or from any page? ANSWER:
+## 6. Text search (retired)
+- **User decision - October 21, 2026:** Remove the unused Home backend text search. The current Home controls are municipality, blood type and urgency dropdowns. No header text-search requirement remains for Home.
+- The Home API no longer validates, returns or applies a text-search parameter. Legacy text-query parameters are ignored without changing supported filter results. Other pages' search functions are unchanged.
 
 ## 7. Filters
 - **[DECIDED]** Municipality filter (the 12 Bataan municipalities, from the existing locations list).
@@ -90,7 +88,7 @@ Loading skeleton, empty (with a reason), error with retry, no search results (wi
 | 2 | Own requests in the feed | No, they live in My Requests |
 | 3 | "View Profile" | Yes, the limited profile in section 15, reachable only through a request |
 | 4 | Details page | A donor sees the request and only their own match. The requester sees all privacy-safe matched donors |
-| 5 | Search | Global header search. Used on another page, it navigates to Home with `?q=` |
+| 5 | Search | Retired by user decision on October 21, 2026; Home uses its existing dropdown filters |
 | 6 | Chapter filter | Not now. Municipality and urgency only |
 | 7 | Demand-map chapter click | Not interactive for now |
 | 8 | "Emergency" | Means the existing `emergency` urgency |

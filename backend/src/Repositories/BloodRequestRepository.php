@@ -123,7 +123,7 @@ final class BloodRequestRepository
         $result = $this->pageCompatibleOpenForViewer(
             $donorId,
             $recipientTypes,
-            ['q' => null, 'municipality_code' => null, 'blood' => [], 'urgency' => []],
+            ['municipality_code' => null, 'blood' => [], 'urgency' => []],
             1,
             max(1, min($limit, 100)),
             \BloodMatch\Services\AuthService::nowUtc()
@@ -169,15 +169,6 @@ final class BloodRequestRepository
         $where = $baseWhere;
         $params = $baseParams;
 
-        if (($filters['q'] ?? null) !== null) {
-            $query = (string) $filters['q'];
-            $query = function_exists('mb_strtolower') ? mb_strtolower($query, 'UTF-8') : strtolower($query);
-            $needle = '%' . self::escapeLike($query) . '%';
-            $where[] = "(LOWER(br.facility_name) LIKE ? ESCAPE '='
-                         OR LOWER(COALESCE(loc.municipality_name, '')) LIKE ? ESCAPE '=')";
-            $params[] = $needle;
-            $params[] = $needle;
-        }
         if (($filters['municipality_code'] ?? null) !== null) {
             $where[] = 'loc.municipality_code = ?';
             $params[] = (string) $filters['municipality_code'];
@@ -231,7 +222,6 @@ final class BloodRequestRepository
             $viewerId,
             $recipientTypes,
             [
-                'q' => null,
                 'municipality_code' => null,
                 'blood' => [],
                 'urgency' => [],
@@ -272,16 +262,6 @@ final class BloodRequestRepository
         );
         $stmt->execute($params);
         return (int) $stmt->fetchColumn();
-    }
-
-    private static function escapeLike(string $value): string
-    {
-        return strtr($value, [
-            '=' => '==',
-            '%' => '=%',
-            '_' => '=_',
-            '\\' => '=\\',
-        ]);
     }
 
     public function listMatchedOpenForDonor(int $donorId, int $limit = 20): array

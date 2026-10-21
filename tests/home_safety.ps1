@@ -77,9 +77,26 @@ function New-Request($requesterId, $blood, $facility, $urgency, $neededAt, $stat
     return [int](DbQuery "SELECT id FROM blood_requests WHERE requester_id=$requesterId AND facility_name='$facility' ORDER BY id DESC LIMIT 1;")
 }
 function Feed($login, $query = '') { return Invoke-Json $login.s 'Get' ("/api/home-feed" + $query) $null $login.csrf }
+# Collect fixture cards across pages without relying on the retired text search.
+function Feed-All($login, $query = '') {
+    $first = Feed $login $query
+    if ($first.status -ne 200) { return $first }
+    $rows = @($first.body.data.requests)
+    $last = $first
+    $page = 1
+    while ($last.body.data.has_more) {
+        $page++
+        $separator = if ($query) { '&' } else { '?' }
+        $last = Feed $login ($query + $separator + 'page=' + $page)
+        if ($last.status -ne 200) { return $last }
+        $rows += @($last.body.data.requests)
+    }
+    $first.body.data.requests = $rows
+    return $first
+}
 function Card($response, $id) { return ,@($response.body.data.requests | Where-Object { [int]$_.id -eq $id }) }
 function Assert-State($name, $login, $requestId, $canRespond, $reasonCode, $needsDate = $false) {
-    $r = Feed $login ("?q=" + (Url "State Hub $suffix"))
+    $r = Feed-All $login
     $card = Card $r $requestId
     $dateOk = if ($needsDate) { $card.Count -eq 1 -and -not [string]::IsNullOrWhiteSpace([string]$card[0].eligible_again_at) } else { $true }
     if ($r.status -eq 200 -and $card.Count -eq 1 -and $card[0].can_respond -eq $canRespond -and $card[0].reason_code -eq $reasonCode -and $dateOk) {
@@ -114,7 +131,7 @@ $r = Feed $inactive
 if ($r.status -eq 200 -and @($r.body.data.requests).Count -eq 0 -and $r.body.data.reason_code -eq 'not_active') { Ok 'H02 inactive session receives explained empty feed' } else { Bad 'H02 inactive state' "status=$($r.status) reason=$($r.body.data.reason_code)" }
 
 $staff = Login (New-User 'staff' 'officer' 'verified' 'O+' $false $null)
-$r = Feed $staff ("?q=" + (Url "State Hub $suffix"))
+$r = Feed-All $staff
 $staffCard = Card $r $stateRequest
 if ($staffCard.Count -eq 1 -and $staffCard[0].can_respond -eq $false -and $staffCard[0].reason_code -eq 'staff_account' -and $staffCard[0].reason_text -eq "Staff accounts can't donate") { Ok 'H03 staff with blood type sees read-only cards' } else { Bad 'H03 staff read-only state' "cards=$($staffCard.Count) reason=$($staffCard[0].reason_text)" }
 $staffNoBlood = Login (New-User 'staff-noblood' 'admin' 'verified' $null $false $null)
@@ -135,7 +152,7 @@ $closedRequest = New-Request $requester.id 'O+' "Exclude Closed $suffix" 'emerge
 $expiredRequest = New-Request $requester.id 'O+' "Exclude Expired $suffix" 'emergency' $past 'OPEN' $balangaId
 $incompatibleRequest = New-Request $requester.id 'A-' "Exclude Incompatible $suffix" 'emergency' $future 'OPEN' $balangaId
 $includedRequest = New-Request $requester.id 'A+' "Exclude Included $suffix" 'emergency' $future 'OPEN' $balangaId
-$r = Feed $eligible ("?q=" + (Url "Exclude"))
+$r = Feed-All $eligible
 $ids = @($r.body.data.requests | ForEach-Object { [int]$_.id })
 if ($ids -contains $includedRequest -and $ids -notcontains $ownRequest -and $ids -notcontains $closedRequest -and $ids -notcontains $expiredRequest -and $ids -notcontains $incompatibleRequest) { Ok 'H11 own, closed, expired, and incompatible requests are excluded' } else { Bad 'H11 base safety scope' ($ids -join ',') }
 
@@ -144,12 +161,12 @@ $pageIds = @()
 for ($i = 1; $i -le 22; $i++) {
     $pageIds += New-Request $pageRequester.id 'O+' ("PageSet $suffix Item $i") 'routine' $future 'OPEN' $balangaId
 }
-$page1 = Feed $eligible ("?q=" + (Url "PageSet $suffix") + '&page=1')
-$page2 = Feed $eligible ("?q=" + (Url "PageSet $suffix") + '&page=2')
-$pagingOk = @($page1.body.data.requests).Count -eq 20 -and @($page2.body.data.requests).Count -eq 2 `
+$page1 = Feed $eligible '?page=1'
+$page2 = Feed $eligible '?page=2'
+$pagingOk = @($page1.body.data.requests).Count -eq 20 -and @($page2.body.data.requests).Count -ge 2 -and @($page2.body.data.requests).Count -le 20 `
     -and [int]$page1.body.data.page -eq 1 -and [int]$page1.body.data.page_size -eq 20 `
-    -and $page1.body.data.has_more -eq $true -and $page2.body.data.has_more -eq $false `
-    -and [int]$page1.body.data.total_matching -eq 22 -and [int]$page2.body.data.total_matching -eq 22 `
+    -and $page1.body.data.has_more -eq $true `
+    -and [int]$page1.body.data.total_matching -ge 22 -and [int]$page2.body.data.total_matching -eq [int]$page1.body.data.total_matching `
     -and [int]$page1.body.data.total_unfiltered -eq [int]$page2.body.data.total_unfiltered `
     -and [int]$page1.body.data.total_unfiltered -ge 22
 if ($pagingOk) { Ok 'H12 paging is fixed at 20 with stable matching and unfiltered totals' } else { Bad 'H12 paging metadata' "p1=$(@($page1.body.data.requests).Count) p2=$(@($page2.body.data.requests).Count) matching=$($page1.body.data.total_matching)" }
@@ -159,8 +176,9 @@ $alpha = New-Request $requester.id 'O+' "$filterPrefix Alpha" 'emergency' $futur
 $beta = New-Request $requester.id 'A+' "$filterPrefix Beta" 'urgent' $future 'OPEN' $oraniId
 $gamma = New-Request $requester.id 'B+' "$filterPrefix Gamma" 'routine' $future 'OPEN' $null
 $delta = New-Request $requester.id 'AB+' "$filterPrefix Delta" 'emergency' $future 'OPEN' $oraniId
-$r = Feed $eligible ("?q=" + (Url ("filterset $suffix alpha")))
-if ([int]$r.body.data.total_matching -eq 1 -and (Card $r $alpha).Count -eq 1) { Ok 'H13 q is case-insensitive and facility-only capable' } else { Bad 'H13 q filter' "total=$($r.body.data.total_matching)" }
+$unfiltered = Feed $eligible
+$r = Feed $eligible '?q=Hospital'
+if ($r.status -eq 200 -and [int]$r.body.data.total_matching -eq [int]$unfiltered.body.data.total_matching -and (@($r.body.data.requests.id) -join ',') -eq (@($unfiltered.body.data.requests.id) -join ',')) { Ok 'H13 retired text query does not filter Home' } else { Bad 'H13 removed query' 'Unsupported text query affected results' }
 $r = Feed $eligible '?municipality_code=030803000'
 $municipalityRows = @($r.body.data.requests)
 $municipalityOk = $municipalityRows.Count -gt 0 -and @($municipalityRows | Where-Object { $_.location.municipality_name -ne 'City of Balanga' }).Count -eq 0
@@ -169,29 +187,20 @@ $r = Feed $eligible '?blood=O%2B,A%2B'
 if (@($r.body.data.requests).Count -gt 0 -and @($r.body.data.requests | Where-Object { $_.required_blood_type -notin @('O+','A+') }).Count -eq 0) { Ok 'H15 blood filter only narrows compatible results' } else { Bad 'H15 blood filter' 'unexpected blood type returned' }
 $r = Feed $eligible '?urgency=urgent,emergency'
 if (@($r.body.data.requests).Count -gt 0 -and @($r.body.data.requests | Where-Object { $_.urgency -notin @('urgent','emergency') }).Count -eq 0) { Ok 'H16 urgency filter narrows results' } else { Bad 'H16 urgency filter' 'unexpected urgency returned' }
-$r = Feed $eligible ("?q=" + (Url $filterPrefix) + '&municipality_code=030803000&blood=O%2B&urgency=emergency')
-if ([int]$r.body.data.total_matching -eq 1 -and (Card $r $alpha).Count -eq 1) { Ok 'H17 combined filters intersect without widening' } else { Bad 'H17 combined filters' "total=$($r.body.data.total_matching)" }
-$r = Feed $eligible ("?q=" + (Url $filterPrefix))
-$orderedIds = @($r.body.data.requests | ForEach-Object { [int]$_.id })
+$r = Feed-All $eligible '?municipality_code=030803000&blood=O%2B&urgency=emergency'
+if ((Card $r $alpha).Count -eq 1 -and @($r.body.data.requests | Where-Object { $_.location.municipality_name -ne 'City of Balanga' -or $_.required_blood_type -ne 'O+' -or $_.urgency -ne 'emergency' }).Count -eq 0) { Ok 'H17 combined filters intersect without widening' } else { Bad 'H17 combined filters' "total=$($r.body.data.total_matching)" }
+$r = Feed-All $eligible
+$orderedIds = @($r.body.data.requests | Where-Object { [int]$_.id -in @($alpha,$beta,$gamma,$delta) } | ForEach-Object { [int]$_.id })
 if (($orderedIds -join ',') -eq (@($delta,$gamma,$beta,$alpha) -join ',')) { Ok 'H18 feed ordering is newest first across urgency categories' } else { Bad 'H18 feed order' ($orderedIds -join ',') }
 
-$percentId = New-Request $requester.id 'O+' "Literal % $suffix" 'routine' $future 'OPEN' $balangaId
-$underscoreId = New-Request $requester.id 'O+' "Literal _ $suffix" 'routine' $future 'OPEN' $balangaId
-$rPercent = Feed $eligible '?q=%25'
-$rUnderscore = Feed $eligible '?q=%5F'
-if ([int]$rPercent.body.data.total_matching -ge 1 -and [int]$rPercent.body.data.total_matching -lt [int]$rPercent.body.data.total_unfiltered -and (Card $rPercent $percentId).Count -eq 1) { Ok "H19 q='%' is escaped literally" } else { Bad 'H19 percent escaping' "matching=$($rPercent.body.data.total_matching) unfiltered=$($rPercent.body.data.total_unfiltered)" }
-if ([int]$rUnderscore.body.data.total_matching -ge 1 -and [int]$rUnderscore.body.data.total_matching -lt [int]$rUnderscore.body.data.total_unfiltered -and (Card $rUnderscore $underscoreId).Count -eq 1) { Ok "H20 q='_' is escaped literally" } else { Bad 'H20 underscore escaping' "matching=$($rUnderscore.body.data.total_matching) unfiltered=$($rUnderscore.body.data.total_unfiltered)" }
-$r = Feed $eligible ("?q=" + (Url "%' OR 1=1 --"))
-if ($r.status -eq 200 -and [int]$r.body.data.total_matching -eq 0) { Ok 'H21 injection-looking q is harmless' } else { Bad 'H21 injection query' "status=$($r.status) total=$($r.body.data.total_matching)" }
+$baseline = Feed $eligible
+foreach ($retiredQuery in @('?q=%25','?q=%5F',"?q=$(Url "%' OR 1=1 --")",'?q=PatientName')) {
+    $ignored = Feed $eligible $retiredQuery
+    if ($ignored.status -eq 200 -and (@($ignored.body.data.requests.id) -join ',') -eq (@($baseline.body.data.requests.id) -join ',') -and [int]$ignored.body.data.total_matching -eq [int]$baseline.body.data.total_matching) { Ok "Retired parameter ignored: $retiredQuery" } else { Bad 'Retired parameter removal' $retiredQuery }
+}
 
-$patient = New-User "PatientNeedle$suffix" 'member' 'verified' 'A+' $false $null
-$patientRequest = New-Request $patient.id 'O+' "Ordinary Facility $suffix" 'routine' $future 'OPEN' $balangaId
-$r = Feed $eligible ("?q=" + (Url "PatientNeedle$suffix"))
-if ([int]$r.body.data.total_matching -eq 0 -and (Card $r $patientRequest).Count -eq 0) { Ok 'H22 requester or patient name is not searchable' } else { Bad 'H22 patient-name privacy' "total=$($r.body.data.total_matching)" }
-
-$tooLong = 'x' * 81
 $invalids = @(
-    @{ name = 'H23 over-length q rejected'; uri = "?q=$(Url $tooLong)" },
+    @{ name = 'H23 array blood filter rejected'; uri = '?blood[]=O%2B' },
     @{ name = 'H24 invalid municipality rejected'; uri = '?municipality_code=999999999' },
     @{ name = 'H25 invalid blood type rejected'; uri = '?blood=X' },
     @{ name = 'H26 retired critical urgency rejected'; uri = '?urgency=critical' }
@@ -201,7 +210,7 @@ foreach ($case in $invalids) {
     if ($r.status -eq 422) { Ok $case.name } else { Bad $case.name "status=$($r.status)" }
 }
 
-$cardResponse = Feed $eligible ("?q=" + (Url "State Hub $suffix"))
+$cardResponse = Feed-All $eligible
 $card = (Card $cardResponse $stateRequest)[0]
 $details = Invoke-Json $eligible.s 'Get' "/api/requests/$stateRequest/matches" $null $eligible.csrf
 $detail = $details.body.data.request
@@ -212,7 +221,7 @@ $sameState = $details.status -eq 200 -and $details.body.data.viewer_mode -eq 'br
 if ($sameState) { Ok 'H27 donor request details matches Home card state without a match row' } else { Bad 'H27 details state parity' "status=$($details.status) mode=$($details.body.data.viewer_mode)" }
 
 DbQuery "INSERT INTO matches (request_id,donor_id,generation,status) VALUES ($stateRequest,$($eligibleUser.id),1,'RESPONDED');" | Out-Null
-$respondedFeed = Feed $eligible ("?q=" + (Url "State Hub $suffix"))
+$respondedFeed = Feed-All $eligible
 $respondedCard = (Card $respondedFeed $stateRequest)[0]
 if ($respondedCard.responded -eq $true -and $respondedCard.match_status -eq 'RESPONDED') { Ok 'H28 card reports an existing response' } else { Bad 'H28 responded flag' "responded=$($respondedCard.responded) status=$($respondedCard.match_status)" }
 
