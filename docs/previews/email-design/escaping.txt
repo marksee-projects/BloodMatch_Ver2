@@ -1,0 +1,15 @@
+BloodMatch
+
+1 emergency request matches you
+
+Emergency request 1
+Requester: <script>Bad name</script>
+Blood type: A-
+Hospital: <script>alert("test")</script> & Hospital
+Municipality: Balanga
+Needed by: Oct 21, 2026, 3:00 PM PHT (UTC+08:00)
+<img src=x onerror=alert(1)>
+
+Open BloodMatch to check the current request status and offer to donate. The receiving facility determines medical eligibility.
+
+BloodMatch automated notification

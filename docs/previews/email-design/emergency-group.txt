@@ -1,0 +1,23 @@
+BloodMatch
+
+2 emergency requests match you
+
+Emergency request 1
+Requester: Maria Santos
+Blood type: A-
+Hospital: Bataan hospital with a long facility name for wrapping
+Municipality: Balanga
+Needed by: Oct 21, 2026, 3:00 PM PHT (UTC+08:00)
+A compatible emergency opportunity is available.
+
+Emergency request 2
+Requester: Juan Dela Cruz
+Blood type: A-
+Hospital: Second hospital
+Municipality: Not provided
+Needed by: Oct 21, 2026, 3:00 PM PHT (UTC+08:00)
+A compatible emergency opportunity is available.
+
+Open BloodMatch to check the current request status and offer to donate. The receiving facility determines medical eligibility.
+
+BloodMatch automated notification

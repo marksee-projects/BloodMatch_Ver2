@@ -29,7 +29,7 @@ function formatPostedTime(value) {
   return `Posted ${count} ${unit}${count === 1 ? '' : 's'} ago`
 }
 
-export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, children }) {
+export function FeedCard({ request, hideActions = false, defaultExpanded = false, showNeededYear = false, headerActions, children }) {
   const notify = useNotify()
   const [expanded, setExpanded] = useState(defaultExpanded)
   const [confirmingResponse, setConfirmingResponse] = useState(false)
@@ -67,7 +67,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
     : request.urgency === 'urgent' ? 'urgent' : 'neutral'
 
   return (
-    <Card padding="none" className={styles.feedCard}>
+    <Card padding="none" className={`${styles.feedCard} ${headerActions ? styles.withMenu : ''}`}>
       <article className={styles.cardBody}>
         <header className={styles.summaryHeader}>
           <ProfileIdentity {...(profileTo ? { to: profileTo, 'aria-label': `View ${request.requester_name || 'requester'}'s profile` } : {})} className={styles.avatar}>
@@ -87,11 +87,12 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
             {responded && <span className={styles.responseStatus}><Badge variant="neutral">Responded</Badge></span>}
           </span>
 
-          <span className={styles.summaryMeta}>
+          <div className={styles.summaryMeta}>
             <Badge variant={urgencyVariant}>{request.urgency === 'critical' ? 'EMERGENCY' : request.urgency.toUpperCase()}</Badge>
             <BloodTypeBlock bloodType={request.required_blood_type} level="normal" />
+            {headerActions}
             <button type="button" className={styles.summaryButton} aria-label={expanded ? 'Hide request details' : 'Show request details'} aria-expanded={expanded} aria-controls={detailsId} onClick={() => setExpanded(current => !current)}><CaretDown className={expanded ? styles.caretOpen : styles.caret} size={20} aria-hidden="true" /></button>
-          </span>
+          </div>
         </header>
 
         {expanded && (
@@ -119,6 +120,7 @@ export function FeedCard({ request, hideActions = false, defaultExpanded = false
                     }}>
                     Offer to donate
                   </Button>}
+                  {responded && <Button variant="primary" to={`/requests/${request.id}/matches`}>View offer</Button>}
                 </footer>
                 {isNotEnrolled ? (
                   <div className={styles.enrollPrompt} role="region" aria-label="Donor enrollment required">

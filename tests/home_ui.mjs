@@ -158,6 +158,7 @@ try {
   assert(!collapsedResponse.includes('class="expandedContent"'), 'Top status does not require expanded details')
   expanded = true
   const expandedResponse = renderCard({ ...request, responded: true, can_respond: false })
+  assert(expandedResponse.includes('href="/requests/17/matches"') && expandedResponse.includes('View offer'), 'Persisted responded state exposes the existing offer page after refresh')
   assert(!expandedResponse.match(/<button[^>]*>Offer to donate(?:ed)?<\/button>/), 'Already responded action is replaced by the top status')
   expanded = false
   function home(url, requests) {

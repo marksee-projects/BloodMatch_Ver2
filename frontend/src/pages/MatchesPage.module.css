@@ -116,3 +116,12 @@
 @media(max-width:1099px) { :global(body:has([data-floating-chat='expanded'])) .container { padding-bottom: calc(min(560px, 100dvh - 80px) + var(--space-8)); } }
 
 @media(min-width:1100px) { :global(body:has([data-floating-chat='expanded'])) .container[data-chat-count='1'] .requestFacts { grid-template-columns: repeat(2,minmax(0,1fr)); } :global(body:has([data-floating-chat='expanded'])) .container[data-chat-count='1'] .facilityFact { grid-column: 1 / -1; } }
+
+/* One donor surface with a centered switcher and unboxed result rows. */
+.donorTabs { justify-content: center; }
+.filterToolbar { display: flex; justify-content: flex-start; margin-bottom: var(--space-3); }
+.matchFilters { grid-template-columns: minmax(0, 1.5fr) repeat(2, minmax(0, 1fr)); }
+.donorCards { gap: 0; }
+.donorCard { padding: var(--space-4) 0; border: 0; border-top: 1px solid var(--color-border-hairline); border-radius: 0; }
+.matchesSurface .emptyState { background: transparent; }
+@media (max-width: 680px) { .matchFilters { grid-template-columns: 1fr; } }

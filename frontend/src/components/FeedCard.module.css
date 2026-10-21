@@ -168,3 +168,5 @@ a.requesterName:focus-visible, a.avatar:focus-visible { outline: 2px solid var(-
 
 .summaryMeta { flex-wrap: wrap; justify-content: flex-end; }
 @media(max-width:680px) { .summaryHeader { grid-template-columns: auto minmax(0,1fr); } .summaryMeta { grid-column: 1 / -1; justify-content: flex-start; } .summaryButton { margin-left: auto; } }
+
+.withMenu { overflow: visible; }

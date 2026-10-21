@@ -38,7 +38,7 @@ final class Mailer
         return 'uncertain';
     }
 
-    public static function send(string $toEmail, string $subject, string $htmlBody, string $mailClass = EmailAttemptBudget::NORMAL): bool
+    public static function send(string $toEmail, string $subject, string $htmlBody, string $mailClass = EmailAttemptBudget::NORMAL, ?string $textBody = null): bool
     {
         // Explicit test-only transport: no sockets, external delivery or accounting worker.
         if (\BloodMatch\Config\Env::get('BLOODMATCH_TEST_ISOLATION', '') === '1') {
@@ -91,6 +91,7 @@ final class Mailer
             $mail->Subject = $subject;
             $mail->isHTML(true);
             $mail->Body = $htmlBody;
+            $mail->AltBody = $textBody ?? html_entity_decode(strip_tags(str_replace(['</p>', '<br>', '<br/>', '<br />'], "\n", $htmlBody)), ENT_QUOTES, 'UTF-8');
             $result = self::attemptWithTransport($mailClass, static fn () => $mail->send());
             if ($result['status'] !== 'sent') { error_log('[mailer] unavailable: ' . $result['code']); }
             return $result['status'] === 'sent';

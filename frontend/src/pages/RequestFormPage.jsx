@@ -171,7 +171,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
       } else if (err.details && Object.keys(err.details).length > 0) {
         setErrors(err.details)
       } else {
-        setMessage(err.message || 'Failed to save request.')
+        setMessage(err.status === 409 && /needed-by time has passed/.test(err.message || '') ? 'This post has expired. Close this form and choose Renew request to set a new deadline.' : err.message || 'Failed to save request.')
       }
     } finally {
       savingRef.current = false
@@ -417,7 +417,7 @@ export default function RequestFormPage({ id, onSuccess, onCancel, onStateChange
           )}
 
           <div className={requestStyles.footer} style={{ marginTop: 'var(--space-4)', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--color-border-hairline)', display: 'flex', justifyContent: 'space-between' }}>
-            <button type="button" className="btn btn-ghost" disabled={submitting} onClick={onCancel}>
+            <button type="button" className="btn btn-secondary" disabled={submitting} onClick={onCancel}>
               Cancel
             </button>
 

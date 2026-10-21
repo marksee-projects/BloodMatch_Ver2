@@ -236,7 +236,7 @@ export default function MatchesPage() {
           <div><dt>Priority</dt><dd><Badge variant={urgencyVariant}>{request.urgency}</Badge></dd></div>
         </dl>
 
-        <div className={styles.requestActions}>
+        {!isRequesterView && <div className={styles.requestActions}>
           <div className={styles.profileActions}>
             {!isOwnRequest && request.can_view_requester_profile && (
               <>
@@ -269,7 +269,7 @@ export default function MatchesPage() {
               )
             )}
           </div>
-        </div>
+        </div>}
         {!isRequesterView && !canRespond && !hasActiveResponse && request.reason_code !== 'staff_account' && <p className={styles.eligibilityNote}>{request.reason_text || eligibilityMessage(user)}{request.eligible_again_at && ` Eligible again: ${formatDate(request.eligible_again_at)}.`}</p>}
       </section>
 

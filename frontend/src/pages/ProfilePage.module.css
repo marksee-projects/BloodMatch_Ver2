@@ -32,7 +32,7 @@
 .headerNav { display: flex; flex-wrap: nowrap; width: 100%; min-width: 0; overflow-x: auto; gap: var(--space-4); margin-top: var(--space-5); }
 .headerNav button { flex: none; white-space: nowrap; min-height: 44px; padding: var(--space-3) var(--space-4); border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--color-text-muted); font: inherit; font-weight: 600; cursor: pointer; }
 .headerNav button[aria-current='page'] { border-bottom-color: var(--color-brand-navy); color: var(--color-brand-navy); }
-.headerNav button:hover:not(:disabled), .headerNav button:active:not(:disabled) { background: var(--color-surface-sunken); transform: none; }
+.headerNav button:hover:not(:disabled), .headerNav button:active:not(:disabled) { background: transparent; color: var(--color-brand-navy-hover); text-shadow: 0 0 var(--space-2) var(--color-border-strong); transform: none; }
 .headerNav button:focus-visible, .cancelRequest:focus-visible, .avatarCameraOverlay:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: -2px; }
 .activitySection { display: grid; gap: var(--space-4); }
 .activitySection > .cardHeader { align-items: center; margin-bottom: 0; }

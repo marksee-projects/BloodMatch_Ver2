@@ -1,3 +1,4 @@
+import RequestPostMenu from '../components/RequestPostMenu'
 import RequestHistoryActions from '../components/RequestHistoryActions'
 import { useActionNoticeState } from '../context/NotificationContext'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
@@ -54,6 +55,7 @@ export default function ProfilePage() {
   const { openChatWithUser, canChat } = useChat()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [renewingRequestId, setRenewingRequestId] = useState(null)
   const [form, setForm] = useState(null)
   const [location, setLocation] = useState({ location_id: null, municipality_code: null, barangay_code: null })
   const [errors, setErrors] = useState({})
@@ -98,7 +100,7 @@ export default function ProfilePage() {
     retry: false
   })
 
-  const { data: requestHistory = [], isPending: requestsLoading, error: requestsError, refetch: refetchRequests } = useQuery({
+  const { data: storedRequestHistory = [], isPending: requestsLoading, error: requestsError, refetch: refetchRequests } = useQuery({
     queryKey: ['my-requests', user?.id],
     enabled: Boolean(user?.id) && !isOtherProfile,
     queryFn: async ({ signal }) => (await api.get('/api/my/requests', { signal })).requests || [],
@@ -109,6 +111,12 @@ export default function ProfilePage() {
     refetchInterval: 5000,
     refetchIntervalInBackground: false,
     retry: false
+  })
+  const requestHistory = storedRequestHistory.map(request => {
+    const raw = request.needed_datetime || ''
+    const deadline = Date.parse(raw.replace(' ', 'T') + (/Z$|[+-]\d{2}:?\d{2}$/.test(raw) ? '' : 'Z'))
+    return request.status === 'OPEN' && Number.isFinite(deadline) && deadline < Date.now()
+      ? { ...request, status: 'EXPIRED' } : request
   })
   useEffect(() => {
     const onFocus = () => {
@@ -423,9 +431,10 @@ export default function ProfilePage() {
         <div className={styles.profileContent}>
           {activeSection === 'expired' && <section className={styles.activitySection} aria-labelledby="request-history-heading">
             <div className={styles.cardHeader}><h2 id="request-history-heading">Expired posts</h2></div>
-            {requestsError ? <div className="alert alert-error" role="alert">{requestsError.message}<Button variant="secondary" onClick={() => refetchRequests()}>Try again</Button></div> : requestsLoading ? <p>Loading requests…</p> : !requestHistory.some(r => r.status === 'EXPIRED') ? <Card className={styles.compactCard}><p className={styles.emptyText}>No expired requests.</p></Card> : requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(request => <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{...request, requester_name: profile.full_name, requester_chapter_name: profile.chapter_name, requester_profile_picture_url: profile.profile_picture_url, requester_verification_status: profile.verification_status}}>
+            {requestsError ? <div className="alert alert-error" role="alert">{requestsError.message}<Button variant="secondary" onClick={() => refetchRequests()}>Try again</Button></div> : requestsLoading ? <p>Loading requests…</p> : !requestHistory.some(r => r.status === 'EXPIRED') ? <Card className={styles.compactCard}><p className={styles.emptyText}>No expired requests.</p></Card> : requestHistory.filter(r => activeSection !== 'expired' || r.status === 'EXPIRED').map(request => <FeedCard key={request.id} hideActions defaultExpanded showNeededYear headerActions={<RequestPostMenu request={request} onEdit={() => { clearNotices(); setEditingRequestId(request.id) }} onCancel={() => { clearNotices(); setCancelError(null); setCancelTarget(request) }} onRenew={() => setRenewingRequestId(request.id)} />} request={{...request, requester_name: profile.full_name, requester_chapter_name: profile.chapter_name, requester_profile_picture_url: profile.profile_picture_url, requester_verification_status: profile.verification_status}}>
               <div className={styles.postCounts}><Badge variant={request.status === 'OPEN' ? 'brand' : 'neutral'}>{titleCase(request.status)}</Badge></div>
-              <RequestHistoryActions request={request} onSaved={handleRequestSaved} />
+              <Button to={`/requests/${request.id}/matches`}>View matches</Button>
+              <RequestHistoryActions request={request} onSaved={handleRequestSaved} editorOnly renewOpen={renewingRequestId === request.id} onEditorClose={() => setRenewingRequestId(null)} />
             </FeedCard>)}
           </section>}
 
@@ -554,7 +563,7 @@ export default function ProfilePage() {
               {filteredRequests.length === 0 ? (
                 <Card className={styles.compactCard}><p className={styles.emptyText}>{requestFilter === 'ALL' ? 'No blood requests yet. Create a request to begin matching.' : 'No ' + requestFilter.toLowerCase() + ' blood requests. Choose another status to review your activity.'}</p></Card>
               ) : filteredRequests.map((request) => (
-                <FeedCard key={request.id} hideActions defaultExpanded showNeededYear request={{ ...request,
+                <FeedCard key={request.id} hideActions defaultExpanded showNeededYear headerActions={<RequestPostMenu request={request} onEdit={() => { clearNotices(); setEditingRequestId(request.id) }} onCancel={() => { clearNotices(); setCancelError(null); setCancelTarget(request) }} onRenew={() => setRenewingRequestId(request.id)} />} request={{ ...request,
                   requester_name: profile.full_name,
                   requester_chapter_name: profile.chapter_name,
                   requester_profile_picture_url: profile.profile_picture_url,
@@ -565,11 +574,8 @@ export default function ProfilePage() {
                     {request.match_count != null && <span>{request.match_count} potential {request.match_count === 1 ? 'donor' : 'donors'}</span>}
                     {request.response_count != null && <span>{request.response_count} {request.response_count === 1 ? 'response' : 'responses'}</span>}
                   </div>
-                  <div className={styles.requestCardActions}>
-                    {request.status === 'OPEN' && <Button className={styles.editRequest} variant="secondary" onClick={() => { clearNotices(); setEditingRequestId(request.id) }}>Edit</Button>}
-                    <Button className={styles.viewMatches} to={`/requests/${request.id}/matches`}>View matches</Button>
-                    {request.status === 'OPEN' && <Button className={styles.cancelRequest} variant="dangerOutline" onClick={() => { clearNotices(); setCancelError(null); setCancelTarget(request) }}>Cancel request</Button>}
-                  </div>
+                  <div className={styles.requestCardActions}><Button className={styles.viewMatches} to={`/requests/${request.id}/matches`}>View matches</Button></div>
+                  {request.status === 'EXPIRED' && <RequestHistoryActions request={request} onSaved={handleRequestSaved} editorOnly renewOpen={renewingRequestId === request.id} onEditorClose={() => setRenewingRequestId(null)} />}
                 </FeedCard>
               ))}
             </section>

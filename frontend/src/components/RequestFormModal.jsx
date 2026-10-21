@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { X } from '@phosphor-icons/react'
 import RequestFormPage from '../pages/RequestFormPage'
 import ConfirmationDialog from './ConfirmationDialog'
 import styles from '../pages/RequestsPage.module.css'
@@ -7,7 +6,6 @@ import styles from '../pages/RequestsPage.module.css'
 // Shared by the request center and Profile; the existing form owns all API logic.
 export default function RequestFormModal({ open, id = null, onSuccess, onClose }) {
   const panelRef = useRef(null)
-  const closeButtonRef = useRef(null)
   const [formState, setFormState] = useState({ dirty: false, submitting: false })
   const [confirmation, setConfirmation] = useState(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
@@ -35,7 +33,7 @@ export default function RequestFormModal({ open, id = null, onSuccess, onClose }
   useEffect(() => {
     if (!open) return undefined
     const previousFocus = document.activeElement
-    closeButtonRef.current?.focus()
+    panelRef.current?.querySelector('input:not(:disabled), select:not(:disabled), button:not(:disabled)')?.focus()
     const onKeyDown = (event) => {
       if (!panelRef.current?.contains(event.target)) return
       if (event.key === 'Escape') closeHandlerRef.current()
@@ -59,7 +57,6 @@ export default function RequestFormModal({ open, id = null, onSuccess, onClose }
     <>
     <div className={styles.modalBackdrop} role="presentation">
       <section ref={panelRef} className={styles.modalPanel} role="dialog" aria-modal="true" aria-label={id ? 'Edit request details' : 'Create blood request'}>
-        <button ref={closeButtonRef} type="button" className={styles.modalClose} disabled={formState.submitting || confirmBusy} onClick={requestClose} aria-label="Close request form"><X size={20} aria-hidden="true" /></button>
         <RequestFormPage key={id || 'create'} id={id} onSuccess={onSuccess} onCancel={requestClose} onStateChange={setFormState} onConfirmSave={requestSaveConfirmation} />
       </section>
     </div>

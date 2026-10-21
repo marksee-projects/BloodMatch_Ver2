@@ -24,22 +24,8 @@ final class EmailVerificationService
                 $subject = $isResend
                     ? '[BloodMatch] Your new verification code'
                     : '[BloodMatch] Verify your email address';
-                $intro = $isResend
-                    ? 'Here is your new verification code for BloodMatch:'
-                    : 'Welcome to BloodMatch! Your verification code is:';
-
-                $body = '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #111;">'
-                    . '<h2 style="margin-top: 0;">BloodMatch Verification</h2>'
-                    . '<p>' . $intro . '</p>'
-                    . '<div style="background: #f4f4f5; padding: 16px; border-radius: 8px; text-align: center; margin: 24px 0;">'
-                    . '<span style="font-size: 32px; font-weight: bold; letter-spacing: 6px; font-family: monospace; color: #000;">'
-                    . htmlspecialchars($code, ENT_QUOTES, 'UTF-8')
-                    . '</span>'
-                    . '</div>'
-                    . '<p style="color: #666; font-size: 14px;">This code will expire in 10 minutes. If you did not request this, please ignore this email.</p>'
-                    . '</div>';
-
-                Mailer::send($email, $subject, $body, EmailAttemptBudget::ACCOUNT);
+                $template = EmailTemplate::otp($code, self::CODE_TTL_SECONDS, $isResend);
+                Mailer::send($email, $subject, $template['html'], EmailAttemptBudget::ACCOUNT, $template['text']);
             } catch (Throwable $e) {
                 error_log('[mailer] verification email unavailable');
             }

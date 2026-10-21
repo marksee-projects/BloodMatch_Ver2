@@ -51,7 +51,7 @@ const request = { id: 45, requester_id: 7, requester_name: 'Requester', requeste
   needed_datetime: '2099-10-15 09:00:00', created_at: '2026-10-06 13:00:00', location: { municipality_name: 'Bagac' }, match_count: 1, response_count: 0, can_respond: true }
 const donor = { match_id: 81, display_name: 'Eligible donor', chapter_name: 'Donor chapter', availability: 'available', approximate_distance_km: 17.9, status: 'NOTIFIED', profile_user_id: 9 }
 let passed = 0
-function check(label, fn) { fn(); passed++; console.log(`PASS ${label}`) }
+function check(label, fn) { if (process.env.REQUEST_UI_CHECK && !new RegExp(process.env.REQUEST_UI_CHECK).test(label)) return; fn(); passed++; console.log(`PASS ${label}`) }
 function offerButton(html) {
   return [...html.matchAll(/<button\b[^>]*>[\s\S]*?<\/button>/g)].map(match => match[0]).find(button => button.includes('I can help'))
 }
@@ -212,17 +212,50 @@ check('Pending cancellation disables both popup actions; failure remains visible
   assert.ok(failed.includes('role="alert"')); assert.ok(failed.includes('Unable to cancel. Try again.')); assert.ok(!failed.includes('disabled=""'))
 })
 
+check('Profile renewal regression: overview expired and overdue cards offer Renew', () => {
+  for (const status of ['OPEN', 'EXPIRED']) {
+    const html = render(ProfilePage, '/profile', [{ ...request, status, needed_datetime: '2000-01-01 00:00:00' }], null, undefined, { profile, reports: [] })
+    assert.ok(html.includes('aria-label="Request actions"'))
+    assert.ok(html.includes('Previous deadline'))
+    assert.ok(!html.includes('>Edit</button>'))
+  }
+})
+check('Request modal regression: one bordered cancel and no top close control', () => {
+  const modal = readFileSync(frontend + 'src/components/RequestFormModal.jsx', 'utf8')
+  const form = readFileSync(frontend + 'src/pages/RequestFormPage.jsx', 'utf8')
+  assert.ok(!modal.includes('Close request form') && !modal.includes('modalClose'))
+  assert.ok(form.includes('className="btn btn-secondary" disabled={submitting} onClick={onCancel}'))
+  assert.ok(form.includes('choose Renew request to set a new deadline'))
+})
+const DonorPanel = await loadPage('../components/OfferAcceptancePanel')
+check('Donor panel uses one surface, tab-specific copy and an upper-left reset toolbar', () => {
+  const originalState = React.useState
+  try {
+    for (const tab of ['offers', 'suggestions']) {
+      React.useState = initial => { const state = originalState(initial); return initial === 'offers' ? [tab, state[1]] : state }
+      globalThis.requestUiUser = { id: 7, role: 'member' }
+      const client = new QueryClient({defaultOptions:{queries:{retry:false}}})
+      client.setQueryData(['donation-offers', '45', 7], {offers:[]})
+      const html = renderToStaticMarkup(h(QueryClientProvider,{client},h(MemoryRouter,null,h(DonorPanel,{requestId:'45',matches:[]}))))
+      assert.ok(html.includes(tab === 'offers' ? 'These donors have offered to help with your request.' : 'These donors match your request but have not offered to help.'))
+      assert.equal((html.match(/class="matchesSurface"/g)||[]).length,1)
+      assert.ok(html.indexOf('Reset filters') < html.indexOf('id="donor-search"'))
+      assert.ok(html.includes('role="tablist"') && html.includes('aria-label="Donor lists"'))
+      client.clear()
+    }
+  } finally { React.useState = originalState }
+})
 const DeleteAccount = await loadPage('../components/DeleteAccount')
 const ChatReportsView = await loadPage('admin/views/ChatReportsView')
 check('Expired profile tab renders renewal cards inside the profile content column', () => {
   const originalState = React.useState
   React.useState = initial => { const state = originalState(initial); return initial === 'overview' ? ['expired', state[1]] : state }
   try {
-    const html = render(ProfilePage, '/profile', [], null, undefined, { profile, reports: [], requests: [{...request, status: 'EXPIRED'}] })
+    const html = render(ProfilePage, '/profile', [{...request, status: 'EXPIRED'}], null, undefined, { profile, reports: [] })
     assert.ok(html.indexOf('class="profileContent"') < html.indexOf('id="request-history-heading"'))
-    assert.ok(html.includes('Renew request') && html.includes('Previous deadline'))
+    assert.ok(html.includes('aria-label="Request actions"') && html.includes('Previous deadline'))
     assert.ok(!html.includes('type="date"') && !html.includes('type="time"'))
-    assert.ok(!html.includes('Request donation follow-up') && html.includes('View request'))
+    assert.ok(!html.includes('Request donation follow-up') && html.includes('View matches'))
     assert.ok(!html.includes('Account settings') && !html.includes('Delete account'))
     assert.equal((html.match(/id="request-history-heading"/g) || []).length, 1)
   } finally { React.useState = originalState }
