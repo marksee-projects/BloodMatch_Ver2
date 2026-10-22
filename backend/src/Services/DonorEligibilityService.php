@@ -11,6 +11,13 @@ use BloodMatch\Services\Exceptions\WindowBlockedException;
 
 final class DonorEligibilityService
 {
+    public static function displayAvailability(array $user): ?string
+    {
+        $window = self::evaluateWindows($user['last_verified_donation_at'] ?? null);
+        if ($window['blocked']) return 'cooldown';
+        $availability = $user['donor_availability'] ?? null;
+        return $availability === 'standby' && !empty($user['last_verified_donation_at']) ? 'available' : $availability;
+    }
     public static function nowUtc(): string
     {
         return AuthService::nowUtc();
@@ -46,19 +53,8 @@ final class DonorEligibilityService
         }
         $nowTs = strtotime($nowUtc . ' UTC');
 
-        $standbyEndTs = $anchorTs + $settings['standby_hours'] * 3600;
         $cooldownEndTs = $anchorTs + $settings['cooldown_days'] * 86400;
-        $eligibleAgainTs = max($standbyEndTs, $cooldownEndTs);
-
-        if ($nowTs < $standbyEndTs) {
-            return [
-                'blocked' => true,
-                'which' => 'standby',
-                'ends_at_utc' => gmdate('Y-m-d H:i:s', $standbyEndTs),
-                'eligible_again_at_utc' => gmdate('Y-m-d H:i:s', $eligibleAgainTs),
-                'remaining_seconds' => max(0, $standbyEndTs - $nowTs),
-            ];
-        }
+        $eligibleAgainTs = $cooldownEndTs;
 
         if ($nowTs < $cooldownEndTs) {
             return [

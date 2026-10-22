@@ -35,6 +35,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   const navigate = useNavigate()
   const loadSequence = useRef(0)
   const clearingRead = useRef(false)
+  const openedRead = useRef(false)
 
   const toggleOpen = () => setOpen(current => !current)
 
@@ -63,7 +64,10 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
     try {
       const qs = filter === 'unread' ? '&read=unread' : ''
       const d = await api.get(`/api/notifications?page=1&page_size=${PREVIEW_SIZE}${qs}`)
-      if (sequence === loadSequence.current) setData(d)
+      if (sequence === loadSequence.current) {
+        setData(d)
+        return d
+      }
     } catch (err) {
       if (sequence === loadSequence.current) setError(err.message || 'Could not load notifications.')
     } finally {
@@ -72,14 +76,22 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
   }, [filter])
 
   useEffect(() => {
+    let active = true
     if (open) {
-      load()
+      load().then(result => {
+        if (active && result && !openedRead.current && unread > 0) {
+          openedRead.current = true
+          markAllRead()
+        }
+      })
       closeRef.current?.focus()
     } else {
+      openedRead.current = false
       loadSequence.current++
       setData(null)
       setError(null)
     }
+    return () => { active = false }
   }, [open, filter, load])
 
   useEffect(() => {
@@ -148,7 +160,7 @@ export default function NotificationFlyout({ unread = 0, setUnread = () => {}, v
     }
   }
 
-  const badge = open ? null : formatBadge(unread)
+  const badge = formatBadge(unread)
   const label = `Notifications${unread > 0 ? `, ${unread} unread` : ''}`
 
   const panel = open && (

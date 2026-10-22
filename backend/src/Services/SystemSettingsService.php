@@ -11,7 +11,7 @@ use RuntimeException;
 final class SystemSettingsService
 {
     private const SPEC = [
-        'standby_hours' => [1, 720],
+        'standby_hours' => [0, 720],
         'cooldown_days' => [1, 1825],
     ];
 
@@ -31,6 +31,9 @@ final class SystemSettingsService
         foreach ($rows as $row) {
             $settings[$row['setting_key']] = $row['value'];
         }
+
+        // Post-donation standby is retired; keep the key neutral for older callers.
+        $settings['standby_hours'] = 0;
 
         foreach (self::SPEC as $key => [$min, $max]) {
             if (!isset($settings[$key]) || !preg_match('/^\d+$/', (string) $settings[$key])) {

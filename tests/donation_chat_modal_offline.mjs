@@ -103,7 +103,27 @@ try{
   check(html.includes('Donation received')&&html.includes('Did not donate')&&html.includes('Not sure')&&!html.includes('>I donated<'),'Requester retains all three acknowledgment choices')
   button('Donation received').props.onClick();await tick()
   check(calls.at(-1).path==='/api/donation-completion/5/acknowledge'&&calls.at(-1).body.expected_version===4,'Acknowledgment remains bound to canonical report version')
+  render()
+  check(button('Donation received').props.disabled,'Successful acknowledgment stays disabled even before the polled report changes')
+  const acknowledgedCalls=calls.length
+  button('Donation received').props.onClick();await tick()
+  check(calls.length===acknowledgedCalls,'Repeated successful acknowledgment sends no additional request')
   context.report_in_context=false;html=render()
   check(!html.includes('>Donation received<'),'Other offer-cycle report cannot be acknowledged through this card')
+  context.report=null;context.report_in_context=true;states=[];refs=[]
+  render();button('Report donation').props.onClick();render()
+  const prompt=button('Ask donor to report for donation')
+  const beforePrompt=calls.length
+  prompt.props.onClick();prompt.props.onClick();await tick();render()
+  check(calls.length===beforePrompt+1&&button('Reminder sent').props.disabled,'Rapid requester reminder clicks send once and disable the button')
+  const sentCalls=calls.length
+  button('Reminder sent').props.onClick();await tick()
+  check(calls.length===sentCalls,'Repeated reminder after success sends no additional request')
+  states=[];refs=[];context.last_donor_prompt_at=new Date().toISOString().slice(0,19).replace('T',' ')
+  render();button('Report donation').props.onClick();render()
+  check(button('Reminder sent').props.disabled,'Server reminder timestamp keeps the button disabled after remount')
+  states=[];refs=[];context.last_donor_prompt_at=new Date(Date.now()-86401000).toISOString().slice(0,19).replace('T',' ')
+  render();button('Report donation').props.onClick();render()
+  check(!button('Ask donor to report for donation').props.disabled,'Reminder becomes available after the existing 24-hour limit')
   console.log(`${checks} chat donation-modal checks passed; API mocked, no HTTP/database/files/SMTP.`)
 }finally{React.useState=originalState;React.useRef=originalRef}

@@ -231,7 +231,7 @@ final class AuthService
             'chapter_name' => $user['chapter_name'] ?? null,
             'blood_type' => $user['blood_type'] ?? null,
             'donor_enrolled' => !empty($user['donor_enrolled_at']),
-            'availability' => $user['donor_availability'] ?? null,
+            'availability' => DonorEligibilityService::displayAvailability($user),
             'availability_window' => $window,
             'pending_report_hold' => \BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$user['id']),
             'donor_eligible' => $eligibility['eligible'],

@@ -1,7 +1,7 @@
 import { useActionNoticeState } from '../context/NotificationContext'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { liveQueryOptions } from '../services/liveQueries'
 import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -41,6 +41,7 @@ function eligibilityMessage(user) {
 }
 
 export default function MatchesPage() {
+  const queryClient = useQueryClient()
   const { id } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -143,7 +144,9 @@ export default function MatchesPage() {
     try {
       setReportError('')
       if (new Date(donationTimeToUtc(occurredAt)).getTime() > Date.now()) throw new Error('Choose a donation time that has already passed. Future donations cannot be reported.')
-      await api.postForm('/api/donation-reports', donationReportForm(reportingMatchId, occurredAt, proofPhotos))
+      const result = await api.postForm('/api/donation-reports', donationReportForm(reportingMatchId, occurredAt, proofPhotos))
+      if (result?.report?.id) queryClient.setQueriesData({ queryKey: ['donation-offer-status', reportingMatchId] }, current => current ? { ...current, report_id: result.report.id } : current)
+      await queryClient.invalidateQueries({ queryKey: ['donation-offer-status'] })
       setMessage('Donation report sent to the requester for acknowledgment. Your donor offers are held while it is unresolved.')
       setReportingMatchId(null)
       setOccurredAt('')
@@ -305,7 +308,7 @@ export default function MatchesPage() {
           <form className={styles.modalContent} onSubmit={onSubmitReport} role="dialog" aria-modal="true" aria-labelledby="report-title">
             <h2 id="report-title" className={styles.reportTitle}>Report completed donation</h2>
             <p className={styles.reportDescription}>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
-            <DonationDateTimeFields value={occurredAt} onChange={setOccurredAt} />
+            <DonationDateTimeFields value={occurredAt} onChange={value => { setOccurredAt(value); setReportError('') }} />
             <DonationProofInput files={proofPhotos} onChange={setProofPhotos} disabled={submittingReport} />
             {reportError && <p className="alert alert-error" role="alert">{reportError}</p>}
             <div className={styles.modalActions}><Button type="button" variant="secondary" disabled={submittingReport} onClick={() => setReportingMatchId(null)}>Cancel</Button><Button type="submit" isLoading={submittingReport}>Send report</Button></div>

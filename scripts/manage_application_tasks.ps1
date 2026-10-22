@@ -46,7 +46,7 @@ foreach ($spec in $specs) {
         'Install' {
             $taskAction = New-ScheduledTaskAction -Execute $spec.Execute -Argument $spec.Arguments -WorkingDirectory $workspace
             $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 1)
-            $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 10)
+            $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -ExecutionTimeLimit (New-TimeSpan -Minutes 10) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
             $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
             $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
             Register-ScheduledTask -TaskName $spec.Name -Action $taskAction -Trigger $trigger -Settings $settings -Principal $principal -Description 'BloodMatch approved local application target bloodmatch:3306; no deployed target.' | Out-Null

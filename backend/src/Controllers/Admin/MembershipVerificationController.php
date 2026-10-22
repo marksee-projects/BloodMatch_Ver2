@@ -100,6 +100,7 @@ final class MembershipVerificationController
                 'id' => (int) $d['id'],
                 'doc_type' => (string) $d['doc_type'],
                 'mime_type' => (string) $d['mime_type'],
+                'document_side' => $d['document_side'] ?? null,
                 'size_bytes' => (int) $d['size_bytes'],
                 'uploaded_at' => (string) $d['uploaded_at'],
             ], $documents),

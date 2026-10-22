@@ -72,7 +72,9 @@ export default function MyResponsesPage() {
     setErrorMessage(null)
     setSuccessMessage(null)
     try {
-      await api.postForm('/api/donation-reports', donationReportForm(reportingMatchId, occurredAt, proofPhotos))
+      const result = await api.postForm('/api/donation-reports', donationReportForm(reportingMatchId, occurredAt, proofPhotos))
+      if (result?.report?.id) queryClient.setQueriesData({ queryKey: ['donation-offer-status', reportingMatchId] }, current => current ? { ...current, report_id: result.report.id } : current)
+      await queryClient.invalidateQueries({ queryKey: ['donation-offer-status'] })
       setSuccessMessage('Donation report sent to the requester. A separate report hold applies while it is unresolved.')
       setReportingMatchId(null)
       setOccurredAt('')
@@ -195,7 +197,7 @@ export default function MyResponsesPage() {
           >
             <h2 id="report-modal-title" className={styles.reportTitle}>Report completed donation</h2>
             <p className={styles.reportDescription}>The requester will be asked to acknowledge this donation. Your donor offers are held while the report is unresolved.</p>
-            <DonationDateTimeFields value={occurredAt} onChange={setOccurredAt} />
+            <DonationDateTimeFields value={occurredAt} onChange={value => { setOccurredAt(value); setErrorMessage(null) }} />
             <DonationProofInput files={proofPhotos} onChange={setProofPhotos} disabled={submittingReport} />
             <div className={styles.modalActions}>
               <Button type="button" variant="secondary" disabled={submittingReport} onClick={() => setReportingMatchId(null)}>

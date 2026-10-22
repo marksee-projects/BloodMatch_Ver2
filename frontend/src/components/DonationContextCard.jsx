@@ -30,14 +30,26 @@ function ContextWorkspace({ conversationId }) {
   const errorRef = useRef(null)
   const [error, setError] = useState('')
   const [feedback, setFeedback] = useState('')
+  const [sentPrompts, setSentPrompts] = useState({})
+  const [acknowledgedVersions, setAcknowledgedVersions] = useState({})
   useEffect(() => { if (error) { errorRef.current?.focus(); errorRef.current?.scrollIntoView({ block: 'nearest' }) } }, [error])
   const { data, error: loadError, refetch } = useQuery({ queryKey: ['donation-chat-contexts', conversationId, user?.id], queryFn: () => api.get(`/api/chat/conversations/${conversationId}/donation-contexts`), enabled: Boolean(conversationId), refetchInterval: 5000, retry: false })
   const contexts = data?.contexts || []
   const requested = new URLSearchParams(route.search).get('request')
   const context = contexts.find(c => String(c.id) === selected) || contexts.find(c => String(c.request_id) === requested) || contexts[0]
+  useEffect(() => {
+    // Incoming reports must not take over the requester's screen.
+    if (context?.report?.id && Number(context.donor_id) !== Number(user.id)) {
+      setModalOpen(false)
+      setFormOpen(false)
+    }
+  }, [context?.id, context?.report?.id, user.id])
   if (!context) return loadError ? <p role="alert">{loadError.message}</p> : null
   const report = context.report
   const donor = Number(context.donor_id) === Number(user.id)
+  const promptAt = sentPrompts[context.id] || context.last_donor_prompt_at
+  const promptSent = Boolean(promptAt && Date.now() - new Date(promptAt.includes('T') ? promptAt : promptAt.replace(' ', 'T') + 'Z').getTime() < 86400000)
+  const acknowledged = report && acknowledgedVersions[report.id] === report.content_version
   const run = async (task, success = 'Donation status updated.') => {
     if (pending.current) return
     pending.current = true; setBusy(true); setError(''); setFeedback('')
@@ -47,8 +59,22 @@ function ContextWorkspace({ conversationId }) {
       invalidateDonationViews(client)
     } catch (e) { setError(e.message); await refetch() } finally { pending.current = false; setBusy(false) }
   }
-  const signal = action => run(() => api.post(`/api/donation-contexts/${context.id}/signal`, { action, expected_version: Number(report?.content_version || 0) }), action === 'prompt_donor' ? () => 'The donor has been reminded.' : 'Coordination update recorded. This does not confirm a donation.')
-  const acknowledge = response => run(() => api.post(`/api/donation-completion/${report.id}/acknowledge`, { expected_version: Number(report.content_version), response }))
+  const signal = action => {
+    if (action === 'prompt_donor' && promptSent) return
+    return run(async () => {
+      const result = await api.post(`/api/donation-contexts/${context.id}/signal`, { action, expected_version: Number(report?.content_version || 0) })
+      if (action === 'prompt_donor') setSentPrompts(current => ({ ...current, [context.id]: new Date().toISOString() }))
+      return result
+    }, action === 'prompt_donor' ? 'The donor has been reminded. You can send another reminder after 24 hours.' : 'Coordination update recorded. This does not confirm a donation.')
+  }
+  const acknowledge = response => {
+    if (acknowledged) return
+    return run(async () => {
+      const result = await api.post(`/api/donation-completion/${report.id}/acknowledge`, { expected_version: Number(report.content_version), response })
+      setAcknowledgedVersions(current => ({ ...current, [report.id]: report.content_version }))
+      return result
+    })
+  }
   const submit = e => {
     e.preventDefault()
     run(() => {
@@ -61,7 +87,7 @@ function ContextWorkspace({ conversationId }) {
   const requestLabel = contextLabel(context)
   const summary = report ? donationStatus(report) : context.active ? 'Donation not reported' : 'Coordination inactive'
   return <>
-    <section className={styles.reminder} aria-label="Request donation status" data-donation-request={context.request_id} data-donation-report={report?.id || ''}>
+    <section className={styles.reminder} aria-label="Request donation status" data-donation-request={context.request_id} data-donation-report={report?.id || ''} data-donation-details-open={modalOpen ? 'true' : 'false'}>
       <div><strong>{summary}</strong><span title={requestLabel}>{requestLabel}</span></div>
       <Button type="button" variant="secondary" aria-haspopup="dialog" aria-expanded={modalOpen} onClick={() => { setSelected(String(context.id)); if (donor && !report) setFormOpen(true); setModalOpen(true) }}>Report donation</Button>
     </section>
@@ -72,13 +98,13 @@ function ContextWorkspace({ conversationId }) {
     {!(formOpen && !report) && <p><strong>{summary}</strong></p>}
     {feedback && <p role="status" className={styles.feedback}>{feedback}</p>}
     {!(formOpen && !report) && <div className={styles.actions}>
-      {!report && !donor && <div><Button variant="secondary" disabled={busy} onClick={() => signal('prompt_donor')}>Ask donor to report for donation</Button><small className={styles.promptHelp}>Sends a reminder only. It does not confirm a donation.</small></div>}
+      {!report && !donor && <div><Button variant="secondary" disabled={busy || promptSent} onClick={() => signal('prompt_donor')}>{promptSent ? 'Reminder sent' : 'Ask donor to report for donation'}</Button><small className={styles.promptHelp}>{promptSent ? 'Another reminder is available after 24 hours.' : 'Sends a reminder only. It does not confirm a donation.'}</small></div>}
       {report && context.report_in_context && !donor && report.status === 'PENDING' && !report.requester_response && report.workflow_state !== 'clarification' && <>
-        <Button disabled={busy} onClick={() => acknowledge('received')}>Donation received</Button><Button variant="secondary" disabled={busy} onClick={() => acknowledge('did_not_donate')}>Did not donate</Button><Button variant="secondary" disabled={busy} onClick={() => acknowledge('not_sure')}>Not sure</Button>
+        <Button disabled={busy || acknowledged} onClick={() => acknowledge('received')}>Donation received</Button><Button variant="secondary" disabled={busy || acknowledged} onClick={() => acknowledge('did_not_donate')}>Did not donate</Button><Button variant="secondary" disabled={busy || acknowledged} onClick={() => acknowledge('not_sure')}>Not sure</Button>
       </>}
     </div>}
     {formOpen && !report && <form className={styles.reportForm} onSubmit={submit} aria-busy={busy}>
-      <DonationDateTimeFields value={date} onChange={setDate} /><DonationProofInput files={photos} onChange={setPhotos} disabled={busy} />
+      <DonationDateTimeFields value={date} onChange={value => { setDate(value); setError('') }} /><DonationProofInput files={photos} onChange={setPhotos} disabled={busy} />
       {error && <p ref={errorRef} tabIndex={-1} role="alert" className={styles.error}>{error}</p>}
       <div className={`${styles.actions} ${styles.formActions}`}><Button type="button" variant="secondary" disabled={busy} onClick={() => setModalOpen(false)}>Cancel</Button><Button type="submit" isLoading={busy}>{busy ? 'Submitting…' : 'Submit donation report'}</Button></div>
     </form>}

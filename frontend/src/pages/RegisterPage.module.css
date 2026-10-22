@@ -251,6 +251,7 @@
 }
 
 .summaryItem {
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -265,9 +266,16 @@
 }
 
 .summaryItemValue {
+  overflow-wrap: anywhere;
   font-size: var(--text-sm);
   color: var(--color-text);
   font-weight: 500;
+}
+
+.summaryDocuments {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
 }
 
 /* Dropzone */

@@ -9,10 +9,7 @@ import {
   CheckCircle,
   Eye,
   EyeSlash,
-  FilePdf,
   ShieldCheck,
-  Trash,
-  UploadSimple,
   WarningCircle
 } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -21,6 +18,7 @@ import EmailVerificationDialog from '../components/EmailVerificationDialog'
 import LocationSelector from '../components/LocationSelector'
 import { registrationPayload, registrationFormData } from '../services/registrationPayload'
 import styles from './RegisterPage.module.css'
+import NationalIdUpload from '../components/NationalIdUpload'
 
 const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
 
@@ -55,11 +53,8 @@ export default function RegisterPage() {
   const [chapterError, setChapterError] = useState(null)
 
   const [idFile, setIdFile] = useState(null)
-  const [idPreview, setIdPreview] = useState(null)
+  const [idBackFile, setIdBackFile] = useState(null)
   const notify = useNotify()
-  const [uploadWiggle, setUploadWiggle] = useState(0)
-  const [idError, setIdError] = useState(null)
-  const [dragOver, setDragOver] = useState(false)
 
   const [stepErrors, setStepErrors] = useState({})
   const [serverErrors, setServerErrors] = useState({})
@@ -100,73 +95,6 @@ export default function RegisterPage() {
         return next
       })
     }
-  }
-
-  const validateFile = (file) => {
-    if (!file) return null
-    if (file.size > 5 * 1024 * 1024) {
-      return 'National ID file exceeds maximum size of 5 MB.'
-    }
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-    if (!allowed.includes(file.type)) {
-      return 'Invalid file type. Please upload a JPG, PNG, WEBP picture or PDF.'
-    }
-    return null
-  }
-
-  const processFile = (file) => {
-    const error = validateFile(file)
-    if (error) {
-      setIdError(error); setUploadWiggle(Date.now()); setIdFile(null)
-      if (idPreview) URL.revokeObjectURL(idPreview)
-      setIdPreview(null)
-      notify({ severity: 'error', message: error })
-      const input = document.getElementById('national_id_input'); if (input) input.value = ''
-      return
-    }
-    setIdError(null)
-    setIdFile(file)
-    if (file.type.startsWith('image/')) {
-      setIdPreview(URL.createObjectURL(file))
-    } else {
-      setIdPreview(null)
-    }
-  }
-
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      processFile(file)
-    }
-  }
-
-  const handleDrop = (e) => {
-    e.preventDefault()
-    setDragOver(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      processFile(file)
-    }
-  }
-
-  const handleDragOver = (e) => {
-    e.preventDefault()
-    setDragOver(true)
-  }
-
-  const handleDragLeave = (e) => {
-    e.preventDefault()
-    setDragOver(false)
-  }
-
-  const removeIdFile = () => {
-    setIdFile(null)
-    if (idPreview) URL.revokeObjectURL(idPreview)
-    setIdPreview(null)
-    setIdError(null)
-    const input = document.getElementById('national_id_input'); if (input) input.value = ''
-    setStepErrors(errors => { const { idFile, ...rest } = errors; return rest })
-    setServerErrors(errors => { const { national_id, idFile, ...rest } = errors; return rest })
   }
 
   const calculateAge = (dobString) => {
@@ -234,8 +162,8 @@ export default function RegisterPage() {
         errors.date_of_birth = 'Registration requires a minimum age of 16 years.'
       }
 
-      if (idFile && idError) {
-        errors.idFile = idError
+      if (Boolean(idFile) !== Boolean(idBackFile)) {
+        errors.idFile = 'Upload both the front and back of your National ID, or leave both empty to upload later.'
       }
       if (location.municipality_code && !location.location_id) {
         errors.location_id = 'Select a valid municipality and barangay from the list.'
@@ -286,7 +214,7 @@ export default function RegisterPage() {
       let registration
       const payload = registrationPayload(form, location)
       if (idFile) {
-        registration = await api.postForm('/api/register', registrationFormData(payload, idFile))
+        registration = await api.postForm('/api/register', registrationFormData(payload, idFile, idBackFile))
       } else {
         registration = await api.post('/api/register', payload)
       }
@@ -665,98 +593,13 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* National ID Upload Zone */}
-              <div className="field" style={{ marginTop: 'var(--space-2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 'var(--space-1)' }}>
-                  <label htmlFor="national_id_input" style={{ fontWeight: 600 }}>
-                    National ID Picture
-                  </label>
-                  <span className="muted" style={{ fontSize: 'var(--text-xs)' }}>Recommended for fast verification</span>
-                </div>
-
-                {!idFile ? (
-                  <div
-                    key={uploadWiggle} className={`${styles.dropzone} ${uploadWiggle ? 'feedback-wiggle' : ''} ${dragOver ? styles.dropzoneDragOver : ''}`}
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                  >
-                    <label
-                      htmlFor="national_id_input"
-                      style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-2)', width: '100%' }}
-                    >
-                      <UploadSimple size={28} weight="bold" style={{ color: 'var(--color-text-muted)' }} />
-                      <div>
-                        <span style={{ fontWeight: 600, textDecoration: 'underline' }}>Click to upload</span> or drag and drop ID here
-                        <div className="muted" style={{ fontSize: 'var(--text-xs)', marginTop: '2px' }}>
-                          JPG, PNG, WEBP or PDF (max 5 MB)
-                        </div>
-                      </div>
-                      <input
-                        id="national_id_input"
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp,application/pdf"
-                        aria-invalid={Boolean(idError)} aria-describedby={idError ? 'national-id-error' : undefined} onChange={handleFileChange}
-                        className="sr-only"
-                      />
-                    </label>
-                  </div>
-                ) : (
-                  <div className={styles.filePreviewCard}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)' }}>
-                      {idPreview ? (
-                        <img
-                          src={idPreview}
-                          alt="National ID Preview"
-                          style={{
-                            width: '48px',
-                            height: '48px',
-                            objectFit: 'cover',
-                            borderRadius: 'var(--radius-sm)',
-                            border: '1px solid var(--color-border)'
-                          }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: '48px',
-                            height: '48px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'var(--color-surface-hover)',
-                            borderRadius: 'var(--radius-sm)'
-                          }}
-                        >
-                          <FilePdf size={28} weight="fill" />
-                        </div>
-                      )}
-                      <div>
-                        <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{idFile.name}</div>
-                        <div className="muted" style={{ fontSize: 'var(--text-xs)' }}>
-                          {(idFile.size / 1024).toFixed(1)} KB · Ready to upload
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={removeIdFile}
-                      title="Remove file"
-                      aria-label="Remove uploaded ID file"
-                      style={{ color: 'var(--color-danger)' }}
-                    >
-                      <Trash size={16} />
-                    </button>
-                  </div>
-                )}
-
-                {idError && <span id="national-id-error" className="sr-only" role="status">{idError}</span>}
-                <small className="field-hint">
-                  Your ID document is securely encrypted and accessible only to assigned chapter officers for verification.
-                </small>
-              </div>
+              <section aria-labelledby="national-id-heading">
+                <h3 id="national-id-heading">National ID documents</h3>
+                <p className="field-hint">Upload the front and back of your National ID as two separate files. Use clear JPG, PNG, WEBP images or PDFs, up to 5 MB per file, with all details readable and no cropped edges. For a digital ID, save each side as a separate image or PDF. You may skip both uploads now and submit your ID later for membership verification. Your documents are stored securely and available only through authorized access.</p>
+                <NationalIdUpload side="front" file={idFile} onChange={setIdFile} />
+                <NationalIdUpload side="back" file={idBackFile} onChange={setIdBackFile} />
+                {stepErrors.idFile && <p className="field-error" role="alert">{stepErrors.idFile}</p>}
+              </section>
 
               <div className={styles.actionRow}>
                 <button
@@ -837,10 +680,11 @@ export default function RegisterPage() {
                     <span className={styles.summaryItemValue}>{form.phone || 'None provided'}</span>
                   </div>
                   <div className={styles.summaryItem}>
-                    <span className={styles.summaryItemLabel}>ID Document</span>
-                    <span className={styles.summaryItemValue}>
-                      {idFile ? `${idFile.name} (${(idFile.size / 1024).toFixed(1)} KB)` : 'None (optional)'}
-                    </span>
+                    <span className={styles.summaryItemLabel}>National ID documents</span>
+                    {idFile ? <div className={styles.summaryDocuments}>
+                      <span className={styles.summaryItemValue}><strong>Front:</strong> {idFile.name}</span>
+                      <span className={styles.summaryItemValue}><strong>Back:</strong> {idBackFile?.name || 'Missing'}</span>
+                    </div> : <span className={styles.summaryItemValue}>None (optional)</span>}
                   </div>
                 </div>
               </div>

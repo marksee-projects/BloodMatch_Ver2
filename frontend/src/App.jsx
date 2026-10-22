@@ -135,7 +135,7 @@ function AppShell() {
     const seen = new Set()
     const inCurrentView = notice => {
       const selector = notice.related_type === 'donation_report'
-        ? `[data-donation-report="${Number(notice.related_id)}"], #donation-report-${Number(notice.related_id)}`
+        ? `[data-donation-report="${Number(notice.related_id)}"][data-donation-details-open="true"], #donation-report-${Number(notice.related_id)}`
         : notice.related_type === 'blood_request' ? `[data-donation-request="${Number(notice.related_id)}"]` : null
       return selector ? [...document.querySelectorAll(selector)].some(element => { const rect = element.getBoundingClientRect(); return rect.height > 0 && rect.bottom > 0 && rect.top < window.innerHeight }) : false
     }

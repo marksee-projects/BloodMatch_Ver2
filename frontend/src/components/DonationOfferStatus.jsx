@@ -8,8 +8,10 @@ export function useDonationOfferStatus(matchId) {
 }
 export function DonationReportButton({ matchId, onClick, size = 'md' }) {
   const { data, error } = useDonationOfferStatus(matchId)
-  const accepted = !error && data?.status === 'accepted'
-  return <Button size={size} variant={accepted ? 'primary' : 'secondary'} disabled={!accepted} title={accepted ? undefined : 'Wait for the requester to accept your donor offer before reporting a donation.'} style={accepted ? undefined : { backgroundColor: 'var(--color-surface-sunken)', color: 'var(--color-text-muted)' }} onClick={onClick}>I donated</Button>
+  const submitted = Boolean(data?.report_id)
+  const canReport = !error && data?.status === 'accepted' && !submitted
+  const reason = submitted ? 'You already submitted a report. Open View donation report to track or correct it.' : 'Wait for the requester to accept your donor offer before reporting a donation.'
+  return <Button size={size} variant={canReport ? 'primary' : 'secondary'} disabled={!canReport} title={canReport ? undefined : reason} style={canReport ? undefined : { backgroundColor: 'var(--color-surface-sunken)', color: 'var(--color-text-muted)' }} onClick={canReport ? onClick : undefined}>{submitted ? 'Report submitted' : 'I donated'}</Button>
 }
 export default function DonationOfferStatus({ matchId }) {
   const { data, error } = useDonationOfferStatus(matchId)

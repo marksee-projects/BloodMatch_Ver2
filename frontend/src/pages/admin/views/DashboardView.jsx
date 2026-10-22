@@ -30,7 +30,7 @@ export default function DashboardView() {
     </section>
     <div className={styles.columns}>
       <section className={styles.card}><h2>Request outcomes</h2>{!overview.resolved_requests && <p>No resolved requests yet.</p>}<div className={styles.rates}>{rates.map(([label, count, rate]) => <div key={label}><div className={styles.rateLabel}><span>{label}</span><strong>{rate}% <span className={styles.muted}>({count})</span></strong></div><progress aria-label={label + ' requests'} max="100" value={rate} /></div>)}</div></section>
-      <section className={styles.card}><h2>Blood Donor Status</h2><dl className={styles.pool}>{['available', 'standby', 'cooldown', 'unavailable'].map(key => <div key={key}><dt>{key.charAt(0).toUpperCase() + key.slice(1)}</dt><dd>{pool[key]}</dd></div>)}</dl></section>
+      <section className={styles.card}><h2>Blood Donor Status</h2><dl className={styles.pool}>{['available', 'cooldown', 'unavailable'].map(key => <div key={key}><dt>{key.charAt(0).toUpperCase() + key.slice(1)}</dt><dd>{pool[key]}</dd></div>)}</dl></section>
     </div>
     <section className={styles.card}><div className={styles.activityHeader}><h2>Recent system activity</h2><Button to="/admin/audit-logs" variant="secondary">View Activity History</Button></div>{!logs.length ? <p className={styles.muted}>No recent activity recorded.</p> : <div className="table-container"><table><thead><tr><th>Time</th><th>Action</th><th>Actor</th><th>Record</th></tr></thead><tbody>{logs.map(log => <tr key={log.id}><td>{formatPhilippineDateTime(log.created_at)}</td><td>{log.action}</td><td>{log.actor_name || 'System / former member'}</td><td>{log.target_type || '-'}</td></tr>)}</tbody></table></div>}</section>
   </div>

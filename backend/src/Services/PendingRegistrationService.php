@@ -22,7 +22,18 @@ final class PendingRegistrationService
         }
         if ($prior) return ['email'=>$email,'email_verified'=>false,'pending_registration'=>true,'existing_pending'=>true];
         $stored=null;
-        if ($file!==null && ($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE) {
+        if (isset($file['sides'])) {
+            foreach ($file['sides'] as $side) {
+                if (!is_array($side) || ($side['error']??-1)!==UPLOAD_ERR_OK || !is_string($side['tmp_name']??null)) throw new RuntimeException('Upload both the front and back of your National ID, up to 5 MB each.',400);
+            }
+            $stored=['documents'=>[]];
+            try {
+                foreach ($file['sides'] as $index => $side) $stored['documents'][]=DocumentStorageService::store($side['tmp_name']) + ['document_side' => $index === 0 ? 'front' : 'back'];
+            } catch (\Throwable $e) {
+                self::removeDocument($stored);
+                throw $e;
+            }
+        } elseif ($file!==null && ($file['error']??UPLOAD_ERR_NO_FILE)!==UPLOAD_ERR_NO_FILE) {
             if (($file['error']??-1)!==UPLOAD_ERR_OK) throw new RuntimeException('Choose an ID file up to 5 MB.',400);
             $stored=DocumentStorageService::store((string)$file['tmp_name']);
         }
@@ -47,7 +58,9 @@ final class PendingRegistrationService
             $repo=new UserRepository();$id=$repo->create($payload);
             if ($r['document_json']) {
                 $doc=json_decode($r['document_json'],true,512,JSON_THROW_ON_ERROR);
-                $docId=(new DocumentRepository())->create($id,'national_id',$doc,AuthService::nowUtc());
+                foreach ($doc['documents'] ?? [$doc] as $document) {
+                    $docId=(new DocumentRepository())->create($id,'national_id',$document,AuthService::nowUtc());
+                }
                 NotificationService::notifyVerificationRequested($id,trim($payload['first_name'].' '.$payload['last_name']),$docId);
             }
             if (AuditLogger::log($id,'user.registered','user',(string)$id,['email_verified'=>true,'verification_status'=>'pending','privacy_notice_version'=>$payload['privacy_notice_version']??'unrecorded','privacy_acknowledged_at'=>$payload['privacy_acknowledged_at']??null])===null) throw new RuntimeException('Account creation could not be recorded. Try again.',503);
@@ -74,6 +87,10 @@ final class PendingRegistrationService
     }
     public static function removeDocument(array $doc): void
     {
+        if (isset($doc['documents'])) {
+            foreach ($doc['documents'] as $document) self::removeDocument($document);
+            return;
+        }
         $path=DocumentStorageService::pathFor((string)$doc['stored_name']);
         if (is_link($path)) throw new RuntimeException('Unsafe document path.');
         if (is_file($path) && !unlink($path)) throw new RuntimeException('Could not remove private document.');

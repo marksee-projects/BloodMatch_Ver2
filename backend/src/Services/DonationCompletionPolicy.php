@@ -21,7 +21,10 @@ final class DonationCompletionPolicy
         if (!$date || ($errors!==false && ($errors['warning_count'] || $errors['error_count']))) throw new RuntimeException('Invalid donation date or time.',400);
         $utc=$date->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s');
         if ($utc>$submittedAt) throw new RuntimeException('The donation time cannot be in the future.',400);
-        if ($utc<$responseAt) throw new RuntimeException('The donation time cannot precede the recorded donor response.',400);
+        if ($utc<$responseAt) {
+            $earliest=(new \DateTimeImmutable($responseAt,new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone('Asia/Manila'))->format('M j, Y g:i:s A');
+            throw new RuntimeException('The donation time cannot precede the recorded donor response. Choose the actual donation time on or after '.$earliest.' (Philippine time). Check AM/PM.',400);
+        }
         return $utc;
     }
 

@@ -14,11 +14,16 @@ export function registrationPayload(form, location) {
   }
 }
 
-export function registrationFormData(payload, idFile) {
+export function registrationFormData(payload, idFile, idBackFile) {
   const data = new FormData()
   for (const [key, value] of Object.entries(payload)) {
     if (value !== null && value !== undefined) data.append(key, String(value))
   }
-  data.append('national_id', idFile)
+  if (idBackFile) {
+    data.append('national_id_front', idFile)
+    data.append('national_id_back', idBackFile)
+  } else if (idFile) {
+    data.append('national_id', idFile)
+  }
   return data
 }

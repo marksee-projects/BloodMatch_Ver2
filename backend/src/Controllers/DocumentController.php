@@ -51,46 +51,41 @@ final class DocumentController
             return;
         }
 
-        if (!isset($_FILES['file']) || !is_array($_FILES['file'])) {
-            Response::error('No file was uploaded.', 400);
-            return;
+        $pair = isset($_FILES['national_id_front']) || isset($_FILES['national_id_back']);
+        if ($pair && $docType !== 'national_id') { Response::error('Paired uploads are for National ID only.',400); return; }
+        $files = $pair ? [$_FILES['national_id_front'] ?? null, $_FILES['national_id_back'] ?? null] : [$_FILES['file'] ?? null];
+        foreach ($files as $candidate) {
+            if (is_array($candidate) && (in_array($candidate['error'] ?? null,[UPLOAD_ERR_INI_SIZE,UPLOAD_ERR_FORM_SIZE],true) || ($candidate['size'] ?? 0)>DocumentStorageService::maxBytes())) {
+                Response::error('File exceeds the maximum size of 5 MB.',413); return;
+            }
+            if (!is_array($candidate) || ($candidate['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_string($candidate['tmp_name'] ?? null)) {
+                Response::error($pair ? 'Upload both National ID front and back.' : 'No valid file was uploaded.',400); return;
+            }
         }
-
-        $file = $_FILES['file'];
-        if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-            $message = match ((int) $file['error']) {
-                UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'File exceeds the maximum allowed upload size.',
-                UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
-                UPLOAD_ERR_PARTIAL => 'Upload was interrupted. Please retry.',
-                default => 'Upload failed.',
-            };
-            Response::error($message, (int) $file['error'] === UPLOAD_ERR_INI_SIZE || (int) $file['error'] === UPLOAD_ERR_FORM_SIZE ? 413 : 400);
-            return;
-        }
-
-        if (($file['size'] ?? 0) > DocumentStorageService::maxBytes()) {
-            Response::error('File exceeds the maximum size of 5 MB.', 413);
-            return;
-        }
-
+        $storedDocuments=[];
         try {
-            $stored = DocumentStorageService::store((string) $file['tmp_name']);
+            foreach ($files as $index => $file) {
+                $storedDocuments[]=DocumentStorageService::store($file['tmp_name']) + ['document_side'=>$pair ? ($index === 0 ? 'front' : 'back') : null];
+            }
         } catch (\RuntimeException $e) {
-            Response::error($e->getMessage(), 400);
-            return;
+            foreach ($storedDocuments as $document) \BloodMatch\Services\PendingRegistrationService::removeDocument($document);
+            Response::error($e->getMessage(),400); return;
         }
+        $stored=$storedDocuments[count($storedDocuments)-1];
 
         try {
-            [$docId,$verificationStatus,$resubmitted]=\BloodMatch\Services\WorkflowLockService::transaction(function () use ($actor,$docType,$stored) {
+            [$docId,$verificationStatus,$resubmitted]=\BloodMatch\Services\WorkflowLockService::transaction(function () use ($actor,$docType,$storedDocuments) {
                 $current=\BloodMatch\Services\WorkflowLockService::users([(int)$actor['id']])[(int)$actor['id']];
                 \BloodMatch\Services\WorkflowLockService::assertActiveActor($current);
                 if ($docType==='national_id' && $current['verification_status']==='verified') {
                     throw new \RuntimeException('National ID uploads are locked after verification.',403);
                 }
-                $docId=(new DocumentRepository())->create((int)$current['id'],$docType,$stored,AuthService::nowUtc());
-                AuditLogger::log((int)$current['id'],'document.uploaded','member_document',(string)$docId,[
-                    'doc_type'=>$docType,'mime_type'=>$stored['mime_type'],
-                ]);
+                foreach ($storedDocuments as $stored) {
+                    $docId=(new DocumentRepository())->create((int)$current['id'],$docType,$stored,AuthService::nowUtc());
+                    AuditLogger::log((int)$current['id'],'document.uploaded','member_document',(string)$docId,[
+                        'doc_type'=>$docType,'mime_type'=>$stored['mime_type'],'document_side'=>$stored['document_side'],
+                    ]);
+                }
                 $verificationStatus=$current['verification_status'];$resubmitted=false;
                 if ($docType==='national_id' && $current['role']==='member') {
                     if ($verificationStatus==='unverified') {
@@ -108,8 +103,7 @@ final class DocumentController
             });
         } catch (\Throwable $e) {
             // Only this newly stored, validated random file; never historical documents.
-            $path=DocumentStorageService::pathFor($stored['stored_name']);
-            if (is_file($path) && !@unlink($path)) { error_log('[documents] failed to remove an uncommitted upload'); }
+            foreach ($storedDocuments as $document) \BloodMatch\Services\PendingRegistrationService::removeDocument($document);
             $code=$e instanceof \RuntimeException && in_array((int)$e->getCode(),[403,409],true)?(int)$e->getCode():503;
             Response::error($code===403?'National ID uploads are locked after verification.':'Could not save the document and review alerts. Please retry.',$code);
             return;
@@ -145,6 +139,7 @@ final class DocumentController
             'id' => (int) $d['id'],
             'doc_type' => (string) $d['doc_type'],
             'mime_type' => (string) $d['mime_type'],
+            'document_side' => $d['document_side'] ?? null,
             'size_bytes' => (int) $d['size_bytes'],
             'uploaded_at' => (string) $d['uploaded_at'],
         ], $docs)]);

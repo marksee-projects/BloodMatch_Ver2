@@ -17,6 +17,9 @@ final class RegisterController
 
         $input = !empty($_POST) ? $_POST : \BloodMatch\Utils\Request::json();
         $file = isset($_FILES['national_id']) && is_array($_FILES['national_id']) ? $_FILES['national_id'] : null;
+        if (isset($_FILES['national_id_front']) || isset($_FILES['national_id_back'])) {
+            $file = ['sides' => [$_FILES['national_id_front'] ?? null, $_FILES['national_id_back'] ?? null]];
+        }
 
         try {
             $user = $service->register($input, $file);

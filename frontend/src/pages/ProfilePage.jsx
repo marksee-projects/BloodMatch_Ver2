@@ -1,10 +1,13 @@
+import NationalIdUpload from '../components/NationalIdUpload'
+import DocumentPreview from '../components/DocumentPreview'
+import { documentLabel } from '../services/documentLabels'
 import RequestPostMenu from '../components/RequestPostMenu'
 import RequestHistoryActions from '../components/RequestHistoryActions'
 import { useActionNoticeState } from '../context/NotificationContext'
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
-import { ArrowLeft, Camera, CheckCircle, Drop, FileText, UploadSimple, User, ChatCircleDots } from '@phosphor-icons/react'
+import { ArrowLeft, Camera, CheckCircle, Drop, FileText, User, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
 import { useChat } from '../context/ChatContext'
@@ -65,8 +68,9 @@ export default function ProfilePage() {
   const [enrolling, setEnrolling] = useState(false)
   const [file, setFile] = useState(null)
   const [documentInputKey, setDocumentInputKey] = useState(0)
+  const [backFile, setBackFile] = useState(null)
+  const [previewDocument, setPreviewDocument] = useState(null)
   const [documentUploading, setDocumentUploading] = useState(false)
-  const [failedDocumentPreviewId, setFailedDocumentPreviewId] = useState(null)
   const [idPrivacyModalOpen, setIdPrivacyModalOpen] = useState(false)
   const [pictureInputKey, setPictureInputKey] = useState(0)
   const [pictureUploading, setPictureUploading] = useState(false)
@@ -260,19 +264,25 @@ export default function ProfilePage() {
       setErrorAlert('National ID uploads are locked after verification.')
       return
     }
-    if (!file) {
-      setErrorAlert('Select a National ID file to upload.')
+    if (!file || !backFile) {
+      setErrorAlert('Select both the front and back of your National ID.')
       return
     }
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
-    if (!allowedTypes.includes(file.type) || file.size > 5 * 1024 * 1024) {
+    if ([file, backFile].some(item => !allowedTypes.includes(item.type) || !item.size || item.size > 5 * 1024 * 1024)) {
       setErrorAlert('Choose a JPG, PNG, WEBP, or PDF file no larger than 5 MB.')
       return
     }
     setDocumentUploading(true)
     try {
-      await api.upload('/api/profile/documents', file, { doc_type: 'national_id', privacy_acknowledged: '1' })
+      const body = new FormData()
+      body.append('doc_type', 'national_id')
+      body.append('privacy_acknowledged', '1')
+      body.append('national_id_front', file)
+      body.append('national_id_back', backFile)
+      await api.postForm('/api/profile/documents', body)
       setFile(null)
+      setBackFile(null)
       setDocumentInputKey((key) => key + 1)
       await refetch()
       setMessage('National ID submitted for review.')
@@ -463,7 +473,7 @@ export default function ProfilePage() {
         <nav className={styles.headerNav} aria-label="Profile sections">
           {[['overview', 'Overview'], ['verification', 'Verification'], ['history', 'History'], ['expired', 'Expired posts']].map(([section, label]) => (
             <button key={section} type="button" title={section === 'history' ? 'Donation History' : undefined} aria-current={activeSection === section || (section === 'overview' && activeSection === 'edit') ? 'page' : undefined}
-              onClick={() => { setActiveSection(section); setEditingRequestId(null); setCancelTarget(null) }}>{label}</button>
+              onClick={() => { setActiveSection(section); setPreviewDocument(null); setEditingRequestId(null); setCancelTarget(null) }}>{label}</button>
           ))}
         </nav>
       </header>
@@ -536,11 +546,11 @@ export default function ProfilePage() {
               <form onSubmit={onUpload} className={styles.verificationUpload}>
                 <FileText size={30} weight="duotone" aria-hidden="true" />
                 <div><h3>{profile.verification_status === 'rejected' ? 'Choose a replacement ID' : 'Upload your National ID'}</h3><p>Use a clear JPG, PNG, WEBP, or PDF up to 5 MB.</p></div>
-                <input key={documentInputKey} id="profile-national-id" className={styles.visuallyHidden} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event) => setFile(event.target.files?.[0] || null)} />
+                <p>Upload clear front and back images or PDFs as two separate files, up to 5 MB each.</p>
+                <NationalIdUpload key={'front-' + documentInputKey} side="front" file={file} onChange={setFile} />
+                <NationalIdUpload key={'back-' + documentInputKey} side="back" file={backFile} onChange={setBackFile} />
                 <div className={styles.verificationActions}>
-                  <label htmlFor="profile-national-id" className={styles.filePicker}><UploadSimple size={18} /> {file ? 'Choose another file' : 'Choose a file'}</label>
-                  {file && <span className={styles.fileName}>{file.name}</span>}
-                  {file && <Button type="submit" isLoading={documentUploading}>{profile.verification_status === 'rejected' ? 'Request another review' : 'Submit for review'}</Button>}
+                  {file && backFile && <Button type="submit" isLoading={documentUploading}>{profile.verification_status === 'rejected' ? 'Request another review' : 'Submit for review'}</Button>}
                   <button type="button" className={styles.privacyLink} onClick={() => setIdPrivacyModalOpen(true)}>Review the privacy notice</button>
                 </div>
               </form>
@@ -549,17 +559,16 @@ export default function ProfilePage() {
                 <CheckCircle size={30} weight="duotone" aria-hidden="true" />
                 <div><h3>{profile.verification_status === 'verified' ? (nationalIdDocuments.length ? 'National ID verified' : 'Account verified') : 'Review in progress'}</h3><p>{profile.verification_status === 'verified' ? 'National ID uploads are locked after verification.' : 'You will receive a notification when the review is complete.'}</p></div>
                 <div className={styles.verificationActions}>
-                  {nationalIdDocuments[0] && <Button to={`/api/profile/documents/${nationalIdDocuments[0].id}/file`} target="_blank" rel="noreferrer" variant="secondary" size="sm">View uploaded ID</Button>}
+
                   <button type="button" className={styles.privacyLink} onClick={() => setIdPrivacyModalOpen(true)}>Review the privacy notice</button>
                 </div>
               </div>
             )}
-            {nationalIdDocuments[0] && ['image/jpeg', 'image/png', 'image/webp'].includes(nationalIdDocuments[0].mime_type) && (
-              failedDocumentPreviewId === nationalIdDocuments[0].id
-                ? <p className={styles.documentPreviewNote} role="status">The image preview could not be loaded. Use View uploaded ID to open the document.</p>
-                : <img className={styles.documentPreview} src={`/api/profile/documents/${nationalIdDocuments[0].id}/file`}
-                    alt="Your uploaded National ID" loading="lazy" onError={() => setFailedDocumentPreviewId(nationalIdDocuments[0].id)} />
-            )}
+            {nationalIdDocuments.map(document => <div key={document.id} className={styles.verificationActions}>
+              <strong>{documentLabel(document)}</strong>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setPreviewDocument(document)}>View {documentLabel(document)}</Button>
+            </div>)}
+            {previewDocument && <DocumentPreview key={previewDocument.id} document={previewDocument} owner onClose={() => setPreviewDocument(null)} />}
             {profile.verification_status === 'verified' && nationalIdDocuments.length === 0 && <p className={styles.documentPreviewNote}>No uploaded National ID is available for this account.</p>}
           </Card>
           )}

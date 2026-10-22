@@ -12,8 +12,8 @@ final class DocumentRepository
     public function create(int $userId, string $docType, array $stored, string $nowUtc): int
     {
         $stmt = Database::pdo()->prepare(
-            'INSERT INTO member_documents (user_id, doc_type, stored_name, mime_type, original_ext, size_bytes, uploaded_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO member_documents (user_id, doc_type, stored_name, mime_type, original_ext, size_bytes, uploaded_at, document_side)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->execute([
             $userId,
@@ -23,6 +23,7 @@ final class DocumentRepository
             $stored['original_ext'],
             $stored['size_bytes'],
             $nowUtc,
+            $docType === 'national_id' ? ($stored['document_side'] ?? null) : null,
         ]);
         return (int) Database::pdo()->lastInsertId();
     }
@@ -30,7 +31,7 @@ final class DocumentRepository
     public function listByUser(int $userId): array
     {
         $stmt = Database::pdo()->prepare(
-            'SELECT id, doc_type, mime_type, original_ext, size_bytes, uploaded_at
+            'SELECT id, doc_type, mime_type, original_ext, size_bytes, uploaded_at, document_side
              FROM member_documents WHERE user_id = ? ORDER BY id ASC'
         );
         $stmt->execute([$userId]);

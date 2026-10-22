@@ -1,3 +1,4 @@
+import { documentLabel } from '../../../services/documentLabels'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../../../context/AuthContext'
 import { liveQueryOptions } from '../../../services/liveQueries'
@@ -257,7 +258,7 @@ export default function VerificationsView() {
                     </div>
                     <div className={styles.documentInfo}>
                       <div className={styles.documentTitle}>
-                        <strong>National ID</strong>
+                        <strong>{documentLabel(document)}</strong>
                         {index === 0 && <span className="badge">Latest</span>}
                       </div>
                       <dl className={styles.documentMeta}>
@@ -267,7 +268,7 @@ export default function VerificationsView() {
                       </dl>
                     </div>
                     <button type="button" className="btn btn-secondary btn-sm" onClick={() => setPreviewDocument(document)}>
-                      Inspect National ID
+                      Inspect {documentLabel(document)}
                     </button>
                   </article>
                 ))}

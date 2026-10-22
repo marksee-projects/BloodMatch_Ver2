@@ -102,7 +102,7 @@ final class DonationCompletionService
         $donor=$users[(int)$row['donor_id']];
         // Historical field name retained for compatibility: it is a platform restriction anchor, not a medical verification claim.
         (new UserRepository())->setLastVerifiedDonation((int)$row['donor_id'],DonationCompletionPolicy::restrictionAnchor($donor['last_verified_donation_at'],$row['occurred_at']));
-        (new UserRepository())->setAvailability((int)$row['donor_id'],'standby');
+        (new UserRepository())->setAvailability((int)$row['donor_id'],'available');
         DonationStorageRepository::releaseHold((int)$row['id'],$now,$reviewer['id']??null,'donation_recorded',$basis==='mutual'?'Mutually acknowledged donation recorded.':$reason);
         (new MatchRepository())->setStatus((int)$match['id'],'COMPLETED');
         $row=array_replace($row,['status'=>'CONFIRMED','workflow_state'=>'completed','completion_basis'=>$basis,'confirmed_at'=>$now,'reviewed_at'=>$reviewer!==null?$now:$row['reviewed_at']]);

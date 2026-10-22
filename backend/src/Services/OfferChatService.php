@@ -94,6 +94,7 @@ final class OfferChatService
         foreach($rows as &$row) {
             $row['active']=$row['request_status']==='OPEN'&&!RequestService::hasDeadlinePassed($row)&&$row['offer_status']==='RESPONDED'&&(int)$row['offer_cycle']===(int)$row['current_cycle'];
             $row['report']=$row['report_id']?(new DonationReportRepository())->findById((int)$row['report_id']):null;
+            $prompt=Database::pdo()->prepare("SELECT MAX(created_at) FROM donation_coordination_events WHERE context_id=? AND action='prompt_donor'");$prompt->execute([$row['id']]);$row['last_donor_prompt_at']=$prompt->fetchColumn()?:null;
             $row['report_in_context']=!$row['report'] || empty($row['report']['offer_context_id']) || (int)$row['report']['offer_context_id']===(int)$row['id'];
             $q=Database::pdo()->prepare('SELECT actor_reference,action,created_at FROM donation_coordination_events WHERE context_id=? ORDER BY id DESC LIMIT 10');$q->execute([$row['id']]);$row['coordination']=$q->fetchAll();
         }unset($row);return $rows;

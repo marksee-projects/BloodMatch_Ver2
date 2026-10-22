@@ -310,7 +310,7 @@ final class ProfileController
                 ? \BloodMatch\Services\LocationService::findById((int) $user['location_id'])
                 : null,
             'donor_enrolled' => $user['donor_enrolled_at'] !== null,
-            'availability' => $user['donor_availability'],
+            'availability' => \BloodMatch\Services\DonorEligibilityService::displayAvailability($user),
             'non_response_standby' => null, // Retired; neutral field for API compatibility.
             'pending_report_hold' => \BloodMatch\Repositories\DonationWorkflowRepository::hasHold((int)$user['id']),
             'donor_eligible' => \BloodMatch\Services\DonorEligibilityService::evaluateDonor($user)['eligible'],
@@ -324,6 +324,7 @@ final class ProfileController
                 'id' => (int) $d['id'],
                 'doc_type' => (string) $d['doc_type'],
                 'mime_type' => (string) $d['mime_type'],
+                'document_side' => $d['document_side'] ?? null,
                 'size_bytes' => (int) $d['size_bytes'],
                 'uploaded_at' => (string) $d['uploaded_at'],
             ], $documents),
