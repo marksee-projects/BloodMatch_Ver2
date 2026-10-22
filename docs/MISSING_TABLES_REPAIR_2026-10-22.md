@@ -1,5 +1,7 @@
 **Missing-table repair — October 22, 2026**
 
+**Later checkpoint:** GD and encrypted proof storage have now been configured, and the browser donation journey through requester acknowledgment, completion, and fulfillment has passed. See [full workflow verification](DONATION_WORKFLOW_VERIFICATION_2026-10-22.md). The remaining-limitations section below describes the earlier repair checkpoint.
+
 Main database `bloodmatch` on `127.0.0.1:3306` now has migrations **028, 030, and 031**. The previously failing presence, other-member profiles, offer acceptance, donation report access, and logout checks passed in the browser retest.
 
 | Migration | Changes applied |

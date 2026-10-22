@@ -84,6 +84,12 @@ export default function ProfilePage() {
   const cancelBusyRef = useRef(false)
 
   const { data, isLoading, error: profileError, refetch } = useQuery({
+    staleTime: 0,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: activeSection !== 'edit' && !documentUploading && !pictureUploading,
+    refetchOnReconnect: activeSection !== 'edit' && !documentUploading && !pictureUploading,
+    refetchInterval: activeSection === 'edit' || documentUploading || pictureUploading || submitting ? false : 10000,
+    refetchIntervalInBackground: false,
     queryKey: isOtherProfile ? ['member-profile', profileId, user?.id] : ['profile', user?.id],
     enabled: Boolean(user?.id),
     queryFn: async () => {

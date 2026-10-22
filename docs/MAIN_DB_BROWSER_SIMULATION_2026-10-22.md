@@ -1,5 +1,7 @@
 **Main database browser simulation — October 22, 2026 (Singapore/Philippines time)**
 
+**Latest checkpoint:** encrypted proof upload and the full requester/donor completion flow have since passed on main. See [proof and donation workflow verification](DONATION_WORKFLOW_VERIFICATION_2026-10-22.md). The reports below preserve the earlier findings; scheduled automation and broader administrative features remain separately unverified.
+
 **Follow-up:** the missing-schema failures below were subsequently repaired with migrations 028, 030, and 031. All nine targeted browser retests passed, including requester acceptance, two-way chat, donation report access, and logout. See the [repair and retest record](MISSING_TABLES_REPAIR_2026-10-22.md). The original results below are retained as history; proof upload, full donation completion, and scheduler verification remain outstanding.
 
 The requester/donor browser simulation found working account, matching-response, notification, and OTP flows, but the full donation/chat journey cannot complete against the current main database. Missing migrations cause reproducible HTTP 500/503 errors, including logout failure.

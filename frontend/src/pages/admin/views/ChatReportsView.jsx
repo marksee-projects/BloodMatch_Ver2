@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../../../context/AuthContext'
+import { liveQueryOptions } from '../../../services/liveQueries'
 import { ShieldCheck } from '@phosphor-icons/react'
 import { formatNotificationTime } from '../../../services/notifications'
 import { api } from '../../../services/apiClient'
@@ -8,27 +11,21 @@ import { Badge } from '../../../components/ui/Badge'
 import styles from './ChatReportsView.module.css'
 export default function ChatReportsView() {
   const notify = useNotify()
-  const [rows, setRows] = useState([])
+  const { user } = useAuth()
   const [filter, setFilter] = useState('active')
   const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
   const [detail, setDetail] = useState(null)
   const [status, setStatus] = useState('under_review')
   const [findings, setFindings] = useState('')
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
-  const version = useRef(0)
+  const query = useQuery({ ...liveQueryOptions, queryKey: ['admin-chat-reports', user?.id, filter, page], enabled: user?.role === 'admin', queryFn: ({ signal }) => api.get('/api/admin/chat-reports?status=' + filter + '&page=' + page, { signal }) })
+  const rows = query.data?.reports || []
+  const total = query.data?.total || 0
+  const error = query.error?.message
+  const loading = query.isPending
   const reviewHeading = useRef(null)
   useEffect(() => { if (detail) reviewHeading.current?.focus() }, [detail])
-  const load = async () => {
-    const current = ++version.current
-    setLoading(true); setError('')
-    try { const r = await api.get('/api/admin/chat-reports?status=' + filter + '&page=' + page); if (current === version.current) { setRows(r.reports || []); setTotal(r.total || 0) } }
-    catch (e) { if (current === version.current) setError(e.message) }
-    finally { if (current === version.current) setLoading(false) }
-  }
-  useEffect(() => { load(); return () => { ++version.current } }, [filter, page])
+  const load = () => query.refetch()
   const open = async id => {
     if (busy) return
     setBusy(true)
@@ -61,8 +58,9 @@ export default function ChatReportsView() {
   }
   return <section className={styles.page}>
     <h1 className="sr-only">Chat reports</h1>
+    {error && query.data && <div role="alert"><p>Updates unavailable. Showing the last loaded reports.</p><Button variant="secondary" onClick={load}>Retry</Button></div>}
     <div className={styles.toolbar}><div className="field"><label htmlFor="chat-report-filter">Report status</label><select className="chat-control" id="chat-report-filter" value={filter} onChange={e => { setFilter(e.target.value); setPage(1) }}><option value="active">Open and under review</option><option value="all">All reports</option><option value="resolved">Handled</option><option value="dismissed">Dismissed</option></select></div><span className={styles.count}>{loading ? 'Loading...' : total + (total === 1 ? ' report' : ' reports')}</span></div>
-    {error ? <div className={styles.empty} role="alert"><p>{error}</p><Button variant="secondary" onClick={load}>Retry</Button></div> : loading ? <div className={styles.empty} role="status">Loading reports...</div> : !rows.length ? <div className={styles.empty}><ShieldCheck size={32} aria-hidden="true" /><h2>{filter === 'all' ? 'No chat reports' : 'No reports in this view'}</h2></div> : <>
+    {error && !query.data ? <div className={styles.empty} role="alert"><p>{error}</p><Button variant="secondary" onClick={load}>Retry</Button></div> : loading ? <div className={styles.empty} role="status">Loading reports...</div> : !rows.length ? <div className={styles.empty}><ShieldCheck size={32} aria-hidden="true" /><h2>{filter === 'all' ? 'No chat reports' : 'No reports in this view'}</h2></div> : <>
       <div className={styles.tableWrap}><table><thead><tr><th>Reporter</th><th>Reason</th><th>Status</th><th>Date</th><th>Review</th></tr></thead><tbody>{rows.map(r => <tr key={r.id}><td>{r.reporter_name || 'Closed account'}</td><td><span className={styles.reason}>{r.reason}</span></td><td><Badge variant={r.status === 'resolved' ? 'success' : 'neutral'}>{label(r.status)}</Badge></td><td>{formatNotificationTime(r.created_at)}</td><td><Button variant="secondary" disabled={busy} onClick={() => open(r.id)}>Review</Button></td></tr>)}</tbody></table></div>
       {total > 25 && <nav className={styles.pagination} aria-label="Report pages"><Button variant="secondary" disabled={busy || page === 1} onClick={() => setPage(p => p-1)}>Previous</Button><span>Page {page} of {Math.ceil(total / 25)}</span><Button variant="secondary" disabled={busy || page*25 >= total} onClick={() => setPage(p => p+1)}>Next</Button></nav>}
     </>}

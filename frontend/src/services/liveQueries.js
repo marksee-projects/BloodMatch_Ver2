@@ -3,6 +3,7 @@ export const liveQueryOptions = {
   staleTime: 0,
   refetchOnMount: 'always',
   refetchOnWindowFocus: 'always',
+  refetchOnReconnect: 'always',
   refetchInterval: 10000,
   refetchIntervalInBackground: false,
   retry: false,

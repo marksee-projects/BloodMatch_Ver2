@@ -1,5 +1,7 @@
 import { useActionNoticeState } from '../../../context/NotificationContext'
 import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { liveQueryOptions } from '../../../services/liveQueries'
 import { api } from '../../../services/apiClient'
 import { useAuth } from '../../../context/AuthContext'
 import { Button } from '../../../components/ui/Button'
@@ -10,12 +12,10 @@ import styles from './UsersView.module.css'
 
 export default function UsersView() {
   const { user } = useAuth()
-  const [rows, setRows] = useState(null)
   const [chapters, setChapters] = useState([])
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState({ q: '', verification_status: '', account_status: '', donor_window: '', chapter_id: '' })
   const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
   const [version, setVersion] = useState(0)
   const [error, setError] = useActionNoticeState(null, 'error')
   const [message, setMessage] = useActionNoticeState(null, 'success')
@@ -30,16 +30,11 @@ export default function UsersView() {
     }, 300)
     return () => clearTimeout(timer)
   }, [search])
-  useEffect(() => {
-    let active = true
-    setRows(null)
-    setError(null)
-    const params = new URLSearchParams({ ...filters, page: String(page), page_size: '25' })
-    api.get(`/api/admin/users?${params}`).then(data => {
-      if (active) { setRows(data.users || []); setTotal(data.total || 0) }
-    }).catch(err => { if (active) setError(err.message) })
-    return () => { active = false }
-  }, [filters, page, version, user?.id])
+  const params = new URLSearchParams({ ...filters, page: String(page), page_size: '25' })
+  const query = useQuery({ ...liveQueryOptions, queryKey: ['admin-users', user?.id, params.toString(), version], enabled: user?.role === 'admin', queryFn: ({ signal }) => api.get(`/api/admin/users?${params}`, { signal }) })
+  const rows = query.data?.users ?? (query.isError ? [] : null)
+  const total = query.data?.total || 0
+  const loadError = error || query.error?.message
   const choose = field => event => { setFilters(current => ({ ...current, [field]: event.target.value })); setPage(1) }
   const save = async () => {
     if (!edit || busyRef.current || String(edit.target.id) === String(user?.id)) return
@@ -55,7 +50,7 @@ export default function UsersView() {
   return <div className={`container ${styles.page}`}>
     <h1 className="sr-only">User management</h1>
 
-    {error && !edit && <div className="alert alert-error" role="alert">{error}<Button variant="secondary" onClick={() => { setError(null); setVersion(value => value + 1) }}>Retry</Button></div>}
+    {loadError && !edit && <div className="alert alert-error" role="alert">{loadError}<Button variant="secondary" onClick={() => { setError(null); query.refetch() }}>Retry</Button></div>}
     <section className={`card ${styles.filterCard}`} aria-label="Search and filters">
     <form className={styles.filters} onSubmit={event => event.preventDefault()}>
       <div className={`field ${styles.searchField}`}><label htmlFor="admin-user-search">Name or email</label><input id="admin-user-search" type="search" value={search} onChange={event => setSearch(event.target.value)} /></div>

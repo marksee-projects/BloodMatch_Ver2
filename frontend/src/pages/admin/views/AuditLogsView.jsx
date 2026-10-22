@@ -1,12 +1,15 @@
 import { useActionNoticeState } from '../../../context/NotificationContext'
 import { useEffect, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useAuth } from '../../../context/AuthContext'
+import { liveQueryOptions } from '../../../services/liveQueries'
 import { ArrowLeft, ArrowRight, X } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
 import { formatPhilippineDateTime } from '../../../services/notifications'
 import AuditFilterToolbar from '../../../components/AuditFilterToolbar'
 
 export default function AuditLogsView() {
-  const [data, setData] = useState(null)
+  const { user } = useAuth()
   const [chapters,setChapters] = useState([])
   const [filters,setFilters] = useState({})
   useEffect(() => { let active=true; api.get('/api/chapters').then(result => { if(active) setChapters(result.chapters || []) }).catch(err => { if(active) setError(err.message) }); return () => { active=false } }, [])
@@ -20,18 +23,14 @@ export default function AuditLogsView() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [error, setError] = useActionNoticeState(null, 'error')
-  const [loading, setLoading] = useState(false)
   const [selectedContext, setSelectedContext] = useState(null)
 
-  useEffect(() => {
-    let active = true
-    setLoading(true); setError(null)
-    const params = new URLSearchParams({page:String(page),page_size:String(pageSize)})
-    Object.entries(filters).forEach(([key,value]) => { if(String(value).trim()) params.set(key,String(value).trim()) })
-    api.get(`/api/admin/audit-logs?${params}`).then(result => { if(active) setData(result) })
-      .catch(err => { if(active) setError(err.message) }).finally(() => { if(active) setLoading(false) })
-    return () => { active=false }
-  }, [page,pageSize,filters])
+  const params = new URLSearchParams({ page: String(page), page_size: String(pageSize) })
+  Object.entries(filters).forEach(([key, value]) => { if (String(value).trim()) params.set(key, String(value).trim()) })
+  const query = useQuery({ ...liveQueryOptions, queryKey: ['admin-audit-logs', user?.id, params.toString()], enabled: user?.role === 'admin', queryFn: ({ signal }) => api.get(`/api/admin/audit-logs?${params}`, { signal }) })
+  const data = query.data
+  const loading = query.isPending
+  const loadError = error || query.error?.message
 
   const handleSearch = (e) => {
     e.preventDefault()
@@ -54,7 +53,7 @@ export default function AuditLogsView() {
   return (
     <div className="container wide" style={{ padding: 'var(--space-6) 0' }}>
 
-      {error && <div className="alert alert-error" role="alert">{error}</div>}
+      {loadError && <div className="alert alert-error" role="alert">{loadError}</div>}
 
       {/* Filter Toolbar */}
       <AuditFilterToolbar draft={{action,actorId,targetType,targetId,chapterId,dateFrom,dateTo}} chapters={chapters}

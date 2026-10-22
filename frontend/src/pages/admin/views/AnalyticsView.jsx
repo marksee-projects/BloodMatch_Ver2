@@ -1,4 +1,6 @@
-import { useActionNoticeState, useNotify } from '../../../context/NotificationContext'
+import { useNotify } from '../../../context/NotificationContext'
+import { useQuery } from '@tanstack/react-query'
+import { liveQueryOptions } from '../../../services/liveQueries'
 import { useEffect, useRef, useState } from 'react'
 import { ArrowsClockwise } from '@phosphor-icons/react'
 import { api } from '../../../services/apiClient'
@@ -14,12 +16,8 @@ export default function AnalyticsView() {
   const notify = useNotify()
   const exportBusy = useRef(false)
   const { user } = useAuth()
-  const [data, setData] = useState(null)
   const [chapters,setChapters] = useState([])
-  const [version,setVersion] = useState(0)
   useEffect(() => { let active=true; api.get('/api/chapters').then(result => { if(active) setChapters(result.chapters || []) }).catch(() => {}); return () => { active=false } }, [])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useActionNoticeState(null, 'error')
   const downloadCsv = async (event) => {
     event.preventDefault()
     if (exportBusy.current) return
@@ -56,19 +54,15 @@ export default function AnalyticsView() {
   const [chapterId, setChapterId] = useState('')
   const [activePreset, setActivePreset] = useState('monthly')
 
-  const fetchAnalytics = () => setVersion(value => value + 1)
-  useEffect(() => {
-    let active=true
-    setLoading(true); setError(null)
-    const params=new URLSearchParams()
-    if(dateFrom) params.set('date_from',dateFrom)
-    if(dateTo) params.set('date_to',dateTo)
-    if(chapterId) params.set('chapter_id',chapterId)
-    api.get(`/api/analytics/summary?${params}`).then(result => { if(active) setData(result) })
-      .catch(err => { if(active) setError(err.message || 'Failed to load analytics summary.') })
-      .finally(() => { if(active) setLoading(false) })
-    return () => { active=false }
-  }, [dateFrom,dateTo,chapterId,version,user?.id])
+  const params = new URLSearchParams()
+  if (dateFrom) params.set('date_from', dateFrom)
+  if (dateTo) params.set('date_to', dateTo)
+  if (chapterId) params.set('chapter_id', chapterId)
+  const query = useQuery({ ...liveQueryOptions, queryKey: ['admin-analytics', user?.id, params.toString()], enabled: user?.role === 'admin', queryFn: ({ signal }) => api.get(`/api/analytics/summary?${params}`, { signal }) })
+  const data = query.data
+  const loading = query.isPending
+  const error = query.error?.message
+  const fetchAnalytics = () => query.refetch()
 
   const applyPreset = (presetKey, days) => {
     setActivePreset(presetKey)
@@ -100,7 +94,7 @@ export default function AnalyticsView() {
 
   return (
     <div className="container" style={{ padding: 'var(--space-6) 0' }}>
-      {!loading && !error && <section className={`grid-4 ${styles.metrics}`} aria-label="Request metrics">
+      {data && <section className={`grid-4 ${styles.metrics}`} aria-label="Request metrics">
         {metrics.map(([label,value,detail]) => <div key={label} className={`metric-card ${styles.metric}`}>
           <span className={`metric-label ${styles.metricLabel}`}>{label}</span>
           <span className="metric-value">{value}</span>
@@ -211,7 +205,7 @@ export default function AnalyticsView() {
       </div>
       </div>
 
-        {!loading && !error && <DailyTrendChart trend={chartTrend} />}
+        {data && <DailyTrendChart trend={chartTrend} />}
       </section>
       <AnalyticsPrintReport data={!loading && !error ? data : null} scopeLabel={data?.chapter_id == null ? 'All chapters' : (chapters.find(chapter => String(chapter.id) === String(data.chapter_id))?.name || `Chapter ${data.chapter_id}`)} />
 
@@ -222,7 +216,7 @@ export default function AnalyticsView() {
         </div>
       )}
 
-      {!loading && !error && (
+      {data && (
         <>
           {/* Categorical Breakdowns Grid */}
           <div className="grid-2" style={{ marginBottom: 'var(--space-6)' }}>

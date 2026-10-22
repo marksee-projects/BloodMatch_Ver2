@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { liveQueryOptions } from '../services/liveQueries'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, Check, Drop } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
@@ -11,27 +13,19 @@ import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 export default function NotificationsPage() {
   const notify = useNotify()
   const { user } = useAuth()
-  const [data, setData] = useState(null)
   const [page, setPage] = useState(1)
-  const [errorAlert, setErrorAlert] = useActionNoticeState(null, 'error')
+  const [actionError, setErrorAlert] = useActionNoticeState(null, 'error')
   const [filterType, setFilterType] = useState('')
   const [filterRead, setFilterRead] = useState('')
   const pageSize = 15
 
-  const load = useCallback(() => {
-    const params = new URLSearchParams({ page, page_size: pageSize })
-    if (filterType) params.set('type', filterType)
-    if (filterRead) params.set('read', filterRead)
-
-    return api
-      .get(`/api/notifications?${params.toString()}`)
-      .then(setData)
-      .catch((err) => setErrorAlert(err.message))
-  }, [page, filterType, filterRead])
-
-  useEffect(() => {
-    load()
-  }, [load])
+  const params = new URLSearchParams({ page, page_size: pageSize })
+  if (filterType) params.set('type', filterType)
+  if (filterRead) params.set('read', filterRead)
+  const query = useQuery({ ...liveQueryOptions, queryKey: ['notification-history', user?.id, params.toString()], enabled: Boolean(user?.id), queryFn: ({ signal }) => api.get(`/api/notifications?${params}`, { signal }) })
+  const data = query.data
+  const errorAlert = actionError || query.error?.message
+  const load = () => query.refetch()
 
   const markRead = async (id) => {
     try {

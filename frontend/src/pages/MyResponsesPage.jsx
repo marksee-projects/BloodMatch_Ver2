@@ -1,6 +1,7 @@
 import { useActionNoticeState } from '../context/NotificationContext'
 import { useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { liveQueryOptions } from '../services/liveQueries'
 import { HandHeart, X } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { useAuth } from '../context/AuthContext'
@@ -35,6 +36,7 @@ export default function MyResponsesPage() {
     error,
     refetch
   } = useQuery({
+    ...liveQueryOptions,
     queryKey: ['my-responses', user?.id],
     queryFn: async () => (await api.get('/api/my/responses')).responses || [],
     enabled: Boolean(user?.id)

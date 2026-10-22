@@ -2,6 +2,7 @@ import { useActionNoticeState } from '../context/NotificationContext'
 import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { liveQueryOptions } from '../services/liveQueries'
 import { ArrowLeft, CalendarBlank, Check, CheckCircle, Drop, MapPin, User, X, ChatCircleDots } from '@phosphor-icons/react'
 import { api } from '../services/apiClient'
 import { donationReportForm, donationTimeToUtc } from '../services/donationCompletion'
@@ -60,13 +61,15 @@ export default function MatchesPage() {
   const reportBusyRef = useRef(false)
 
   const { data: pageData, error: matchError, refetch: load } = useQuery({
+    ...liveQueryOptions,
     queryKey: ['request-matches', id, user?.id],
     staleTime: 0,
     queryFn: () => api.get(`/api/requests/${id}/matches`),
     enabled: Boolean(id && user?.id),
-    refetchInterval: query => query.state.data?.viewer_mode === 'requester' ? 5000 : false
+    refetchInterval: query => reportingMatchId || actionLoading ? false : query.state.data?.viewer_mode === 'requester' ? 5000 : 10000
   })
   const { data: myRequests = [], isLoading: requestsLoading, error: requestsError, refetch: reloadRequests } = useQuery({
+    ...liveQueryOptions,
     queryKey: ['my-requests', user?.id],
     queryFn: async () => (await api.get('/api/my/requests')).requests || [],
     enabled: Boolean(user?.id) && (!id || pageData?.viewer_mode === 'requester')
